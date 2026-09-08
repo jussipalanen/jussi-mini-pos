@@ -60,6 +60,15 @@ public partial class CategoriesView : UserControl, INotifyPropertyChanged
             Rows.Add(row);
         }
 
+        // Walking down from the roots misses anything caught in a ParentId
+        // cycle. The editor will not make one, but a hand-edited database can,
+        // and a category nobody can see is a category nobody can fix. List the
+        // strays flat so they stay reachable.
+        foreach (var stray in _all.Where(c => Rows.All(r => r.Category.Id != c.Id)))
+        {
+            Rows.Add(new Row(stray, "?", _catalog.CountProductsInCategory(stray.Id), 0));
+        }
+
         OnPropertyChanged(nameof(ResultText));
     }
 

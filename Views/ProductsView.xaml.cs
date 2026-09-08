@@ -107,15 +107,15 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
                 return;
             }
 
+            // Which row is at the top right now — worked out with the size
+            // that produced the current page, before it changes.
+            var firstRow = ((_currentPage - 1) * _pageSize) + 1;
+
             _pageSize = value;
             OnPropertyChanged();
 
-            // Keep the first row of the current page in view rather than
-            // jumping back to the start.
-            var firstRow = ((_currentPage - 1) * _pageSize) + 1;
-            _currentPage = Math.Max(1, ((firstRow - 1) / _pageSize) + 1);
-
-            ShowPage(_currentPage);
+            // Keep that row on screen rather than jumping back to the start.
+            ShowPage(((firstRow - 1) / _pageSize) + 1);
         }
     }
 
