@@ -59,9 +59,52 @@ public sealed class Database
     public void EnsureCreated()
     {
         using var connection = OpenConnection();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = Schema;
+            command.ExecuteNonQuery();
+        }
+
+        ApplyMigrations(connection);
+    }
+
+    /// <summary>
+    /// Brings an older database up to the current schema. CREATE TABLE IF NOT
+    /// EXISTS only helps with tables that are missing entirely, so columns
+    /// added to an existing table have to be handled here.
+    /// </summary>
+    private static void ApplyMigrations(SqliteConnection connection)
+    {
+        // Added when products gained a price and an offer price.
+        AddColumnIfMissing(connection, "Products", "PriceCents", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Products", "SalePriceCents", "INTEGER NULL");
+    }
+
+    private static void AddColumnIfMissing(
+        SqliteConnection connection,
+        string table,
+        string column,
+        string definition)
+    {
+        if (ColumnExists(connection, table, column))
+        {
+            return;
+        }
+
         using var command = connection.CreateCommand();
-        command.CommandText = Schema;
+
+        // Identifiers cannot be parameterised; these are compile-time literals.
+        command.CommandText = $"ALTER TABLE {table} ADD COLUMN {column} {definition};";
         command.ExecuteNonQuery();
+    }
+
+    private static bool ColumnExists(SqliteConnection connection, string table, string column)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText = $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = $column;";
+        command.Parameters.AddWithValue("$column", column);
+        return Convert.ToInt64(command.ExecuteScalar()) > 0;
     }
 
     /// <summary>
@@ -83,12 +126,17 @@ public sealed class Database
 
         CREATE INDEX IF NOT EXISTS IX_Categories_ParentId ON Categories(ParentId);
 
+        -- PriceCents is the normal price. SalePriceCents is the discounted one
+        -- and is NULL when the product is not on offer, so "is there an offer"
+        -- is a NULL check rather than a sentinel value.
         CREATE TABLE IF NOT EXISTS Products (
-            Id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            Title        TEXT    NOT NULL,
-            Description  TEXT    NOT NULL DEFAULT '',
-            FeatureImage TEXT        NULL,
-            IsPublic     INTEGER NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1))
+            Id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            Title          TEXT    NOT NULL,
+            Description    TEXT    NOT NULL DEFAULT '',
+            FeatureImage   TEXT        NULL,
+            PriceCents     INTEGER NOT NULL DEFAULT 0,
+            SalePriceCents INTEGER     NULL,
+            IsPublic       INTEGER NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1))
         );
 
         -- A product's gallery. FeatureImage above is the single image used in

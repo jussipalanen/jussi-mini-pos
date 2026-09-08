@@ -39,6 +39,18 @@ public static class CatalogSeeder
         [1007] = "Kylmät juomat",
     };
 
+    /// <summary>
+    /// Offer prices for a handful of products, so SalePriceCents is not NULL
+    /// everywhere. The normal price comes from <see cref="ProductCatalog"/>.
+    /// </summary>
+    private static readonly Dictionary<int, decimal> SalePrices = new()
+    {
+        [1003] = 2.90m,
+        [1011] = 5.90m,
+        [1015] = 3.20m,
+        [1020] = 1.50m,
+    };
+
     private static readonly Dictionary<int, string> Descriptions = new()
     {
         [1001] = "Tumma paahto, suodatettu.",
@@ -142,15 +154,21 @@ public static class CatalogSeeder
         {
             var slug = Slug(product.Name);
 
+            var salePrice = SalePrices.TryGetValue(product.Id, out var offer)
+                ? SalesRepository.ToCents(offer)
+                : (object)DBNull.Value;
+
             Execute(connection, transaction,
                 """
-                INSERT INTO Products (Id, Title, Description, FeatureImage, IsPublic)
-                VALUES ($id, $title, $description, $featureImage, 1);
+                INSERT INTO Products (Id, Title, Description, FeatureImage, PriceCents, SalePriceCents, IsPublic)
+                VALUES ($id, $title, $description, $featureImage, $priceCents, $salePriceCents, 1);
                 """,
                 ("$id", product.Id),
                 ("$title", product.Name),
                 ("$description", Descriptions.GetValueOrDefault(product.Id, string.Empty)),
-                ("$featureImage", $"images/{slug}.jpg"));
+                ("$featureImage", $"images/{slug}.jpg"),
+                ("$priceCents", SalesRepository.ToCents(product.Price)),
+                ("$salePriceCents", salePrice));
 
             // Placeholder paths: no image files ship with the app yet.
             for (var i = 1; i <= 2; i++)

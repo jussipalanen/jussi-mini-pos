@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -129,10 +130,15 @@ public static class CommandLine
             """);
 
         Write("Products");
+
+        // Columns named *Cents are rendered as euros by WriteTable.
         WriteTable(connection,
             """
-            SELECT p.Id, p.Title, p.IsPublic AS Public, p.FeatureImage,
-                   (SELECT GROUP_CONCAT(c.Title, ', ')
+            SELECT p.Id, p.Title,
+                   p.PriceCents,
+                   p.SalePriceCents,
+                   p.IsPublic AS Public,
+                   (SELECT GROUP_CONCAT(c.Id || '=' || c.Title, ', ')
                       FROM ProductCategories pc
                       JOIN Categories c ON c.Id = pc.CategoryId
                      WHERE pc.ProductId = p.Id) AS Categories,
@@ -149,13 +155,25 @@ public static class CommandLine
         command.CommandText = sql;
         using var reader = command.ExecuteReader();
 
-        var headers = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
+        var names = Enumerable.Range(0, reader.FieldCount).Select(reader.GetName).ToArray();
+
+        // Money is stored as cents; show it as euros and drop the suffix from
+        // the heading, so PriceCents reads as "Price  2,50 €".
+        var isMoney = names.Select(n => n.EndsWith("Cents", StringComparison.Ordinal)).ToArray();
+        var headers = names
+            .Select((n, i) => isMoney[i] ? n[..^"Cents".Length] : n)
+            .ToArray();
+
         var rows = new List<string[]>();
 
         while (reader.Read())
         {
-            rows.Add([.. Enumerable.Range(0, reader.FieldCount)
-                .Select(i => reader.IsDBNull(i) ? string.Empty : reader.GetValue(i).ToString() ?? string.Empty)]);
+            rows.Add([.. Enumerable.Range(0, reader.FieldCount).Select(i =>
+                reader.IsDBNull(i)
+                    ? isMoney[i] ? "-" : string.Empty
+                    : isMoney[i]
+                        ? SalesRepository.FromCents(reader.GetInt64(i)).ToString("C", CultureInfo.CurrentCulture)
+                        : reader.GetValue(i).ToString() ?? string.Empty)]);
         }
 
         if (rows.Count == 0)

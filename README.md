@@ -2,9 +2,9 @@
 
 A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 
-> **Status:** early scaffolding. The project currently contains the initial WPF
-> application shell (`App.xaml`, `MainWindow.xaml`); POS features are not
-> implemented yet.
+> **Status:** in progress. The checkout (Kassa) works end to end — product
+> search, cart, payment and storing the sale. Tuotteet, Myynti and Raportit are
+> still placeholders.
 
 ## Requirements
 
@@ -87,7 +87,8 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
 | `Views/`               | `StartView`, `CheckoutView`, `PaymentView`             |
 | `Models/`              | `Product`, `CartLine`, `Sale`, `PaymentMethod`         |
-| `Services/`            | `ProductCatalog` (demo data), `SalesRepository` (SQLite) |
+| `Services/`            | `Database`, `SalesRepository`, `CatalogSeeder`, `ProductCatalog` |
+| `CommandLine.cs`       | `--seed` / `--dump` / `--clear` handling               |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml` and the Lucide `.svg` sources |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
 
@@ -132,8 +133,9 @@ JussiMiniPos.exe --help
 ```
 
 Seeding writes 7 categories (two of them nested under *Juomat*), the 20 demo
-products, 2 placeholder image rows each, and 27 product/category links — seven
-products sit in two categories, to exercise the link table.
+products with prices in euros (four of them on offer), 2 placeholder image rows
+each, and 27 product/category links — seven products sit in two categories, to
+exercise the link table.
 
 Because this is a `WinExe`, PowerShell does not wait for it and the prompt can
 come back before the output does. Pipe it to make the shell wait:
@@ -152,18 +154,44 @@ Categories                    Products
 ├── Title                     ├── Title
 ├── ParentId → Categories.Id  ├── Description
 └── IsPublic (0/1)            ├── FeatureImage
-                              └── IsPublic (0/1)
-
-ProductImages                 ProductCategories
-├── Id                        ├── ProductId  → Products.Id
-├── ProductId → Products.Id   └── CategoryId → Categories.Id
-├── Path                          (composite primary key)
-└── SortOrder
+                              ├── PriceCents
+ProductImages                 ├── SalePriceCents  (NULL = not on offer)
+├── Id                        └── IsPublic (0/1)
+├── ProductId → Products.Id
+├── Path                      ProductCategories
+└── SortOrder                 ├── ProductId  → Products.Id
+                              └── CategoryId → Categories.Id
+                                  (composite primary key)
 ```
 
 `Categories.ParentId` is a self-reference, so categories nest. A product can
 belong to several categories at once, so that link lives in its own table
 rather than a column; its extra images do too.
+
+`SalePriceCents` is `NULL` when there is no offer, so "is this discounted" is a
+null check rather than a sentinel price.
+
+Products in a subcategory are also linked to its parent, so filtering by one
+category id needs no join. To pull a whole branch instead, walk `ParentId`:
+
+```sql
+WITH RECURSIVE tree(Id) AS (
+    SELECT 1                       -- the category you want
+    UNION ALL
+    SELECT c.Id FROM Categories c JOIN tree t ON c.ParentId = t.Id
+)
+SELECT DISTINCT p.* FROM Products p
+JOIN ProductCategories pc ON pc.ProductId = p.Id
+WHERE pc.CategoryId IN (SELECT Id FROM tree);
+```
+
+### Schema changes
+
+`Database.EnsureCreated()` also runs `ApplyMigrations`, which adds columns that
+were introduced after a table already existed — `CREATE TABLE IF NOT EXISTS`
+cannot do that. Columns added this way land at the end of the table, so column
+*order* differs between a fresh and an upgraded database; nothing selects `*`,
+so that only matters if you read the schema by eye.
 
 ### Sales
 
