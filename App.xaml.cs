@@ -31,6 +31,13 @@ public partial class App : Application
             typeof(FrameworkElement),
             new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(AppCulture.IetfLanguageTag)));
 
+        // --seed, --dump and friends run without ever showing a window.
+        if (CommandLine.TryRun(e.Args) is { } exitCode)
+        {
+            Shutdown(exitCode);
+            return;
+        }
+
         base.OnStartup(e);
     }
 }

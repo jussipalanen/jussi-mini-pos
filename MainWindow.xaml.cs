@@ -24,6 +24,16 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         _database.EnsureCreated();
+
+        // First run starts with empty catalogue tables, which is not much use
+        // to look at, so fill them with the demo catalogue. Once there are rows
+        // this does nothing, so hand-edited data is never overwritten. Use
+        // "JussiMiniPos.exe --clear" to get back to an empty catalogue.
+        if (!CatalogSeeder.HasData(_database))
+        {
+            CatalogSeeder.Seed(_database);
+        }
+
         _salesRepository = new SalesRepository(_database);
 
         ShowStartView();

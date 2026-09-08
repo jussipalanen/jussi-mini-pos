@@ -114,6 +114,36 @@ The file and its schema are created on first run by `Database.EnsureCreated()`;
 delete the file to start over. Every statement is `IF NOT EXISTS`, so adding
 tables to an existing database is safe.
 
+On startup the app also seeds the catalogue tables **if they are empty**, so a
+fresh install has something to look at. Once there are rows it does nothing, so
+hand-edited data is never overwritten.
+
+### Command line
+
+The same exe doubles as a catalogue tool. It has no console of its own, so it
+attaches to the terminal that started it:
+
+```powershell
+JussiMiniPos.exe --seed           # fill Categories/Products with demo data
+JussiMiniPos.exe --seed --reset   # replace any existing catalogue rows
+JussiMiniPos.exe --dump           # print the catalogue tables
+JussiMiniPos.exe --clear          # delete the catalogue rows (sales are kept)
+JussiMiniPos.exe --help
+```
+
+Seeding writes 7 categories (two of them nested under *Juomat*), the 20 demo
+products, 2 placeholder image rows each, and 27 product/category links — seven
+products sit in two categories, to exercise the link table.
+
+Because this is a `WinExe`, PowerShell does not wait for it and the prompt can
+come back before the output does. Pipe it to make the shell wait:
+
+```powershell
+JussiMiniPos.exe --dump | Out-String
+```
+
+None of the catalogue commands touch the `Sales` tables.
+
 ### Catalogue
 
 ```
