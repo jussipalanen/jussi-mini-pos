@@ -99,3 +99,6 @@ appsettings.*.Local.json
 .env
 .env.*
 !.env.example
+
+## Installer output
+installer/Output/
