@@ -84,6 +84,7 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | Path                   | Purpose                                                |
 | ---------------------- | ------------------------------------------------------ |
 | `JussiMiniPos.csproj`  | Project file (`net10.0-windows`, WPF enabled)          |
+| `CHANGELOG.md`         | What changed in each release                            |
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
 | `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView` and their dialogs; `Pager` is shared paging state |
