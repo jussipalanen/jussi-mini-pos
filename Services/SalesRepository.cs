@@ -1,6 +1,8 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Globalization;
 using JussiMiniPos.Models;
+using Microsoft.Data.Sqlite;
 
 namespace JussiMiniPos.Services;
 
@@ -59,6 +61,105 @@ public sealed class SalesRepository(Database database)
 
         return sale with { Id = saleId };
     }
+
+    /// <summary>
+    /// Every sale, newest first, with its lines attached. Two queries rather
+    /// than one join, so a sale with several lines stays a single row.
+    /// </summary>
+    public IReadOnlyList<Sale> GetSales()
+    {
+        using var connection = database.OpenConnection();
+
+        var itemsBySale = ReadSaleItems(connection);
+
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT Id, "DateTime", TotalCents, PaymentMethod
+            FROM Sales
+            ORDER BY Id DESC;
+            """;
+
+        using var reader = command.ExecuteReader();
+
+        var sales = new List<Sale>();
+        while (reader.Read())
+        {
+            var id = reader.GetInt64(0);
+
+            sales.Add(new Sale(
+                ParseTimestamp(reader.GetString(1)),
+                FromCents(reader.GetInt64(2)),
+                ParsePaymentMethod(reader.GetString(3)),
+                itemsBySale.TryGetValue(id, out var items) ? items : [])
+            {
+                Id = id,
+            });
+        }
+
+        return sales;
+    }
+
+    /// <summary>
+    /// Removes a sale. Its lines go with it through ON DELETE CASCADE.
+    /// </summary>
+    public void DeleteSale(long id)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Sales WHERE Id = $id;";
+        command.Parameters.AddWithValue("$id", id);
+        command.ExecuteNonQuery();
+    }
+
+    private static Dictionary<long, List<SaleItem>> ReadSaleItems(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT SaleId, ProductId, Name, Category, UnitPriceCents, Quantity
+            FROM SaleItems
+            ORDER BY SaleId, Id;
+            """;
+
+        using var reader = command.ExecuteReader();
+
+        var result = new Dictionary<long, List<SaleItem>>();
+        while (reader.Read())
+        {
+            var saleId = reader.GetInt64(0);
+            if (!result.TryGetValue(saleId, out var items))
+            {
+                items = [];
+                result[saleId] = items;
+            }
+
+            items.Add(new SaleItem(
+                reader.GetInt32(1),
+                reader.GetString(2),
+                reader.GetString(3),
+                FromCents(reader.GetInt64(4)),
+                reader.GetInt32(5)));
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Timestamps are written with "o". A row edited by hand might not be, so
+    /// fall back to whatever parses rather than throwing on the whole list.
+    /// </summary>
+    private static DateTimeOffset ParseTimestamp(string value) =>
+        DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsed)
+            ? parsed
+            : DateTimeOffset.MinValue;
+
+    /// <summary>
+    /// Stored as the enum name. An unknown one means a method this build does
+    /// not have; show it as Card rather than failing to list the sale.
+    /// </summary>
+    private static PaymentMethod ParsePaymentMethod(string value) =>
+        Enum.TryParse<PaymentMethod>(value, out var parsed) ? parsed : PaymentMethod.Card;
 
     public static long ToCents(decimal amount) =>
         (long)decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero);

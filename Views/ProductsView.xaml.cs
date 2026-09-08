@@ -19,9 +19,6 @@ namespace JussiMiniPos.Views;
 /// </summary>
 public partial class ProductsView : UserControl, INotifyPropertyChanged
 {
-    /// <summary>How many page buttons to show before falling back to ellipsis.</summary>
-    private const int MaxPageButtons = 7;
-
     private readonly CatalogRepository _catalog;
     private readonly ImageStore _images;
 
@@ -31,8 +28,6 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
 
     private string _searchText = string.Empty;
     private Category _selectedCategory = Category.All;
-    private int _pageSize = 10;
-    private int _currentPage = 1;
 
     public ProductsView(CatalogRepository catalog, ImageStore images)
     {
@@ -40,6 +35,8 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
 
         _catalog = catalog;
         _images = images;
+
+        Pager.Changed += ShowPage;
 
         Reload();
 
@@ -55,13 +52,8 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     /// <summary>Filter chips: "Kaikki" plus every category, hidden ones included.</summary>
     public ObservableCollection<Category> Categories { get; } = [];
 
-    public IReadOnlyList<int> PageSizes { get; } = [10, 25, 50, 100];
-
     /// <summary>The rows currently on screen.</summary>
     public ObservableCollection<ProductRow> PageProducts { get; } = [];
-
-    /// <summary>Page buttons for the current result set.</summary>
-    public ObservableCollection<PageButton> PageNumbers { get; } = [];
 
     public string SearchText
     {
@@ -97,55 +89,8 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
         }
     }
 
-    public int PageSize
-    {
-        get => _pageSize;
-        set
-        {
-            if (value <= 0 || _pageSize == value)
-            {
-                return;
-            }
-
-            // Which row is at the top right now — worked out with the size
-            // that produced the current page, before it changes.
-            var firstRow = ((_currentPage - 1) * _pageSize) + 1;
-
-            _pageSize = value;
-            OnPropertyChanged();
-
-            // Keep that row on screen rather than jumping back to the start.
-            ShowPage(((firstRow - 1) / _pageSize) + 1);
-        }
-    }
-
-    public int TotalPages => Math.Max(1, (int)Math.Ceiling(_matches.Count / (double)_pageSize));
-
-    public bool HasPreviousPage => _currentPage > 1;
-
-    public bool HasNextPage => _currentPage < TotalPages;
-
-    public bool HasResults => _matches.Count > 0;
-
-    public bool HasNoResults => _matches.Count == 0;
-
-    /// <summary>"Näytetään 1–10 / 20 tuotetta".</summary>
-    public string ResultText
-    {
-        get
-        {
-            if (_matches.Count == 0)
-            {
-                return "Ei tuloksia";
-            }
-
-            var first = ((_currentPage - 1) * _pageSize) + 1;
-            var last = Math.Min(first + _pageSize - 1, _matches.Count);
-            return $"Näytetään {first}–{last} / {_matches.Count} tuotetta";
-        }
-    }
-
-    public string PageText => $"Sivu {_currentPage} / {TotalPages}";
+    /// <summary>Paging state, shared with the sales view.</summary>
+    public Pager Pager { get; } = new("tuote", "tuotetta");
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -155,14 +100,6 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     /// placeholder icon in that case.
     /// </summary>
     public sealed record ProductRow(Product Product, ImageSource? Thumbnail);
-
-    /// <summary>One page button. Ellipsis entries are not clickable.</summary>
-    public sealed record PageButton(string Number, bool IsCurrent, int Target)
-    {
-        public bool IsEllipsis => Target == 0;
-
-        public string AutomationName => IsEllipsis ? "…" : $"Sivu {Number}";
-    }
 
     /// <summary>Re-reads the catalogue, keeping the current filters and page.</summary>
     public void Reload()
@@ -198,93 +135,31 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
                 || p.Name.Contains(search, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
-        // A narrower filter can leave the current page past the end.
-        var page = keepPage ? Math.Min(_currentPage, TotalPages) : 1;
-        ShowPage(page);
+        // A narrower filter can leave the current page past the end; the pager
+        // clamps for that.
+        Pager.SetCount(_matches.Count, keepPage);
     }
 
-    private void ShowPage(int page)
+    private void ShowPage()
     {
-        _currentPage = Math.Clamp(page, 1, TotalPages);
-
         PageProducts.Clear();
-        foreach (var product in _matches.Skip((_currentPage - 1) * _pageSize).Take(_pageSize))
+        foreach (var product in _matches.Skip(Pager.Skip).Take(Pager.Take))
         {
             PageProducts.Add(new ProductRow(
                 product,
                 Thumbnails.Load(_images, product.FeatureImage, decodeWidth: 96)));
         }
-
-        BuildPageButtons();
-
-        OnPropertyChanged(nameof(TotalPages));
-        OnPropertyChanged(nameof(HasPreviousPage));
-        OnPropertyChanged(nameof(HasNextPage));
-        OnPropertyChanged(nameof(HasResults));
-        OnPropertyChanged(nameof(HasNoResults));
-        OnPropertyChanged(nameof(ResultText));
-        OnPropertyChanged(nameof(PageText));
     }
 
-    /// <summary>
-    /// Builds the page buttons. Beyond <see cref="MaxPageButtons"/> pages it
-    /// shows the first and last with a window around the current page, so the
-    /// bar does not grow without limit.
-    /// </summary>
-    private void BuildPageButtons()
-    {
-        PageNumbers.Clear();
+    private void PreviousPage_Click(object sender, RoutedEventArgs e) => Pager.Previous();
 
-        var total = TotalPages;
-        var pages = new List<int>();
-
-        if (total <= MaxPageButtons)
-        {
-            pages.AddRange(Enumerable.Range(1, total));
-        }
-        else
-        {
-            pages.Add(1);
-
-            var from = Math.Max(2, _currentPage - 1);
-            var to = Math.Min(total - 1, _currentPage + 1);
-
-            // Keep the window the same width when it sits at either end.
-            if (_currentPage <= 3)
-            {
-                to = 4;
-            }
-            else if (_currentPage >= total - 2)
-            {
-                from = total - 3;
-            }
-
-            pages.AddRange(Enumerable.Range(from, to - from + 1));
-            pages.Add(total);
-        }
-
-        var previous = 0;
-        foreach (var page in pages.Distinct())
-        {
-            if (previous != 0 && page - previous > 1)
-            {
-                PageNumbers.Add(new PageButton("…", false, 0));
-            }
-
-            PageNumbers.Add(new PageButton(page.ToString(), page == _currentPage, page));
-            previous = page;
-        }
-    }
-
-    private void PreviousPage_Click(object sender, RoutedEventArgs e) => ShowPage(_currentPage - 1);
-
-    private void NextPage_Click(object sender, RoutedEventArgs e) => ShowPage(_currentPage + 1);
+    private void NextPage_Click(object sender, RoutedEventArgs e) => Pager.Next();
 
     private void PageNumber_Click(object sender, RoutedEventArgs e)
     {
-        if (((FrameworkElement)sender).DataContext is PageButton { IsEllipsis: false } button)
+        if (((FrameworkElement)sender).DataContext is Pager.PageButton { IsEllipsis: false } button)
         {
-            ShowPage(button.Target);
+            Pager.GoTo(button.Target);
         }
     }
 

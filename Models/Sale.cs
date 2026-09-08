@@ -32,6 +32,9 @@ public sealed record Sale(
     /// <summary>Number of individual items across all lines.</summary>
     public int ItemCount => Items.Sum(item => item.Quantity);
 
+    /// <summary>Finnish name of the payment method, for display.</summary>
+    public string PaymentMethodName => PaymentMethodNames.Finnish(PaymentMethod);
+
     /// <summary>Builds a sale from the current contents of the cart.</summary>
     public static Sale FromCart(IEnumerable<CartLine> cart, PaymentMethod paymentMethod)
     {

@@ -4,8 +4,8 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 
 > **Status:** in progress. Kassa works end to end — product search, cart,
 > payment and storing the sale. Tuotteet manages the catalogue: search, paging,
-> view, add, edit, delete, images, and category management. Myynti and Raportit are
-> still placeholders.
+> view, add, edit, delete, images, and category management. Myynti lists past
+> sales with a receipt view. Raportit is still a placeholder.
 
 ## Requirements
 
@@ -86,7 +86,7 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `JussiMiniPos.csproj`  | Project file (`net10.0-windows`, WPF enabled)          |
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
-| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView` and their edit dialogs |
+| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView` and their dialogs; `Pager` is shared paging state |
 | `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `PaymentMethod` |
 | `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog` |
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` handling               |

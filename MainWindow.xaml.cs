@@ -85,6 +85,13 @@ public partial class MainWindow : Window
         ViewHost.Content = _productsView;
     }
 
+    private void ShowSalesView()
+    {
+        var view = new SalesView(_salesRepository);
+        view.Back += ShowStartView;
+        ViewHost.Content = view;
+    }
+
     private void ShowCategoriesView()
     {
         var view = new CategoriesView(_catalogRepository);
@@ -126,7 +133,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        // TODO: Sales and Reports still need their own views.
+        if (destination == AppView.Sales)
+        {
+            ShowSalesView();
+            return;
+        }
+
+        // TODO: Reports still needs its own view.
         MessageBox.Show(
             this,
             $"{AppViewNames.Finnish(destination)} ei ole vielä käytettävissä.",

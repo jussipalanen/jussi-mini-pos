@@ -96,11 +96,11 @@
                                    VerticalAlignment="Center" Margin="0,0,10,0" />
                         <ListBox Style="{StaticResource ChipList}"
                                  ItemContainerStyle="{StaticResource ChipItem}"
-                                 ItemsSource="{Binding PageSizes}"
-                                 SelectedItem="{Binding PageSize}"
+                                 ItemsSource="{Binding Pager.PageSizes}"
+                                 SelectedItem="{Binding Pager.PageSize}"
                                  VerticalAlignment="Center" />
                     </StackPanel>
-                    <TextBlock Text="{Binding ResultText}" Style="{StaticResource Text.Muted}"
+                    <TextBlock Text="{Binding Pager.ResultText}" Style="{StaticResource Text.Muted}"
                                VerticalAlignment="Center" />
                 </DockPanel>
 
@@ -250,12 +250,12 @@
                 <TextBlock Grid.Row="4" Text="Hakua vastaavia tuotteita ei löytynyt."
                            Style="{StaticResource Text.Muted}"
                            HorizontalAlignment="Center" VerticalAlignment="Center"
-                           Visibility="{Binding HasNoResults, Converter={StaticResource BoolToVis}}" />
+                           Visibility="{Binding Pager.HasNoResults, Converter={StaticResource BoolToVis}}" />
 
                 <!-- Pagination -->
                 <DockPanel Grid.Row="5" Margin="0,12,0,0"
-                           Visibility="{Binding HasResults, Converter={StaticResource BoolToVis}}">
-                    <TextBlock DockPanel.Dock="Left" Text="{Binding PageText}"
+                           Visibility="{Binding Pager.HasResults, Converter={StaticResource BoolToVis}}">
+                    <TextBlock DockPanel.Dock="Left" Text="{Binding Pager.PageText}"
                                Style="{StaticResource Text.Muted}" VerticalAlignment="Center" />
 
                     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
@@ -263,10 +263,10 @@
                                 Tag="{StaticResource Icon.ChevronLeft}"
                                 ToolTip="Edellinen sivu"
                                 AutomationProperties.Name="Edellinen sivu"
-                                IsEnabled="{Binding HasPreviousPage}"
+                                IsEnabled="{Binding Pager.HasPreviousPage}"
                                 Click="PreviousPage_Click" />
 
-                        <ItemsControl ItemsSource="{Binding PageNumbers}" Margin="6,0">
+                        <ItemsControl ItemsSource="{Binding Pager.PageNumbers}" Margin="6,0">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
                                     <StackPanel Orientation="Horizontal" />
@@ -287,7 +287,7 @@
                                 Tag="{StaticResource Icon.ChevronRight}"
                                 ToolTip="Seuraava sivu"
                                 AutomationProperties.Name="Seuraava sivu"
-                                IsEnabled="{Binding HasNextPage}"
+                                IsEnabled="{Binding Pager.HasNextPage}"
                                 Click="NextPage_Click" />
                     </StackPanel>
                 </DockPanel>
