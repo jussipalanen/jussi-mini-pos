@@ -54,10 +54,27 @@
                     </Grid.RowDefinitions>
 
                     <DockPanel Grid.Row="0" Margin="0,0,0,14">
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource Button.Ghost}"
+                                Height="34" Padding="12,0" Margin="12,0,0,0"
+                                ToolTip="Kysy AI-avustajalta tuotesuosituksia"
+                                Click="OpenAssistant_Click"
+                                AutomationProperties.Name="AI-avustaja"
+                                Visibility="{Binding IsAssistantEnabled, Converter={StaticResource BoolToVis}}">
+                            <StackPanel Orientation="Horizontal">
+                                <ContentControl Style="{StaticResource Icon}"
+                                                Tag="{StaticResource Icon.Sparkles}"
+                                                Width="16" Height="16"
+                                                Foreground="{StaticResource Brush.Accent}"
+                                                VerticalAlignment="Center" />
+                                <TextBlock Text="AI-avustaja" Margin="8,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                         <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center"
                                    Style="{StaticResource Text.Muted}"
                                    Text="{Binding VisibleProductText}" />
-                        <TextBlock Text="Tuotteet" Style="{StaticResource Text.SectionHeader}" />
+                        <TextBlock Text="Tuotteet" Style="{StaticResource Text.SectionHeader}"
+                                   VerticalAlignment="Center" />
                     </DockPanel>
 
                     <TextBox Grid.Row="1"

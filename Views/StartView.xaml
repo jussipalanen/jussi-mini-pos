@@ -6,7 +6,17 @@
              mc:Ignorable="d"
              d:DesignHeight="600" d:DesignWidth="900">
 
-    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+    <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
 
         <TextBlock Text="JussiMiniPos" Style="{StaticResource Text.Title}" />
 
@@ -33,4 +43,67 @@
         </UniformGrid>
 
     </StackPanel>
+
+        <!-- Session and settings rather than destinations, so they sit apart
+             from the tiles instead of becoming more of them. -->
+        <StackPanel Grid.Row="1" Orientation="Horizontal"
+                    HorizontalAlignment="Center" Margin="0,0,0,22">
+
+            <!-- Who is signed in. Shown rather than implied, because it is
+                 what decides whether Admin opens. -->
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                        Margin="0,0,6,0"
+                        Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}">
+                <ContentControl Style="{StaticResource Icon}"
+                                Tag="{StaticResource Icon.User}"
+                                Width="14" Height="14"
+                                Foreground="{StaticResource Brush.TextMuted}"
+                                VerticalAlignment="Center" />
+                <TextBlock Text="{Binding SignedInText}" Margin="7,0,0,0"
+                           Style="{StaticResource Text.Muted}" FontSize="13"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+
+            <Button Style="{StaticResource Button.Ghost}"
+                    Click="Login_Click"
+                    AutomationProperties.Name="Kirjaudu sisään"
+                    Visibility="{Binding IsSignedOut, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.User}"
+                                    Width="15" Height="15"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="Kirjaudu" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource Button.Ghost}"
+                    Click="Admin_Click"
+                    AutomationProperties.Name="Admin">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.Settings}"
+                                    Width="15" Height="15"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="Admin" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                </StackPanel>
+            </Button>
+
+            <Button Style="{StaticResource Button.Ghost}"
+                    Click="Logout_Click"
+                    AutomationProperties.Name="Kirjaudu ulos"
+                    Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.LogOut}"
+                                    Width="15" Height="15"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="Kirjaudu ulos" Margin="8,0,0,0" VerticalAlignment="Center" FontSize="13" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+    </Grid>
 </UserControl>

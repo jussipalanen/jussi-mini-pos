@@ -125,6 +125,39 @@ public sealed class Database
     /// </summary>
     private const string Schema =
         """
+        -- ---------- Application options ----------
+
+        -- Name/value settings the user changes in Admin, so they survive a
+        -- restart. OptionName is UNIQUE because the name is what callers look
+        -- an option up by; the Id is there to keep the table shaped like the
+        -- rest of the schema. Absent means "use the default": a row is only
+        -- written once something is actually chosen.
+        --
+        -- The Gemini API key deliberately does not live here. It is a secret,
+        -- and this file is the thing that gets copied around as a backup.
+        CREATE TABLE IF NOT EXISTS Options (
+            Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            OptionName  TEXT    NOT NULL UNIQUE,
+            OptionValue TEXT    NOT NULL
+        );
+
+        -- ---------- Users ----------
+
+        -- Who may open Admin. PasswordHash is named for what it holds: a
+        -- PBKDF2 digest, not a recoverable password. Nothing here can turn
+        -- back into what the user typed, which is the point — a stolen
+        -- database must not hand over anybody's password.
+        --
+        -- Role is a CHECKed string rather than a number, so --dump reads
+        -- without a lookup table and an invalid role cannot be stored.
+        CREATE TABLE IF NOT EXISTS Users (
+            Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            Username     TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+            Email        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+            PasswordHash TEXT    NOT NULL,
+            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller'))
+        );
+
         -- ---------- Catalogue ----------
 
         CREATE TABLE IF NOT EXISTS Categories (

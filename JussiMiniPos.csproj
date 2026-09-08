@@ -21,4 +21,9 @@
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
   </ItemGroup>
 
+  <!-- Windows DPAPI (System.Security.Cryptography.ProtectedData), which
+       encrypts the stored Gemini API key, needs no PackageReference: it is
+       part of the Windows Desktop framework this targets. -->
+
+
 </Project>
