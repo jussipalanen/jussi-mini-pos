@@ -103,8 +103,10 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        _sales.DeleteSale(sale.Id);
-        Reload();
+        if (ViewErrors.Try(this, "Myyntiä ei voitu poistaa.", () => _sales.DeleteSale(sale.Id)))
+        {
+            Reload();
+        }
     }
 
     private void PreviousPage_Click(object sender, RoutedEventArgs e) => Pager.Previous();

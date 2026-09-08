@@ -29,11 +29,11 @@ public partial class MainWindow : Window
 
         _database.EnsureCreated();
 
-        // First run starts with empty catalogue tables, which is not much use
-        // to look at, so fill them with the demo catalogue. Once there are rows
-        // this does nothing, so hand-edited data is never overwritten. Use
-        // "JussiMiniPos.exe --clear" to get back to an empty catalogue.
-        if (!CatalogSeeder.HasData(_database))
+        // A brand new database is not much use to look at, so fill it with the
+        // demo catalogue. Keyed off the file being new rather than the tables
+        // being empty: otherwise "--clear", or deleting the last product by
+        // hand, would be undone by the next restart.
+        if (_database.IsNew)
         {
             CatalogSeeder.Seed(_database);
         }

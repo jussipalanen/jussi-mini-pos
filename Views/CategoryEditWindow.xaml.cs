@@ -52,17 +52,31 @@ public partial class CategoryEditWindow : Window
 
     public bool IsPublic { get; private set; }
 
-    private static IEnumerable<int> DescendantsOf(int id, IReadOnlyList<Category> all)
+    /// <summary>
+    /// Walks down the tree iteratively with a seen-set. A ParentId cycle should
+    /// not exist, but CategoriesView deliberately lists rows caught in one so
+    /// they can be fixed — and reaching this from there must not recurse until
+    /// the stack gives out.
+    /// </summary>
+    private static HashSet<int> DescendantsOf(int id, IReadOnlyList<Category> all)
     {
-        foreach (var child in all.Where(c => c.ParentId == id))
-        {
-            yield return child.Id;
+        var found = new HashSet<int>();
+        var queue = new Queue<int>([id]);
 
-            foreach (var grandchild in DescendantsOf(child.Id, all))
+        while (queue.Count > 0)
+        {
+            var parent = queue.Dequeue();
+
+            foreach (var child in all.Where(c => c.ParentId == parent))
             {
-                yield return grandchild;
+                if (found.Add(child.Id))
+                {
+                    queue.Enqueue(child.Id);
+                }
             }
         }
+
+        return found;
     }
 
     private void Save_Click(object sender, RoutedEventArgs e)

@@ -98,8 +98,11 @@ public partial class CategoriesView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        _catalog.InsertCategory(window.CategoryTitle, window.ParentId, window.IsPublic);
-        Reload();
+        if (ViewErrors.Try(this, "Kategoriaa ei voitu lisätä.",
+            () => _catalog.InsertCategory(window.CategoryTitle, window.ParentId, window.IsPublic)))
+        {
+            Reload();
+        }
     }
 
     private void Edit_Click(object sender, RoutedEventArgs e)
@@ -115,8 +118,11 @@ public partial class CategoriesView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        _catalog.UpdateCategory(row.Category.Id, window.CategoryTitle, window.ParentId, window.IsPublic);
-        Reload();
+        if (ViewErrors.Try(this, "Kategoriaa ei voitu tallentaa.",
+            () => _catalog.UpdateCategory(row.Category.Id, window.CategoryTitle, window.ParentId, window.IsPublic)))
+        {
+            Reload();
+        }
     }
 
     private void Delete_Click(object sender, RoutedEventArgs e)
@@ -160,8 +166,11 @@ public partial class CategoriesView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        _catalog.DeleteCategory(row.Category.Id);
-        Reload();
+        if (ViewErrors.Try(this, "Kategoriaa ei voitu poistaa.",
+            () => _catalog.DeleteCategory(row.Category.Id)))
+        {
+            Reload();
+        }
     }
 
     private void Back_Click(object sender, RoutedEventArgs e) => Back?.Invoke();

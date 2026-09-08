@@ -210,7 +210,6 @@
                                 <DataTemplate>
                                     <Button Style="{StaticResource Button.Page}"
                                             Content="{Binding Number}"
-                                            Tag="{Binding IsCurrent}"
                                             AutomationProperties.Name="{Binding AutomationName}"
                                             Click="PageNumber_Click" />
                                 </DataTemplate>

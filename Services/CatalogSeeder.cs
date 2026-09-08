@@ -108,10 +108,31 @@ public static class CatalogSeeder
         {
         }
 
+        // Categories in a ParentId cycle have no leaves, so the loop above
+        // cannot reach them. Rolling back beats committing a half-cleared
+        // catalogue and reporting success — a following --seed --reset would
+        // then duplicate the roots.
+        var remaining = CountCategories(connection, transaction);
+        if (remaining > 0)
+        {
+            transaction.Rollback();
+            throw new InvalidOperationException(
+                $"{remaining} categories could not be removed: their ParentId values form a cycle. " +
+                "Fix them in Kategoriat first.");
+        }
+
         Execute(connection, transaction,
             "DELETE FROM sqlite_sequence WHERE name IN ('Products', 'Categories', 'ProductImages');");
 
         transaction.Commit();
+    }
+
+    private static int CountCategories(SqliteConnection connection, SqliteTransaction transaction)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT COUNT(*) FROM Categories;";
+        return Convert.ToInt32(command.ExecuteScalar());
     }
 
     private static int DeleteLeafCategories(SqliteConnection connection, SqliteTransaction transaction)

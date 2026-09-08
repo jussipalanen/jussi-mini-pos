@@ -163,31 +163,21 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
         }
     }
 
-    private void New_Click(object sender, RoutedEventArgs e)
-    {
-        if (Edit(product: null) is { } draft)
-        {
-            _catalog.InsertProduct(draft);
-            Reload();
-        }
-    }
+    private void New_Click(object sender, RoutedEventArgs e) => Edit(product: null);
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (((FrameworkElement)sender).DataContext is not ProductRow { Product: var product })
+        if (((FrameworkElement)sender).DataContext is ProductRow { Product: var product })
         {
-            return;
-        }
-
-        if (Edit(product) is { } draft)
-        {
-            _catalog.UpdateProduct(product.Id, draft);
-            Reload();
+            Edit(product);
         }
     }
 
-    /// <summary>Opens the editor and returns the draft, or null if cancelled.</summary>
-    private CatalogRepository.ProductDraft? Edit(Product? product)
+    /// <summary>
+    /// Opens the editor and writes what comes back. Images the product dropped
+    /// are deleted only once the write has succeeded.
+    /// </summary>
+    private void Edit(Product? product)
     {
         // Editing needs every category, including hidden ones, so a product
         // already in a hidden category does not silently lose it on save.
@@ -196,7 +186,30 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
             Owner = Window.GetWindow(this),
         };
 
-        return window.ShowDialog() == true ? window.Draft : null;
+        if (window.ShowDialog() != true || window.Draft is not { } draft)
+        {
+            return;
+        }
+
+        var saved = ViewErrors.Try(this, "Tuotetta ei voitu tallentaa.", () =>
+        {
+            if (product is null)
+            {
+                _catalog.InsertProduct(draft);
+            }
+            else
+            {
+                _catalog.UpdateProduct(product.Id, draft);
+            }
+        });
+
+        if (!saved)
+        {
+            return;
+        }
+
+        _images.Delete(window.DiscardedImages);
+        Reload();
     }
 
     private void Categories_Click(object sender, RoutedEventArgs e) => ManageCategories?.Invoke();
@@ -238,7 +251,10 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        _catalog.DeleteProduct(product.Id);
+        if (!ViewErrors.Try(this, "Tuotetta ei voitu poistaa.", () => _catalog.DeleteProduct(product.Id)))
+        {
+            return;
+        }
 
         // The rows cascade away, but the files on disk are ours to clean up.
         _images.Delete(product.Images.Append(product.FeatureImage));

@@ -16,6 +16,9 @@ public sealed class Database
     {
         Path = databasePath ?? DefaultPath;
 
+        // Checked before the file is opened, because opening creates it.
+        IsNew = !File.Exists(Path);
+
         var directory = System.IO.Path.GetDirectoryName(Path);
         if (!string.IsNullOrEmpty(directory))
         {
@@ -31,6 +34,13 @@ public sealed class Database
 
     /// <summary>Where the database file lives on disk.</summary>
     public string Path { get; }
+
+    /// <summary>
+    /// True when there was no database file before this instance was made — a
+    /// first run. Seeding keys off this rather than "are the tables empty", so
+    /// emptying the catalogue on purpose stays emptied across restarts.
+    /// </summary>
+    public bool IsNew { get; }
 
     /// <summary>
     /// Per-user application data, so the app does not need write access to its

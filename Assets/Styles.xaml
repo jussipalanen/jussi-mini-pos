@@ -287,11 +287,14 @@
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
                             <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
                         </Trigger>
-                        <Trigger Property="Tag" Value="True">
+                        <!-- Bound to the PageButton, not to Tag: Tag is typed
+                             object, so a Trigger's Value stays the string
+                             "True" and never equals a bound bool. -->
+                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.Accent}" />
                             <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
                             <Setter Property="Foreground" Value="{StaticResource Brush.TextOnAccent}" />
-                        </Trigger>
+                        </DataTrigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
             </Setter.Value>

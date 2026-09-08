@@ -117,9 +117,10 @@ The file and its schema are created on first run by `Database.EnsureCreated()`;
 delete the file to start over. Every statement is `IF NOT EXISTS`, so adding
 tables to an existing database is safe.
 
-On startup the app also seeds the catalogue tables **if they are empty**, so a
-fresh install has something to look at. Once there are rows it does nothing, so
-hand-edited data is never overwritten.
+On a **brand new database** the app seeds the catalogue, so a fresh install has
+something to look at. It keys off the file being new rather than the tables
+being empty — otherwise `--clear`, or deleting the last product by hand, would
+be undone by the next restart. Delete the database file to start over.
 
 ### Product images
 

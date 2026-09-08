@@ -110,6 +110,12 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
     /// <summary>The values to save, filled in once <see cref="Validate"/> passes.</summary>
     public CatalogRepository.ProductDraft? Draft { get; private set; }
 
+    /// <summary>
+    /// Image files the saved draft no longer refers to. The caller deletes
+    /// these after writing the draft, so a failed write leaves them in place.
+    /// </summary>
+    public IReadOnlyList<string> DiscardedImages { get; private set; } = [];
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>A stored image plus a thumbnail, or null when the file is missing.</summary>
@@ -222,12 +228,15 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        // The save is going through, so the dropped files are safe to remove.
+        // Files the product no longer refers to. They are not deleted here:
+        // the caller still has to write the draft, and a failed write would
+        // leave the surviving rows pointing at files that were already gone.
+        // The caller deletes these once the write succeeds.
         var keeping = GalleryImages.Select(i => i.RelativePath)
             .Append(_featureImage?.RelativePath ?? string.Empty)
             .ToHashSet();
 
-        _images.Delete(_removed.Where(path => !keeping.Contains(path)));
+        DiscardedImages = [.. _removed.Where(path => !keeping.Contains(path))];
 
         DialogResult = true;
     }
