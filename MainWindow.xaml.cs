@@ -59,7 +59,7 @@ public partial class MainWindow : Window
     {
         if (_checkoutView is null)
         {
-            _checkoutView = new CheckoutView(_catalogRepository);
+            _checkoutView = new CheckoutView(_catalogRepository, _imageStore);
             _checkoutView.Back += ShowStartView;
             _checkoutView.PayRequested += ShowPaymentView;
         }

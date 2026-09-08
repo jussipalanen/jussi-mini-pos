@@ -504,7 +504,7 @@
 
     <Style x:Key="ProductItem" TargetType="ListBoxItem">
         <!-- Without this the accessible name falls back to Product.ToString() -->
-        <Setter Property="AutomationProperties.Name" Value="{Binding Name}" />
+        <Setter Property="AutomationProperties.Name" Value="{Binding Product.Name}" />
         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="Cursor" Value="Hand" />
         <Setter Property="SnapsToDevicePixels" Value="True" />

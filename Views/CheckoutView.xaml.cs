@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Media;
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
 
@@ -23,17 +24,21 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
 
     private string _searchText = string.Empty;
     private Category _selectedCategory = Category.All;
-    private Product? _selectedProduct;
+    private ProductRow? _selectedProduct;
     private decimal _total;
     private int _itemCount;
 
-    public CheckoutView(CatalogRepository catalog)
+    public CheckoutView(CatalogRepository catalog, ImageStore images)
     {
         InitializeComponent();
 
         // Both come from the database. Only public rows: IsPublic = 0 keeps a
         // product or category out of the till without deleting it.
-        _productsView = new ListCollectionView(catalog.GetProducts().ToList())
+        var rows = catalog.GetProducts()
+            .Select(p => new ProductRow(p, Thumbnails.Load(images, p.FeatureImage, decodeWidth: 96)))
+            .ToList();
+
+        _productsView = new ListCollectionView(rows)
         {
             Filter = MatchesFilters,
         };
@@ -91,7 +96,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
         }
     }
 
-    public Product? SelectedProduct
+    public ProductRow? SelectedProduct
     {
         get => _selectedProduct;
         set
@@ -108,6 +113,13 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     }
 
     public bool HasSelectedProduct => _selectedProduct is not null;
+
+    /// <summary>
+    /// A product plus its resolved thumbnail. Thumbnail is null when there is
+    /// no feature image, or the file behind one is gone — the row shows a
+    /// placeholder icon in that case.
+    /// </summary>
+    public sealed record ProductRow(Product Product, ImageSource? Thumbnail);
 
     /// <summary>How many products the current search and filter leave visible.</summary>
     public string VisibleProductText =>
@@ -159,7 +171,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     /// </summary>
     private bool MatchesFilters(object item)
     {
-        if (item is not Product product)
+        if (item is not ProductRow { Product: var product })
         {
             return false;
         }
@@ -229,7 +241,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
 
     private void AddToCart_Click(object sender, RoutedEventArgs e)
     {
-        if (SelectedProduct is { } product)
+        if (SelectedProduct is { Product: var product })
         {
             AddToCart(product);
         }
@@ -237,7 +249,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
 
     private void ProductList_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (SelectedProduct is { } product)
+        if (SelectedProduct is { Product: var product })
         {
             AddToCart(product);
         }
