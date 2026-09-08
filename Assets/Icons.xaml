@@ -74,6 +74,27 @@
                   Figures="M 18,6 L 6,18
                            M 6,6 L 18,18" />
 
+    <!-- lucide: pencil -->
+    <PathGeometry x:Key="Icon.Pencil"
+                  Figures="M 21.174,6.812 A 1,1 0 0 0 17.188,2.825 L 3.842,16.174 A 2,2 0 0 0 3.342,17.004
+                           L 2.021,21.356 A 0.5,0.5 0 0 0 2.644,21.978 L 6.997,20.658 A 2,2 0 0 0 7.827,20.161 Z
+                           M 15,5 L 19,9" />
+
+    <!-- lucide: chevron-left -->
+    <PathGeometry x:Key="Icon.ChevronLeft" Figures="M 15,18 L 9,12 L 15,6" />
+
+    <!-- lucide: chevron-right -->
+    <PathGeometry x:Key="Icon.ChevronRight" Figures="M 9,18 L 15,12 L 9,6" />
+
+    <!-- lucide: eye-off -->
+    <PathGeometry x:Key="Icon.EyeOff"
+                  Figures="M 10.733,5.076 A 10.744,10.744 0 0 1 21.938,11.651 A 1,1 0 0 1 21.938,12.347
+                           A 10.747,10.747 0 0 1 20.494,14.837
+                           M 14.084,14.158 A 3,3 0 0 1 9.842,9.916
+                           M 17.479,17.499 A 10.75,10.75 0 0 1 2.062,12.348 A 1,1 0 0 1 2.062,11.652
+                           A 10.75,10.75 0 0 1 6.508,6.509
+                           M 2,2 L 22,22" />
+
     <!-- lucide: loader-circle (rotated by a storyboard to make a spinner) -->
     <PathGeometry x:Key="Icon.Loader"
                   Figures="M 21,12 A 9,9 0 1 1 14.781,3.44" />

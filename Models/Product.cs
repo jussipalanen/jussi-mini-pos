@@ -12,6 +12,7 @@ namespace JussiMiniPos.Models;
 /// <param name="Price">Normal price in euros.</param>
 /// <param name="SalePrice">Offer price in euros, or null when not on offer.</param>
 /// <param name="FeatureImage">Relative path to the list image, if any.</param>
+/// <param name="IsPublic">False keeps the product out of the till, without deleting it.</param>
 /// <param name="Categories">Every category this product is linked to, main one first.</param>
 public sealed record Product(
     int Id,
@@ -20,8 +21,15 @@ public sealed record Product(
     decimal Price,
     decimal? SalePrice,
     string? FeatureImage,
+    bool IsPublic,
     IReadOnlyList<Category> Categories)
 {
+    /// <summary>The inverse of <see cref="IsPublic"/>, for badges and triggers.</summary>
+    public bool IsHidden => !IsPublic;
+
+    /// <summary>Every category name, for the management list.</summary>
+    public string CategoryNames => string.Join(", ", Categories.Select(c => c.Title));
+
     /// <summary>True when an offer price applies and actually undercuts the normal one.</summary>
     public bool IsOnSale => SalePrice is { } sale && sale < Price;
 

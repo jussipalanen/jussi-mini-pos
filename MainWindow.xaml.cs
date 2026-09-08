@@ -62,6 +62,13 @@ public partial class MainWindow : Window
         ViewHost.Content = _checkoutView;
     }
 
+    private void ShowProductsView()
+    {
+        var view = new ProductsView(_catalogRepository);
+        view.Back += ShowStartView;
+        ViewHost.Content = view;
+    }
+
     private void ShowPaymentView()
     {
         if (_checkoutView is null)
@@ -90,7 +97,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        // TODO: Products, Sales and Reports still need their own views.
+        if (destination == AppView.Products)
+        {
+            ShowProductsView();
+            return;
+        }
+
+        // TODO: Sales and Reports still need their own views.
         MessageBox.Show(
             this,
             $"{AppViewNames.Finnish(destination)} ei ole vielä käytettävissä.",

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using JussiMiniPos.Models;
 using Microsoft.Data.Sqlite;
@@ -54,7 +55,7 @@ public sealed class CatalogRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             $"""
-            SELECT Id, Title, Description, PriceCents, SalePriceCents, FeatureImage
+            SELECT Id, Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic
             FROM Products
             {(publicOnly ? "WHERE IsPublic = 1" : string.Empty)}
             ORDER BY Id;
@@ -74,10 +75,100 @@ public sealed class CatalogRepository(Database database)
                 SalesRepository.FromCents(reader.GetInt64(3)),
                 reader.IsDBNull(4) ? null : SalesRepository.FromCents(reader.GetInt64(4)),
                 reader.IsDBNull(5) ? null : reader.GetString(5),
+                reader.GetInt64(6) != 0,
                 categoriesByProduct.TryGetValue(id, out var categories) ? categories : []));
         }
 
         return products;
+    }
+
+    /// <summary>
+    /// Saves an edited product and replaces its category links, in one
+    /// transaction. <paramref name="categoryIds"/> is written in the order
+    /// given, and the first one becomes the product's primary category.
+    /// </summary>
+    public void UpdateProduct(
+        int id,
+        string title,
+        string description,
+        decimal price,
+        decimal? salePrice,
+        bool isPublic,
+        IReadOnlyList<int> categoryIds)
+    {
+        using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText =
+                """
+                UPDATE Products
+                   SET Title = $title,
+                       Description = $description,
+                       PriceCents = $priceCents,
+                       SalePriceCents = $salePriceCents,
+                       IsPublic = $isPublic
+                 WHERE Id = $id;
+                """;
+            command.Parameters.AddWithValue("$id", id);
+            command.Parameters.AddWithValue("$title", title);
+            command.Parameters.AddWithValue("$description", description);
+            command.Parameters.AddWithValue("$priceCents", SalesRepository.ToCents(price));
+            command.Parameters.AddWithValue(
+                "$salePriceCents",
+                salePrice is { } sale ? SalesRepository.ToCents(sale) : DBNull.Value);
+            command.Parameters.AddWithValue("$isPublic", isPublic ? 1 : 0);
+            command.ExecuteNonQuery();
+        }
+
+        using (var delete = connection.CreateCommand())
+        {
+            delete.Transaction = transaction;
+            delete.CommandText = "DELETE FROM ProductCategories WHERE ProductId = $id;";
+            delete.Parameters.AddWithValue("$id", id);
+            delete.ExecuteNonQuery();
+        }
+
+        foreach (var categoryId in categoryIds.Distinct())
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText =
+                """
+                INSERT INTO ProductCategories (ProductId, CategoryId) VALUES ($id, $categoryId);
+                """;
+            insert.Parameters.AddWithValue("$id", id);
+            insert.Parameters.AddWithValue("$categoryId", categoryId);
+            insert.ExecuteNonQuery();
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>
+    /// Removes a product. Its images and category links go with it through ON
+    /// DELETE CASCADE. Past sales are untouched: SaleItems keeps its own copy
+    /// of the name and price and has no foreign key back to Products.
+    /// </summary>
+    public void DeleteProduct(int id)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Products WHERE Id = $id;";
+        command.Parameters.AddWithValue("$id", id);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>How many times a product appears on past receipts.</summary>
+    public int CountSoldLines(int productId)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM SaleItems WHERE ProductId = $id;";
+        command.Parameters.AddWithValue("$id", productId);
+        return Convert.ToInt32(command.ExecuteScalar());
     }
 
     /// <summary>
