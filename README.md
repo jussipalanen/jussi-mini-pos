@@ -91,6 +91,7 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog` |
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` handling               |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml` and the Lucide `.svg` sources |
+| `Assets/Icons/icon/`   | Application icon; `favicon.ico` is embedded in the exe  |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
 
 Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
