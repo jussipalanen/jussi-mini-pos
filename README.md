@@ -86,8 +86,8 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
 | `Views/`               | `StartView`, `CheckoutView`, `PaymentView`             |
-| `Models/`              | `Product`, `CartLine`, `Sale`, `PaymentMethod`         |
-| `Services/`            | `Database`, `SalesRepository`, `CatalogSeeder`, `ProductCatalog` |
+| `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `PaymentMethod` |
+| `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `DemoCatalog` |
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` handling               |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml` and the Lucide `.svg` sources |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
@@ -169,7 +169,13 @@ belong to several categories at once, so that link lives in its own table
 rather than a column; its extra images do too.
 
 `SalePriceCents` is `NULL` when there is no offer, so "is this discounted" is a
-null check rather than a sentinel price.
+null check rather than a sentinel price. The till charges
+`Product.EffectivePrice`, which is the offer price when one applies.
+
+The checkout reads this catalogue through `CatalogRepository` — editing a row
+changes what the till shows and charges on the next start. `DemoCatalog` is
+only seed data and is never read at runtime. Rows with `IsPublic = 0` are left
+out of both the product list and the filter chips.
 
 Products in a subcategory are also linked to its parent, so filtering by one
 category id needs no join. To pull a whole branch instead, walk `ParentId`:

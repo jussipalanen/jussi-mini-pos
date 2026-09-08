@@ -39,8 +39,8 @@ public sealed record Sale(
             .Select(line => new SaleItem(
                 line.Product.Id,
                 line.Product.Name,
-                line.Product.Category,
-                line.Product.Price,
+                line.Product.PrimaryCategory,
+                line.UnitPrice,
                 line.Quantity))
             .ToList();
 

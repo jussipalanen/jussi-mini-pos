@@ -19,27 +19,26 @@ namespace JussiMiniPos.Views;
 /// </summary>
 public partial class CheckoutView : UserControl, INotifyPropertyChanged
 {
-    /// <summary>Chip that clears the category filter.</summary>
-    private const string AllCategories = "Kaikki";
-
     private readonly ListCollectionView _productsView;
 
     private string _searchText = string.Empty;
-    private string _selectedCategory = AllCategories;
+    private Category _selectedCategory = Category.All;
     private Product? _selectedProduct;
     private decimal _total;
     private int _itemCount;
 
-    public CheckoutView()
+    public CheckoutView(CatalogRepository catalog)
     {
         InitializeComponent();
 
-        _productsView = new ListCollectionView(ProductCatalog.Products.ToList())
+        // Both come from the database. Only public rows: IsPublic = 0 keeps a
+        // product or category out of the till without deleting it.
+        _productsView = new ListCollectionView(catalog.GetProducts().ToList())
         {
             Filter = MatchesFilters,
         };
 
-        Categories = [AllCategories, .. ProductCatalog.Categories];
+        Categories = [Category.All, .. catalog.GetCategories()];
 
         Cart.CollectionChanged += Cart_CollectionChanged;
 
@@ -54,7 +53,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
 
     public ICollectionView ProductsView => _productsView;
 
-    public IReadOnlyList<string> Categories { get; }
+    public IReadOnlyList<Category> Categories { get; }
 
     public ObservableCollection<CartLine> Cart { get; } = [];
 
@@ -74,7 +73,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
         }
     }
 
-    public string SelectedCategory
+    public Category SelectedCategory
     {
         get => _selectedCategory;
         set
@@ -165,7 +164,9 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
             return false;
         }
 
-        if (_selectedCategory != AllCategories && product.Category != _selectedCategory)
+        // Matched by CategoryId. Seeding links a product to its subcategory's
+        // parent as well, so picking "Juomat" still finds the hot drinks.
+        if (!product.IsInCategory(_selectedCategory))
         {
             return false;
         }

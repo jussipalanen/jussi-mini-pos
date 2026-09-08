@@ -34,8 +34,11 @@ public sealed class CartLine : INotifyPropertyChanged
         }
     }
 
+    /// <summary>What this product is charged at, offer price included.</summary>
+    public decimal UnitPrice => Product.EffectivePrice;
+
     /// <summary>Unit price multiplied by the quantity.</summary>
-    public decimal LineTotal => Product.Price * Quantity;
+    public decimal LineTotal => UnitPrice * Quantity;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

@@ -41,7 +41,7 @@ public static class CatalogSeeder
 
     /// <summary>
     /// Offer prices for a handful of products, so SalePriceCents is not NULL
-    /// everywhere. The normal price comes from <see cref="ProductCatalog"/>.
+    /// everywhere. The normal price comes from <see cref="DemoCatalog"/>.
     /// </summary>
     private static readonly Dictionary<int, decimal> SalePrices = new()
     {
@@ -128,7 +128,7 @@ public static class CatalogSeeder
 
     /// <summary>
     /// Writes the demo catalogue in one transaction. Product ids match
-    /// <see cref="ProductCatalog"/> so the two stay in step.
+    /// <see cref="DemoCatalog"/> so the two stay in step.
     /// </summary>
     public static Result Seed(Database database)
     {
@@ -150,7 +150,7 @@ public static class CatalogSeeder
         var images = 0;
         var links = 0;
 
-        foreach (var product in ProductCatalog.Products)
+        foreach (var product in DemoCatalog.Products)
         {
             var slug = Slug(product.Name);
 
@@ -205,7 +205,7 @@ public static class CatalogSeeder
 
         transaction.Commit();
 
-        return new Result(categoryIds.Count, ProductCatalog.Products.Count, images, links);
+        return new Result(categoryIds.Count, DemoCatalog.Products.Count, images, links);
     }
 
     private static long InsertCategory(

@@ -70,6 +70,7 @@
                              Style="{StaticResource ChipList}"
                              ItemContainerStyle="{StaticResource ChipItem}"
                              ItemsSource="{Binding Categories}"
+                             DisplayMemberPath="Title"
                              SelectedItem="{Binding SelectedCategory}" />
 
                     <ListBox Grid.Row="3"
@@ -96,16 +97,31 @@
                                             <TextBlock Text="{Binding Id}" Style="{StaticResource Text.Muted}"
                                                        FontSize="12" VerticalAlignment="Center" />
                                             <Border Style="{StaticResource Badge}" Margin="8,0,0,0">
-                                                <TextBlock Text="{Binding Category}"
+                                                <TextBlock Text="{Binding PrimaryCategory}"
                                                            Style="{StaticResource Text.Muted}" FontSize="11" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}" Margin="6,0,0,0"
+                                                    Background="{StaticResource Brush.DangerSurface}"
+                                                    BorderBrush="{StaticResource Brush.Danger}"
+                                                    Visibility="{Binding IsOnSale, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="TARJOUS" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Danger}" />
                                             </Border>
                                         </StackPanel>
                                     </StackPanel>
 
-                                    <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0"
-                                               Text="{Binding Price, StringFormat={}{0:N2} €}"
-                                               FontSize="15" FontWeight="SemiBold"
-                                               Foreground="{StaticResource Brush.Text}" />
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
+                                        <!-- Struck-through normal price, shown only when on offer -->
+                                        <TextBlock Text="{Binding Price, StringFormat={}{0:N2} €}"
+                                                   Style="{StaticResource Text.Muted}" FontSize="12"
+                                                   TextDecorations="Strikethrough"
+                                                   HorizontalAlignment="Right"
+                                                   Visibility="{Binding IsOnSale, Converter={StaticResource BoolToVis}}" />
+                                        <TextBlock Text="{Binding EffectivePrice, StringFormat={}{0:N2} €}"
+                                                   FontSize="15" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"
+                                                   Foreground="{StaticResource Brush.Text}" />
+                                    </StackPanel>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
@@ -196,7 +212,7 @@
                                                            Foreground="{StaticResource Brush.Text}"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,3,0,0"
-                                                           Text="{Binding Product.Price, StringFormat={}{0:N2} € / kpl}" />
+                                                           Text="{Binding UnitPrice, StringFormat={}{0:N2} € / kpl}" />
                                             </StackPanel>
 
                                             <StackPanel Grid.Column="1" VerticalAlignment="Center">

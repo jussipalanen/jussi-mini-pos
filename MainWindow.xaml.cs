@@ -12,6 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly Database _database = new();
     private readonly SalesRepository _salesRepository;
+    private readonly CatalogRepository _catalogRepository;
 
     /// <summary>
     /// Kept alive across the payment flow so cancelling a payment returns to
@@ -35,6 +36,7 @@ public partial class MainWindow : Window
         }
 
         _salesRepository = new SalesRepository(_database);
+        _catalogRepository = new CatalogRepository(_database);
 
         ShowStartView();
     }
@@ -52,7 +54,7 @@ public partial class MainWindow : Window
     {
         if (_checkoutView is null)
         {
-            _checkoutView = new CheckoutView();
+            _checkoutView = new CheckoutView(_catalogRepository);
             _checkoutView.Back += ShowStartView;
             _checkoutView.PayRequested += ShowPaymentView;
         }
