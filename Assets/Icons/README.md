@@ -1,4 +1,4 @@
-# Icons
+﻿# Icons
 
 Source: [Lucide](https://lucide.dev/icons/) — ISC License, Copyright (c) for
 portions of Lucide are held by Cole Bemis 2013-2022 as part of Feather (MIT).
@@ -10,9 +10,18 @@ data into absolute commands and expands `<circle>` / `<rect>` / `<polyline>`
 elements into equivalent path segments. Coordinates stay on the original
 24x24 canvas.
 
-| File                | Used for  | Resource key         |
-| ------------------- | --------- | -------------------- |
-| `shopping-cart.svg` | Kassa     | `Icon.Kassa`         |
-| `package.svg`       | Tuotteet  | `Icon.Tuotteet`      |
-| `banknote.svg`      | Myynti    | `Icon.Myynti`        |
-| `chart-column.svg`  | Raportit  | `Icon.Raportit`      |
+Resource keys are English; the Finnish text is what the user sees on screen.
+
+| File                | Resource key       | Shown as   |
+| ------------------- | ------------------ | ---------- |
+| `shopping-cart.svg` | `Icon.Checkout`    | Kassa      |
+| `package.svg`       | `Icon.Products`    | Tuotteet   |
+| `banknote.svg`      | `Icon.Sales`       | Myynti     |
+| `chart-column.svg`  | `Icon.Reports`     | Raportit   |
+| `search.svg`        | `Icon.Search`      | —          |
+| `plus.svg`          | `Icon.Plus`        | —          |
+| `minus.svg`         | `Icon.Minus`       | —          |
+| `trash.svg`         | `Icon.Trash`       | —          |
+| `arrow-left.svg`    | `Icon.ArrowLeft`   | —          |
+| `credit-card.svg`   | `Icon.CreditCard`  | —          |
+| `x.svg`             | `Icon.X`           | —          |

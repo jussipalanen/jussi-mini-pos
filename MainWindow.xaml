@@ -6,36 +6,11 @@
         xmlns:local="clr-namespace:JussiMiniPos"
         mc:Ignorable="d"
         Title="JussiMiniPos"
-        Height="600" Width="900"
-        MinHeight="520" MinWidth="760"
+        Height="780" Width="1220"
+        MinHeight="640" MinWidth="1000"
         WindowStartupLocation="CenterScreen"
         Background="{StaticResource Brush.Background}">
 
-    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
-
-        <TextBlock Text="JussiMiniPos" Style="{StaticResource Text.Title}" />
-
-        <TextBlock Text="Tervetuloa JussiMiniPos -järjestelmään."
-                   Style="{StaticResource Text.Subtitle}" />
-
-        <UniformGrid Rows="1" Columns="4" Margin="0,44,0,0">
-            <Button Style="{StaticResource Tile}"
-                    Tag="{StaticResource Icon.Kassa}"
-                    Content="Kassa"
-                    Click="Kassa_Click" />
-            <Button Style="{StaticResource Tile}"
-                    Tag="{StaticResource Icon.Tuotteet}"
-                    Content="Tuotteet"
-                    Click="Tuotteet_Click" />
-            <Button Style="{StaticResource Tile}"
-                    Tag="{StaticResource Icon.Myynti}"
-                    Content="Myynti"
-                    Click="Myynti_Click" />
-            <Button Style="{StaticResource Tile}"
-                    Tag="{StaticResource Icon.Raportit}"
-                    Content="Raportit"
-                    Click="Raportit_Click" />
-        </UniformGrid>
-
-    </StackPanel>
+    <!-- Views are swapped in from code-behind; see MainWindow.xaml.cs -->
+    <ContentControl x:Name="ViewHost" />
 </Window>

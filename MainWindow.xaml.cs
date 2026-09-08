@@ -1,27 +1,48 @@
 ﻿using System.Windows;
+using JussiMiniPos.Views;
 
 namespace JussiMiniPos;
 
 /// <summary>
-/// Interaction logic for MainWindow.xaml
+/// Application shell. Hosts one view at a time and handles navigation between
+/// the start screen and the feature views.
 /// </summary>
 public partial class MainWindow : Window
 {
     public MainWindow()
     {
         InitializeComponent();
+        ShowStartView();
     }
 
-    private void Kassa_Click(object sender, RoutedEventArgs e) => ShowPlaceholder("Kassa");
+    private void ShowStartView()
+    {
+        var view = new StartView();
+        view.Navigate += OnNavigate;
+        ViewHost.Content = view;
+    }
 
-    private void Tuotteet_Click(object sender, RoutedEventArgs e) => ShowPlaceholder("Tuotteet");
+    private void ShowCheckoutView()
+    {
+        var view = new CheckoutView();
+        view.Back += ShowStartView;
+        ViewHost.Content = view;
+    }
 
-    private void Myynti_Click(object sender, RoutedEventArgs e) => ShowPlaceholder("Myynti");
+    private void OnNavigate(AppView destination)
+    {
+        if (destination == AppView.Checkout)
+        {
+            ShowCheckoutView();
+            return;
+        }
 
-    private void Raportit_Click(object sender, RoutedEventArgs e) => ShowPlaceholder("Raportit");
-
-    // TODO: replace with real navigation once the views exist.
-    private void ShowPlaceholder(string view) =>
-        MessageBox.Show(this, $"{view} ei ole vielä käytettävissä.", "JussiMiniPos",
-            MessageBoxButton.OK, MessageBoxImage.Information);
+        // TODO: Products, Sales and Reports still need their own views.
+        MessageBox.Show(
+            this,
+            $"{AppViewNames.Finnish(destination)} ei ole vielä käytettävissä.",
+            "JussiMiniPos",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+    }
 }
