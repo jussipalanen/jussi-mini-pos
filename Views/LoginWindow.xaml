@@ -1,0 +1,92 @@
+<Window x:Class="JussiMiniPos.Views.LoginWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="Kirjaudu sisään"
+        Width="440" SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="22">
+        <StackPanel>
+
+            <StackPanel Orientation="Horizontal">
+                <ContentControl Style="{StaticResource Icon}"
+                                Tag="{StaticResource Icon.User}"
+                                Width="20" Height="20"
+                                Foreground="{StaticResource Brush.Accent}"
+                                VerticalAlignment="Center" />
+                <TextBlock Text="Kirjaudu sisään" Style="{StaticResource Text.SectionHeader}"
+                           Margin="10,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <TextBlock Style="{StaticResource Text.Muted}" FontSize="12"
+                       Margin="0,8,0,0" TextWrapping="Wrap"
+                       Text="{Binding PurposeText}" />
+
+            <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,18" />
+
+            <TextBlock Text="Käyttäjätunnus tai sähköposti" Style="{StaticResource Text.Muted}"
+                       Margin="0,0,0,6" />
+            <TextBox x:Name="UsernameBox" Style="{StaticResource FormBox}"
+                     AutomationProperties.Name="Käyttäjätunnus tai sähköposti"
+                     TextChanged="Input_Changed" />
+
+            <TextBlock Text="Salasana" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+            <PasswordBox x:Name="PasswordBox" Style="{StaticResource FormPasswordBox}"
+                         AutomationProperties.Name="Salasana"
+                         PasswordChanged="Input_Changed" />
+
+            <!-- One message for both a wrong name and a wrong password, so the
+                 prompt cannot be used to find out which usernames exist. -->
+            <Border Background="{StaticResource Brush.DangerSurface}"
+                    BorderBrush="{StaticResource Brush.Danger}"
+                    BorderThickness="1" CornerRadius="9"
+                    Padding="12,9" Margin="0,14,0,0"
+                    Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
+                <DockPanel>
+                    <ContentControl DockPanel.Dock="Left"
+                                    Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.CircleAlert}"
+                                    Width="17" Height="17"
+                                    Foreground="{StaticResource Brush.Danger}"
+                                    VerticalAlignment="Top" Margin="0,1,10,0" />
+                    <TextBlock Text="{Binding ErrorMessage}" TextWrapping="Wrap"
+                               FontSize="12"
+                               Foreground="{StaticResource Brush.Danger}" />
+                </DockPanel>
+            </Border>
+
+            <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,18" />
+
+            <DockPanel LastChildFill="False">
+                <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center"
+                           Style="{StaticResource Text.Muted}" FontSize="12"
+                           Text="Tarkistetaan…"
+                           Visibility="{Binding IsChecking, Converter={StaticResource BoolToVis}}" />
+
+                <Button DockPanel.Dock="Right"
+                        Style="{StaticResource Button.Primary}" Width="150" Margin="10,0,0,0"
+                        Content="Kirjaudu" IsDefault="True"
+                        Click="SignIn_Click"
+                        IsEnabled="{Binding CanSignIn}"
+                        AutomationProperties.Name="Kirjaudu sisään" />
+
+                <Button DockPanel.Dock="Right"
+                        Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                        Content="Peruuta" IsCancel="True"
+                        AutomationProperties.Name="Peruuta"
+                        Click="Cancel_Click" />
+            </DockPanel>
+
+        </StackPanel>
+    </Border>
+</Window>

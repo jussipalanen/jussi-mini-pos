@@ -21,6 +21,8 @@ namespace JussiMiniPos.Views;
 public partial class CheckoutView : UserControl, INotifyPropertyChanged
 {
     private readonly ListCollectionView _productsView;
+    private readonly ImageStore _images;
+    private readonly ShoppingAssistant _assistant;
 
     private string _searchText = string.Empty;
     private Category _selectedCategory = Category.All;
@@ -28,9 +30,13 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     private decimal _total;
     private int _itemCount;
 
-    public CheckoutView(CatalogRepository catalog, ImageStore images)
+    public CheckoutView(CatalogRepository catalog, ImageStore images, ShoppingAssistant assistant)
     {
         InitializeComponent();
+
+        _images = images;
+        _assistant = assistant;
+        IsAssistantEnabled = assistant.IsEnabled;
 
         // Both come from the database. Only public rows: IsPublic = 0 keeps a
         // product or category out of the till without deleting it.
@@ -113,6 +119,13 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     }
 
     public bool HasSelectedProduct => _selectedProduct is not null;
+
+    /// <summary>
+    /// Whether the AI assistant's button is there at all. Read once, when the
+    /// view is built: the view is rebuilt on the way back from the start
+    /// screen, which is the only route to the setting that changes it.
+    /// </summary>
+    public bool IsAssistantEnabled { get; }
 
     /// <summary>
     /// A product plus its resolved thumbnail. Thumbnail is null when there is
@@ -237,6 +250,23 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
         {
             existing.Quantity++;
         }
+    }
+
+    /// <summary>
+    /// Opens the AI assistant. It is modal, so the cart it adds to cannot
+    /// change under it, and the adding is done here rather than in the dialog
+    /// so merging with an existing line stays in one place.
+    /// </summary>
+    private void OpenAssistant_Click(object sender, RoutedEventArgs e)
+    {
+        var window = new AssistantWindow(_assistant, _images)
+        {
+            Owner = Window.GetWindow(this),
+        };
+
+        window.AddToCartRequested += AddToCart;
+        window.ShowDialog();
+        window.AddToCartRequested -= AddToCart;
     }
 
     private void AddToCart_Click(object sender, RoutedEventArgs e)

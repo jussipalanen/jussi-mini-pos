@@ -89,6 +89,12 @@ public sealed class Database
         // Added when products gained a price and an offer price.
         AddColumnIfMissing(connection, "Products", "PriceCents", "INTEGER NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "Products", "SalePriceCents", "INTEGER NULL");
+
+        // Added when users gained a name of their own. Empty rather than NULL,
+        // so "no name given" is one state and the profile form has something
+        // to bind to; the seeded administrator starts without one.
+        AddColumnIfMissing(connection, "Users", "FirstName", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "Users", "LastName", "TEXT NOT NULL DEFAULT ''");
     }
 
     private static void AddColumnIfMissing(
@@ -125,6 +131,41 @@ public sealed class Database
     /// </summary>
     private const string Schema =
         """
+        -- ---------- Application options ----------
+
+        -- Name/value settings the user changes in Admin, so they survive a
+        -- restart. OptionName is UNIQUE because the name is what callers look
+        -- an option up by; the Id is there to keep the table shaped like the
+        -- rest of the schema. Absent means "use the default": a row is only
+        -- written once something is actually chosen.
+        --
+        -- The Gemini API key deliberately does not live here. It is a secret,
+        -- and this file is the thing that gets copied around as a backup.
+        CREATE TABLE IF NOT EXISTS Options (
+            Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            OptionName  TEXT    NOT NULL UNIQUE,
+            OptionValue TEXT    NOT NULL
+        );
+
+        -- ---------- Users ----------
+
+        -- Who may open Admin. PasswordHash is named for what it holds: a
+        -- PBKDF2 digest, not a recoverable password. Nothing here can turn
+        -- back into what the user typed, which is the point — a stolen
+        -- database must not hand over anybody's password.
+        --
+        -- Role is a CHECKed string rather than a number, so --dump reads
+        -- without a lookup table and an invalid role cannot be stored.
+        CREATE TABLE IF NOT EXISTS Users (
+            Id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            Username     TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+            Email        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+            FirstName    TEXT    NOT NULL DEFAULT '',
+            LastName     TEXT    NOT NULL DEFAULT '',
+            PasswordHash TEXT    NOT NULL,
+            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller'))
+        );
+
         -- ---------- Catalogue ----------
 
         CREATE TABLE IF NOT EXISTS Categories (

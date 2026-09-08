@@ -47,19 +47,49 @@ public sealed class CatalogRepository(Database database)
     /// Products with their categories attached. Two queries rather than one
     /// join, so a product with several categories stays a single row.
     /// </summary>
-    public IReadOnlyList<Product> GetProducts(bool publicOnly = true)
+    /// <param name="publicOnly">Leaves out rows kept out of the till.</param>
+    /// <param name="ids">
+    /// When given, only these products are read — the AI assistant searches in
+    /// SQL and reads the handful of rows it found back through here, so the
+    /// mapping from row to <see cref="Product"/> exists in one place.
+    /// </param>
+    public IReadOnlyList<Product> GetProducts(bool publicOnly = true, IReadOnlyCollection<int>? ids = null)
     {
+        if (ids is { Count: 0 })
+        {
+            return [];
+        }
+
         using var connection = database.OpenConnection();
 
         var categoriesByProduct = ReadProductCategories(connection, publicOnly);
         var imagesByProduct = ReadProductImages(connection);
 
         using var command = connection.CreateCommand();
+
+        var conditions = new List<string>();
+        if (publicOnly)
+        {
+            conditions.Add("IsPublic = 1");
+        }
+
+        if (ids is not null)
+        {
+            // Ids cannot be parameterised as a list, so one parameter per id.
+            var placeholders = ids.Select((_, i) => $"$id{i}").ToList();
+            conditions.Add($"Id IN ({string.Join(", ", placeholders)})");
+
+            foreach (var (id, placeholder) in ids.Zip(placeholders))
+            {
+                command.Parameters.AddWithValue(placeholder, id);
+            }
+        }
+
         command.CommandText =
             $"""
             SELECT Id, Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic
             FROM Products
-            {(publicOnly ? "WHERE IsPublic = 1" : string.Empty)}
+            {(conditions.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", conditions))}
             ORDER BY Id;
             """;
 

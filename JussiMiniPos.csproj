@@ -9,7 +9,7 @@
 
     <!-- AssemblyVersion has to be numeric, so the "-beta" survives only in
          InformationalVersion, which is what the file properties show. -->
-    <Version>1.0.0-beta</Version>
+    <Version>1.0.0-beta.2</Version>
     <Product>JussiMiniPos</Product>
 
     <!-- Embedded as the exe's Win32 icon, which is what Explorer, the taskbar
@@ -20,5 +20,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
   </ItemGroup>
+
+  <!-- Windows DPAPI (System.Security.Cryptography.ProtectedData), which
+       encrypts the stored Gemini API key, needs no PackageReference: it is
+       part of the Windows Desktop framework this targets. -->
+
 
 </Project>
