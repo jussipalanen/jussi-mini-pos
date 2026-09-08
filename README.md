@@ -4,7 +4,7 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 
 > **Status:** in progress. Kassa works end to end — product search, cart,
 > payment and storing the sale. Tuotteet manages the catalogue: search, paging,
-> add, edit, delete, images, and category management. Myynti and Raportit are
+> view, add, edit, delete, images, and category management. Myynti and Raportit are
 > still placeholders.
 
 ## Requirements

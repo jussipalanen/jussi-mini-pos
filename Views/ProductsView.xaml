@@ -110,19 +110,21 @@
                         CornerRadius="8" Padding="14,8" Margin="0,0,0,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="52" />
+                            <ColumnDefinition Width="56" />
                             <ColumnDefinition Width="2*" />
                             <ColumnDefinition Width="1.4*" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="110" />
-                            <ColumnDefinition Width="76" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="100" />
+                            <ColumnDefinition Width="108" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Nro" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="1" Text="Nimi" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="2" Text="Kategoriat" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
-                        <TextBlock Grid.Column="3" Text="Hinta" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
-                        <TextBlock Grid.Column="4" Text="Tarjoushinta" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
-                        <TextBlock Grid.Column="5" Text="Toiminnot" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
+                        <TextBlock Grid.Column="0" Text="Kuva" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="Nro" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="Nimi" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="3" Text="Kategoriat" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="4" Text="Hinta" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
+                        <TextBlock Grid.Column="5" Text="Tarjoushinta" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
+                        <TextBlock Grid.Column="6" Text="Toiminnot" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
                     </Grid>
                 </Border>
 
@@ -137,27 +139,44 @@
                                         Padding="14,10" Margin="0,0,4,6">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="64" />
+                                            <ColumnDefinition Width="52" />
+                                            <ColumnDefinition Width="56" />
                                             <ColumnDefinition Width="2*" />
                                             <ColumnDefinition Width="1.4*" />
-                                            <ColumnDefinition Width="110" />
-                                            <ColumnDefinition Width="110" />
-                                            <ColumnDefinition Width="76" />
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="108" />
                                         </Grid.ColumnDefinitions>
 
-                                        <TextBlock Grid.Column="0" Text="{Binding Id}"
+                                        <!-- Thumbnail. The placeholder icon sits behind the Image, so
+                                             a product with no picture — or one whose file is gone —
+                                             shows the icon through it. -->
+                                        <Border Grid.Column="0" Width="40" Height="40" CornerRadius="7"
+                                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                Background="{StaticResource Brush.SurfaceMuted}"
+                                                BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
+                                            <Grid>
+                                                <ContentControl Style="{StaticResource Icon}"
+                                                                Tag="{StaticResource Icon.Image}"
+                                                                Width="16" Height="16"
+                                                                Foreground="{StaticResource Brush.Border}" />
+                                                <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                            </Grid>
+                                        </Border>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding Product.Id}"
                                                    Style="{StaticResource Text.Muted}"
                                                    VerticalAlignment="Center" />
 
-                                        <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="0,0,10,0">
                                             <StackPanel Orientation="Horizontal">
-                                                <TextBlock Text="{Binding Name}"
+                                                <TextBlock Text="{Binding Product.Name}"
                                                            FontSize="14" FontWeight="SemiBold"
                                                            Foreground="{StaticResource Brush.Text}"
                                                            TextTrimming="CharacterEllipsis" />
                                                 <!-- IsPublic = 0: kept in the catalogue, hidden from the till -->
                                                 <Border Style="{StaticResource Badge}" Margin="8,0,0,0"
-                                                        Visibility="{Binding IsHidden, Converter={StaticResource BoolToVis}}">
+                                                        Visibility="{Binding Product.IsHidden, Converter={StaticResource BoolToVis}}">
                                                     <StackPanel Orientation="Horizontal">
                                                         <ContentControl Style="{StaticResource Icon}"
                                                                         Tag="{StaticResource Icon.EyeOff}"
@@ -169,22 +188,22 @@
                                                     </StackPanel>
                                                 </Border>
                                             </StackPanel>
-                                            <TextBlock Text="{Binding Description}"
+                                            <TextBlock Text="{Binding Product.Description}"
                                                        Style="{StaticResource Text.Muted}" FontSize="12"
                                                        Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                                         </StackPanel>
 
-                                        <TextBlock Grid.Column="2" Text="{Binding CategoryNames}"
+                                        <TextBlock Grid.Column="3" Text="{Binding Product.CategoryNames}"
                                                    Style="{StaticResource Text.Muted}" FontSize="12"
                                                    VerticalAlignment="Center" Margin="0,0,10,0"
                                                    TextTrimming="CharacterEllipsis" />
 
-                                        <TextBlock Grid.Column="3" Text="{Binding Price, StringFormat={}{0:N2} €}"
+                                        <TextBlock Grid.Column="4" Text="{Binding Product.Price, StringFormat={}{0:N2} €}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
                                                    FontSize="14"
                                                    Foreground="{StaticResource Brush.Text}" />
 
-                                        <TextBlock Grid.Column="4" Text="{Binding SalePrice, StringFormat={}{0:N2} €, TargetNullValue=–}"
+                                        <TextBlock Grid.Column="5" Text="{Binding Product.SalePrice, StringFormat={}{0:N2} €, TargetNullValue=–}"
                                                    VerticalAlignment="Center" TextAlignment="Right"
                                                    FontSize="14">
                                             <TextBlock.Style>
@@ -192,7 +211,7 @@
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsOnSale}" Value="True">
+                                                        <DataTrigger Binding="{Binding Product.IsOnSale}" Value="True">
                                                             <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
                                                             <Setter Property="FontWeight" Value="SemiBold" />
                                                         </DataTrigger>
@@ -201,8 +220,14 @@
                                             </TextBlock.Style>
                                         </TextBlock>
 
-                                        <StackPanel Grid.Column="5" Orientation="Horizontal"
+                                        <StackPanel Grid.Column="6" Orientation="Horizontal"
                                                     HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource Button.Icon}"
+                                                    Tag="{StaticResource Icon.Eye}"
+                                                    ToolTip="Näytä tiedot"
+                                                    AutomationProperties.Name="Näytä tiedot"
+                                                    Margin="0,0,6,0"
+                                                    Click="View_Click" />
                                             <Button Style="{StaticResource Button.Icon}"
                                                     Tag="{StaticResource Icon.Pencil}"
                                                     ToolTip="Muokkaa"

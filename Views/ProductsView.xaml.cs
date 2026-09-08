@@ -6,6 +6,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
 
@@ -57,7 +58,7 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     public IReadOnlyList<int> PageSizes { get; } = [10, 25, 50, 100];
 
     /// <summary>The rows currently on screen.</summary>
-    public ObservableCollection<Product> PageProducts { get; } = [];
+    public ObservableCollection<ProductRow> PageProducts { get; } = [];
 
     /// <summary>Page buttons for the current result set.</summary>
     public ObservableCollection<PageButton> PageNumbers { get; } = [];
@@ -148,6 +149,13 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    /// <summary>
+    /// A product plus its resolved thumbnail. Thumbnail is null when there is
+    /// no feature image, or the file behind one is gone — the row shows a
+    /// placeholder icon in that case.
+    /// </summary>
+    public sealed record ProductRow(Product Product, ImageSource? Thumbnail);
+
     /// <summary>One page button. Ellipsis entries are not clickable.</summary>
     public sealed record PageButton(string Number, bool IsCurrent, int Target)
     {
@@ -202,7 +210,9 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
         PageProducts.Clear();
         foreach (var product in _matches.Skip((_currentPage - 1) * _pageSize).Take(_pageSize))
         {
-            PageProducts.Add(product);
+            PageProducts.Add(new ProductRow(
+                product,
+                Thumbnails.Load(_images, product.FeatureImage, decodeWidth: 96)));
         }
 
         BuildPageButtons();
@@ -289,7 +299,7 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
 
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
-        if (((FrameworkElement)sender).DataContext is not Product product)
+        if (((FrameworkElement)sender).DataContext is not ProductRow { Product: var product })
         {
             return;
         }
@@ -316,9 +326,22 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
 
     private void Categories_Click(object sender, RoutedEventArgs e) => ManageCategories?.Invoke();
 
+    private void View_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not ProductRow { Product: var product })
+        {
+            return;
+        }
+
+        new ProductDetailsWindow(product, _images, _catalog)
+        {
+            Owner = Window.GetWindow(this),
+        }.ShowDialog();
+    }
+
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (((FrameworkElement)sender).DataContext is not Product product)
+        if (((FrameworkElement)sender).DataContext is not ProductRow { Product: var product })
         {
             return;
         }

@@ -113,6 +113,12 @@
     <!-- lucide: chevron-right -->
     <PathGeometry x:Key="Icon.ChevronRight" Figures="M 9,18 L 15,12 L 9,6" />
 
+    <!-- lucide: eye -->
+    <PathGeometry x:Key="Icon.Eye"
+                  Figures="M 2.062,12.348 A 1,1 0 0 1 2.062,11.652 A 10.75,10.75 0 0 1 21.938,11.652
+                           A 1,1 0 0 1 21.938,12.348 A 10.75,10.75 0 0 1 2.062,12.348
+                           M 9,12 A 3,3 0 1 0 15,12 A 3,3 0 1 0 9,12 Z" />
+
     <!-- lucide: eye-off -->
     <PathGeometry x:Key="Icon.EyeOff"
                   Figures="M 10.733,5.076 A 10.744,10.744 0 0 1 21.938,11.651 A 1,1 0 0 1 21.938,12.347

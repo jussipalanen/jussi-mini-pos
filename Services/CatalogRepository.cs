@@ -353,6 +353,37 @@ public sealed class CatalogRepository(Database database)
         return paths;
     }
 
+    /// <summary>What a product has sold so far, across every past receipt.</summary>
+    public sealed record SalesSummary(int Lines, int Quantity, decimal Revenue);
+
+    /// <summary>
+    /// Totals from the receipt lines. These read SaleItems, which keeps its own
+    /// copy of the price, so the figures stay what was actually charged even
+    /// after the catalogue price changes.
+    /// </summary>
+    public SalesSummary GetSalesSummary(int productId)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT COUNT(*), COALESCE(SUM(Quantity), 0), COALESCE(SUM(UnitPriceCents * Quantity), 0)
+            FROM SaleItems WHERE ProductId = $id;
+            """;
+        command.Parameters.AddWithValue("$id", productId);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            return new SalesSummary(0, 0, 0m);
+        }
+
+        return new SalesSummary(
+            reader.GetInt32(0),
+            reader.GetInt32(1),
+            SalesRepository.FromCents(reader.GetInt64(2)));
+    }
+
     /// <summary>How many times a product appears on past receipts.</summary>
     public int CountSoldLines(int productId)
     {

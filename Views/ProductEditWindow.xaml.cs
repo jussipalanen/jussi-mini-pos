@@ -8,7 +8,7 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Media;
-using System.Windows.Media.Imaging;
+
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
 using Microsoft.Win32;
@@ -121,37 +121,7 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
     }
 
     private ImageEntry Entry(string relativePath) =>
-        new(relativePath, LoadThumbnail(_images.ResolveExisting(relativePath)));
-
-    /// <summary>
-    /// Decodes the picture up front and closes the file. Without OnLoad the
-    /// bitmap keeps the file open, and deleting a removed image would fail.
-    /// </summary>
-    private static ImageSource? LoadThumbnail(string? absolutePath)
-    {
-        if (absolutePath is null)
-        {
-            return null;
-        }
-
-        try
-        {
-            var bitmap = new BitmapImage();
-            bitmap.BeginInit();
-            bitmap.UriSource = new Uri(absolutePath);
-            bitmap.CacheOption = BitmapCacheOption.OnLoad;
-            bitmap.DecodePixelWidth = 200;
-            bitmap.EndInit();
-            bitmap.Freeze();
-            return bitmap;
-        }
-        catch (Exception)
-        {
-            // A corrupt or unreadable file should show the placeholder, not
-            // take the dialog down.
-            return null;
-        }
-    }
+        new(relativePath, Thumbnails.Load(_images, relativePath));
 
     private string[] PickFiles(bool multiple)
     {
