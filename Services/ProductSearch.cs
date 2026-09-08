@@ -83,8 +83,18 @@ public sealed class ProductSearch(Database database)
 
         // Then whatever else fits the price ceiling, so the model can reason
         // across the catalogue rather than only over the literal matches.
+        // Taken only up to the ceiling: both passes are capped at
+        // MaxCandidates individually, so concatenating them unchecked could
+        // hand the model 51 rows when the constant promises 40.
         var found = ids.ToHashSet();
-        return [.. ids, .. Rank(terms, minScore: 0).Where(id => !found.Contains(id))];
+
+        return
+        [
+            .. ids,
+            .. Rank(terms, minScore: 0)
+                .Where(id => !found.Contains(id))
+                .Take(MaxCandidates - ids.Count),
+        ];
     }
 
     /// <summary>
@@ -195,6 +205,16 @@ public sealed class ProductSearch(Database database)
             command.Parameters.AddWithValue($"$stem{i}", $"%{Escape(terms.Stems[i])}%");
         }
 
+        // "Halpa" asks for the cheap end, so price leads the ordering and
+        // relevance breaks its ties. It only reshuffles within a set that has
+        // already been filtered by score, and the top-up pass appends only
+        // rows the keyword pass did not already return, so asking for
+        // something cheap cannot push a keyword match below a bargain that
+        // has nothing to do with the question.
+        var order = terms.PreferCheap
+            ? "EffectiveCents ASC, Score DESC, Id ASC"
+            : "Score DESC, EffectiveCents ASC, Id ASC";
+
         // The offer price is what the till charges, so that is the price an
         // "alle 10 euron" question is about. As in Product, SalePriceCents
         // only counts when it actually undercuts the normal price.
@@ -220,7 +240,7 @@ public sealed class ProductSearch(Database database)
                    OR MIN(PriceCents, COALESCE(SalePriceCents, PriceCents)) <= $maxPriceCents
             )
             WHERE Score >= $minScore
-            ORDER BY Score DESC, EffectiveCents ASC, Id ASC
+            ORDER BY {order}
             LIMIT $limit;
             """;
 

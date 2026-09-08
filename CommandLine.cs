@@ -621,8 +621,28 @@ public static class CommandLine
         return options;
     }
 
+    /// <summary>
+    /// Every option this tool accepts, commands included. Matching against a
+    /// list rather than "starts with a dash" is what lets a value begin with
+    /// one: --password "-Kissa123" used to be read as an option, which turned
+    /// the command into "prompt me" and then parsed the password itself as an
+    /// option name. An unrecognised --option still reaches the unknown-option
+    /// message, because no command matches it either.
+    /// </summary>
+    private static readonly HashSet<string> KnownOptions = new(StringComparer.Ordinal)
+    {
+        // Commands
+        "help", "h", "?", "version", "v", "seed", "reset", "dump", "ask", "clear",
+        "users", "user-add", "user-update", "user-delete",
+
+        // Values
+        "user", "username", "email", "firstname", "lastname", "role",
+        "password", "generate-password",
+    };
+
     private static bool IsOption(string arg) =>
-        arg.StartsWith('-') || arg.StartsWith('/');
+        (arg.StartsWith('-') || arg.StartsWith('/'))
+        && KnownOptions.Contains(arg.TrimStart('-', '/').ToLowerInvariant());
 
     private static void Dump(Database database)
     {

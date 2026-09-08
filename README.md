@@ -310,7 +310,12 @@ Retrieval augmented generation, in the plain sense:
    title-first, and the best 40 public rows come back. Finnish inflects the
    words a cashier types, so matching is on stems (*"kahvin"* → `kahv`,
    *"juomia"* → `juom`) rather than whole words. A price ceiling is a `WHERE`,
-   not a hint: a product over the limit never reaches the model at all.
+   not a hint: a product over the limit never reaches the model at all. The
+   cheap-end nudge is an `ORDER BY` instead — price leads and relevance breaks
+   its ties, so *"halvin juoma"* opens with the 2,00 € water where *"juomia"*
+   opens with the best keyword match. It only reorders rows that already
+   passed the score filter, so asking for something cheap cannot promote a
+   bargain that has nothing to do with the question.
 2. **Generation (`GeminiClient`).** Those rows, and only those, are sent to
    Google Gemini with the question. The answer comes back through Gemini's
    structured output as product ids plus reasons.
