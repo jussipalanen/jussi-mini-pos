@@ -490,10 +490,21 @@ JussiMiniPos.exe --user-update --user admin --password
 
 The seeding is keyed off the table being empty rather than the database being
 new, unlike the catalogue: `Users` is new to databases that already exist, and
-an empty one would otherwise mean nobody can ever open Admin again. Delete
-every user and the next start seeds `admin` / `admin` again — which is also the
-way back in if the password is lost, since only its hash is stored and there is
-nothing to recover.
+an empty one would otherwise mean nobody can ever open Admin again.
+
+**If the administrator password is lost, reset it — do not try to re-seed.**
+Only the hash is stored, so there is nothing to recover, but the command line
+sets a new password without asking for the old one:
+
+```powershell
+JussiMiniPos.exe --user-update --user admin --password
+```
+
+Emptying the table to make it re-seed is not a route back in: the last
+administrator cannot be deleted (see below), so the count can never reach zero
+through `--user-delete`. Re-seeding only happens for a database that has never
+had a user — a new one, or one whose `Users` rows were removed with something
+other than this application.
 
 **Only this seeded administrator gets a fixed password.** Any other user
 created without one gets a generated password instead — see below.
@@ -558,7 +569,14 @@ password. Otherwise `--user-update` only touches the password when
 
 Passwords given by hand must be at least `PasswordHasher.MinimumLength`
 characters — 8. The seeded `admin` / `admin` is the one exception, since its
-whole point is being easy to type once.
+whole point is being easy to type once, which also means `admin` cannot be set
+back through these commands: only the first-run seeder writes it.
+
+Note that **`--user-update` does not ask for the old password.** That is what
+makes it the recovery path for a forgotten one, and it also means anyone who
+can run the executable on that machine can take over the administrator
+account. *Oma profiili* does require the old password; the command line is
+trusted because reaching it already means having the machine.
 
 **The last administrator cannot be deleted or demoted.** Either would leave
 Admin unreachable with no way back short of editing the database by hand, so
