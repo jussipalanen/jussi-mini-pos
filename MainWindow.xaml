@@ -5,8 +5,37 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:JussiMiniPos"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="JussiMiniPos"
+        Height="600" Width="900"
+        MinHeight="520" MinWidth="760"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Brush.Background}">
 
-    </Grid>
+    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
+
+        <TextBlock Text="JussiMiniPos" Style="{StaticResource Text.Title}" />
+
+        <TextBlock Text="Tervetuloa JussiMiniPos -järjestelmään."
+                   Style="{StaticResource Text.Subtitle}" />
+
+        <UniformGrid Rows="1" Columns="4" Margin="0,44,0,0">
+            <Button Style="{StaticResource Tile}"
+                    Tag="{StaticResource Icon.Kassa}"
+                    Content="Kassa"
+                    Click="Kassa_Click" />
+            <Button Style="{StaticResource Tile}"
+                    Tag="{StaticResource Icon.Tuotteet}"
+                    Content="Tuotteet"
+                    Click="Tuotteet_Click" />
+            <Button Style="{StaticResource Tile}"
+                    Tag="{StaticResource Icon.Myynti}"
+                    Content="Myynti"
+                    Click="Myynti_Click" />
+            <Button Style="{StaticResource Tile}"
+                    Tag="{StaticResource Icon.Raportit}"
+                    Content="Raportit"
+                    Click="Raportit_Click" />
+        </UniformGrid>
+
+    </StackPanel>
 </Window>
