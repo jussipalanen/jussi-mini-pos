@@ -17,17 +17,17 @@ namespace JussiMiniPos.Services;
 public static class PasswordHasher
 {
     /// <summary>
-    /// Iteration count, following OWASP's current PBKDF2-SHA256 guidance. It
-    /// costs a fraction of a second once per login, which nobody notices, and
-    /// multiplies the cost of guessing by the same factor.
-    /// </summary>
-    /// <summary>
     /// Shortest password that will be stored. Not much of a policy — more a
     /// guard against a typo becoming a one-character password. Lives here so
     /// the profile view and the command line cannot disagree about it.
     /// </summary>
     public const int MinimumLength = 8;
 
+    /// <summary>
+    /// Iteration count, following OWASP's current PBKDF2-SHA256 guidance. It
+    /// costs a fraction of a second once per login, which nobody notices, and
+    /// multiplies the cost of guessing by the same factor.
+    /// </summary>
     private const int Iterations = 600_000;
 
     private const int SaltBytes = 16;
@@ -84,6 +84,16 @@ public static class PasswordHasher
             expected = Convert.FromBase64String(parts[3]);
         }
         catch (FormatException)
+        {
+            return false;
+        }
+
+        // A row with an empty salt or an empty hash must refuse the login, not
+        // accept every password. Without this, deriving zero bytes and
+        // comparing two empty spans is a match, so a truncated or hand-edited
+        // hash would open the account to anything typed at the prompt. Nothing
+        // here writes such a row; the point is that a damaged one fails shut.
+        if (salt.Length == 0 || expected.Length == 0)
         {
             return false;
         }

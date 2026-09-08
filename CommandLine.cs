@@ -43,7 +43,15 @@ public static class CommandLine
             return null;
         }
 
-        var flags = args.Select(a => a.TrimStart('-', '/').ToLowerInvariant()).ToHashSet();
+        // Only the option tokens, never their values. Taking every argument
+        // meant a value could pick the command: "--user-add --username v" ran
+        // --version and created nothing, and "--lastname Seed" ran the
+        // catalogue seeder. A command therefore has to be written with its
+        // dashes, which is how every example and the usage text spell it.
+        var flags = args
+            .Where(IsOption)
+            .Select(a => a.TrimStart('-', '/').ToLowerInvariant())
+            .ToHashSet();
 
         if (flags.Overlaps(["version", "v"]))
         {
@@ -140,6 +148,14 @@ public static class CommandLine
             }
 
             action(database);
+        }
+        catch (OperationCanceledException ex)
+        {
+            // The user pressed Escape at a prompt. Their own decision, so it
+            // is not reported as a failure — but it still exits non-zero, so a
+            // script does not read it as the work having been done.
+            Write(ex.Message);
+            exitCode = 1;
         }
         catch (Exception ex)
         {
@@ -528,7 +544,10 @@ public static class CommandLine
 
                 if (key.Key == ConsoleKey.Escape)
                 {
-                    throw new InvalidOperationException("Cancelled; nothing was changed.");
+                    // Its own type, so the catch below cannot mistake a
+                    // deliberate cancellation for redirected input and drop
+                    // into an echoing read.
+                    throw new OperationCanceledException("Cancelled; nothing was changed.");
                 }
 
                 if (!char.IsControl(key.KeyChar))
@@ -537,10 +556,12 @@ public static class CommandLine
                 }
             }
         }
-        catch (InvalidOperationException) when (password.Length == 0)
+        catch (InvalidOperationException)
         {
-            // Input is redirected, so read it as a plain line instead. It
-            // echoes, which is the caller's problem to avoid by piping.
+            // Console.ReadKey throws this when input is redirected, and only
+            // on the first key, so nothing has been collected yet. Read it as
+            // a plain line instead; that echoes, which is the caller's problem
+            // to avoid by piping.
             Console.WriteLine();
             return (Console.ReadLine() ?? string.Empty).Trim();
         }
@@ -549,9 +570,22 @@ public static class CommandLine
         return password.ToString();
     }
 
-    /// <summary>An option's value, or null when it was not given.</summary>
-    private static string? Value(IReadOnlyDictionary<string, string> options, string name) =>
-        options.TryGetValue(name, out var value) && value.Length > 0 ? value.Trim() : null;
+    /// <summary>
+    /// An option's value, or null when it was not given — and "  " counts as
+    /// not given. Trimmed before the emptiness test, not after: the other way
+    /// round, --username " " satisfied Required() as "" and inserted an
+    /// account with a blank username that nothing could log in as.
+    /// </summary>
+    private static string? Value(IReadOnlyDictionary<string, string> options, string name)
+    {
+        if (!options.TryGetValue(name, out var value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        return trimmed.Length == 0 ? null : trimmed;
+    }
 
     private static string Required(IReadOnlyDictionary<string, string> options, string name) =>
         Value(options, name)
