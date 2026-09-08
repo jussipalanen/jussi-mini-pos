@@ -1,0 +1,57 @@
+﻿<Window x:Class="JussiMiniPos.Views.CategoryEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="{Binding WindowTitle}"
+        Width="460" SizeToContent="Height"
+        ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="22">
+        <StackPanel>
+
+            <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Text.SectionHeader}" />
+            <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,18" />
+
+            <TextBlock Text="Nimi" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+            <TextBox x:Name="TitleBox" Style="{StaticResource FormBox}" />
+
+            <TextBlock Text="Yläkategoria" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+            <ListBox x:Name="ParentList"
+                     Style="{StaticResource ChipList}"
+                     ItemContainerStyle="{StaticResource ChipItem}"
+                     DisplayMemberPath="Title" />
+            <TextBlock Text="Valitse “Ei yläkategoriaa”, jos tämä on päätason kategoria."
+                       Style="{StaticResource Text.Muted}" FontSize="12" />
+
+            <CheckBox x:Name="PublicBox" Margin="0,14,0,0"
+                      Style="{StaticResource FormCheckBox}"
+                      Content="Näytetään kassassa" />
+
+            <TextBlock x:Name="ErrorText"
+                       Style="{StaticResource Text.Muted}"
+                       Foreground="{StaticResource Brush.Danger}"
+                       TextWrapping="Wrap"
+                       Margin="0,14,0,0"
+                       Visibility="Collapsed" />
+
+            <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,18" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                        Content="Peruuta" IsCancel="True"
+                        AutomationProperties.Name="Peruuta"
+                        Click="Cancel_Click" />
+                <Button Style="{StaticResource Button.Primary}" Width="140" Margin="10,0,0,0"
+                        Content="Tallenna" IsDefault="True"
+                        AutomationProperties.Name="Tallenna"
+                        Click="Save_Click" />
+            </StackPanel>
+
+        </StackPanel>
+    </Border>
+</Window>

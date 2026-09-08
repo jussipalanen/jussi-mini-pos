@@ -1,0 +1,309 @@
+﻿<UserControl x:Class="JussiMiniPos.Views.CheckoutView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="760" d:DesignWidth="1200"
+             FontFamily="Segoe UI">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============ Header ============ -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,18">
+            <Button Style="{StaticResource Button.Ghost}" Click="Back_Click" Padding="10,0"
+                    AutomationProperties.Name="Takaisin">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.ArrowLeft}"
+                                    Width="16" Height="16"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="Takaisin" Margin="7,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <TextBlock Text="Kassa" Style="{StaticResource Text.SectionHeader}"
+                       FontSize="26" Margin="16,0,0,0" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <!-- ============ Two columns ============ -->
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="460" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="400" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== Left: product catalogue ===== -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,14">
+                        <TextBlock DockPanel.Dock="Right" VerticalAlignment="Center"
+                                   Style="{StaticResource Text.Muted}"
+                                   Text="{Binding VisibleProductText}" />
+                        <TextBlock Text="Tuotteet" Style="{StaticResource Text.SectionHeader}" />
+                    </DockPanel>
+
+                    <TextBox Grid.Row="1"
+                             Style="{StaticResource SearchBox}"
+                             Tag="Hae tuotenumerolla tai nimellä…"
+                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <ListBox Grid.Row="2"
+                             Margin="0,14,0,10"
+                             Style="{StaticResource ChipList}"
+                             ItemContainerStyle="{StaticResource ChipItem}"
+                             ItemsSource="{Binding Categories}"
+                             DisplayMemberPath="Title"
+                             SelectedItem="{Binding SelectedCategory}" />
+
+                    <ListBox Grid.Row="3"
+                             x:Name="ProductList"
+                             Style="{StaticResource ProductList}"
+                             ItemContainerStyle="{StaticResource ProductItem}"
+                             ItemsSource="{Binding ProductsView}"
+                             SelectedItem="{Binding SelectedProduct}"
+                             MouseDoubleClick="ProductList_MouseDoubleClick">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- The placeholder icon sits behind the Image, so a product
+                                         with no picture shows the icon through an empty frame. -->
+                                    <Border Grid.Column="0" Width="44" Height="44" CornerRadius="8"
+                                            Margin="0,0,12,0" VerticalAlignment="Center"
+                                            Background="{StaticResource Brush.SurfaceMuted}"
+                                            BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
+                                        <Grid>
+                                            <ContentControl Style="{StaticResource Icon}"
+                                                            Tag="{StaticResource Icon.Image}"
+                                                            Width="18" Height="18"
+                                                            Foreground="{StaticResource Brush.Border}" />
+                                            <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                        </Grid>
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Product.Name}"
+                                                   FontSize="15" FontWeight="SemiBold"
+                                                   Foreground="{StaticResource Brush.Text}"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0">
+                                            <TextBlock Text="{Binding Product.Id}" Style="{StaticResource Text.Muted}"
+                                                       FontSize="12" VerticalAlignment="Center" />
+                                            <Border Style="{StaticResource Badge}" Margin="8,0,0,0">
+                                                <TextBlock Text="{Binding Product.PrimaryCategory}"
+                                                           Style="{StaticResource Text.Muted}" FontSize="11" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}" Margin="6,0,0,0"
+                                                    Background="{StaticResource Brush.DangerSurface}"
+                                                    BorderBrush="{StaticResource Brush.Danger}"
+                                                    Visibility="{Binding Product.IsOnSale, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock Text="TARJOUS" FontSize="11" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Danger}" />
+                                            </Border>
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0">
+                                        <!-- Struck-through normal price, shown only when on offer -->
+                                        <TextBlock Text="{Binding Product.Price, StringFormat={}{0:N2} €}"
+                                                   Style="{StaticResource Text.Muted}" FontSize="12"
+                                                   TextDecorations="Strikethrough"
+                                                   HorizontalAlignment="Right"
+                                                   Visibility="{Binding Product.IsOnSale, Converter={StaticResource BoolToVis}}" />
+                                        <TextBlock Text="{Binding Product.EffectivePrice, StringFormat={}{0:N2} €}"
+                                                   FontSize="15" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right"
+                                                   Foreground="{StaticResource Brush.Text}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- Empty search result -->
+                    <TextBlock Grid.Row="3" Text="Hakua vastaavia tuotteita ei löytynyt."
+                               Style="{StaticResource Text.Muted}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Visibility="{Binding HasNoSearchResults, Converter={StaticResource BoolToVis}}" />
+
+                    <Button Grid.Row="4" Margin="0,14,0,0"
+                            Style="{StaticResource Button.Primary}"
+                            Click="AddToCart_Click"
+                            AutomationProperties.Name="Lisää ostoskoriin"
+                            IsEnabled="{Binding HasSelectedProduct}">
+                        <StackPanel Orientation="Horizontal">
+                            <ContentControl Style="{StaticResource Icon}"
+                                            Tag="{StaticResource Icon.Plus}"
+                                            Width="17" Height="17"
+                                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                            VerticalAlignment="Center" />
+                            <TextBlock Text="Lisää ostoskoriin" Margin="9,0,0,0" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- ===== Right: shopping cart ===== -->
+            <Border Grid.Column="2" Style="{StaticResource Card}" Padding="18">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <DockPanel Grid.Row="0" Margin="0,0,0,14">
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource Button.IconDanger}"
+                                Tag="{StaticResource Icon.Trash}"
+                                ToolTip="Tyhjennä ostoskori"
+                                Click="ClearCart_Click"
+                                AutomationProperties.Name="Tyhjennä ostoskori"
+                                IsEnabled="{Binding HasItems}" />
+                        <TextBlock Text="Ostoskori" Style="{StaticResource Text.SectionHeader}"
+                                   VerticalAlignment="Center" />
+                        <TextBlock Style="{StaticResource Text.Muted}" Margin="10,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Text="{Binding ItemCount, StringFormat={}({0} kpl)}"
+                                   Visibility="{Binding HasItems, Converter={StaticResource BoolToVis}}" />
+                    </DockPanel>
+
+                    <!-- Empty state -->
+                    <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center"
+                                Visibility="{Binding IsCartEmpty, Converter={StaticResource BoolToVis}}">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{StaticResource Icon.Checkout}"
+                                        Width="44" Height="44"
+                                        Foreground="{StaticResource Brush.Border}"
+                                        HorizontalAlignment="Center" />
+                        <TextBlock Text="Ostoskori on tyhjä" Style="{StaticResource Text.Muted}"
+                                   Margin="0,14,0,0" HorizontalAlignment="Center" />
+                        <TextBlock Text="Valitse tuote ja lisää se koriin."
+                                   Style="{StaticResource Text.Muted}" FontSize="12"
+                                   Margin="0,4,0,0" HorizontalAlignment="Center" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Margin="0,0,-4,0"
+                                  Visibility="{Binding HasItems, Converter={StaticResource BoolToVis}}">
+                        <ItemsControl ItemsSource="{Binding Cart}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{StaticResource Brush.SurfaceMuted}"
+                                            BorderBrush="{StaticResource Brush.Border}"
+                                            BorderThickness="1" CornerRadius="10"
+                                            Padding="12,10" Margin="0,0,4,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                <TextBlock Text="{Binding Product.Name}"
+                                                           FontSize="14" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Text}"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,3,0,0"
+                                                           Text="{Binding UnitPrice, StringFormat={}{0:N2} € / kpl}" />
+                                            </StackPanel>
+
+                                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding LineTotal, StringFormat={}{0:N2} €}"
+                                                           FontSize="15" FontWeight="SemiBold"
+                                                           Foreground="{StaticResource Brush.Text}"
+                                                           HorizontalAlignment="Right" />
+                                                <StackPanel Orientation="Horizontal" Margin="0,7,0,0" HorizontalAlignment="Right">
+                                                    <Button Style="{StaticResource Button.Icon}"
+                                                            Tag="{StaticResource Icon.Minus}"
+                                                            ToolTip="Vähennä"
+                                                            Click="DecreaseQuantity_Click"
+                                                            AutomationProperties.Name="Vähennä" />
+                                                    <TextBlock Text="{Binding Quantity}"
+                                                               MinWidth="30" TextAlignment="Center"
+                                                               FontSize="14" FontWeight="SemiBold"
+                                                               Foreground="{StaticResource Brush.Text}"
+                                                               VerticalAlignment="Center" />
+                                                    <Button Style="{StaticResource Button.Icon}"
+                                                            Tag="{StaticResource Icon.Plus}"
+                                                            ToolTip="Lisää"
+                                                            Click="IncreaseQuantity_Click"
+                                                            AutomationProperties.Name="Lisää" />
+                                                    <Button Style="{StaticResource Button.IconDanger}"
+                                                            Tag="{StaticResource Icon.X}"
+                                                            ToolTip="Poista rivi"
+                                                            Margin="6,0,0,0"
+                                                            Click="RemoveLine_Click"
+                                                            AutomationProperties.Name="Poista rivi" />
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- Total -->
+                    <StackPanel Grid.Row="2" Margin="0,14,0,0">
+                        <Border Height="1" Background="{StaticResource Brush.Border}" />
+                        <DockPanel Margin="0,14,0,0">
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Total, StringFormat={}{0:N2} €}"
+                                       FontSize="26" FontWeight="Bold"
+                                       Foreground="{StaticResource Brush.Text}" />
+                            <TextBlock Text="Yhteensä" FontSize="16" FontWeight="SemiBold"
+                                       Foreground="{StaticResource Brush.TextMuted}"
+                                       VerticalAlignment="Bottom" Margin="0,0,0,4" />
+                        </DockPanel>
+                    </StackPanel>
+
+                    <Button Grid.Row="3" Margin="0,16,0,0"
+                            Style="{StaticResource Button.Pay}"
+                            Click="Pay_Click"
+                            AutomationProperties.Name="Maksa"
+                            IsEnabled="{Binding HasItems}">
+                        <DockPanel LastChildFill="False">
+                            <ContentControl DockPanel.Dock="Left"
+                                            Style="{StaticResource Icon}"
+                                            Tag="{StaticResource Icon.CreditCard}"
+                                            Width="24" Height="24"
+                                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                            VerticalAlignment="Center" />
+                            <TextBlock DockPanel.Dock="Left" Text="Maksa"
+                                       Margin="12,0,0,0" VerticalAlignment="Center"
+                                       FontSize="20" FontWeight="SemiBold" />
+                            <TextBlock DockPanel.Dock="Right"
+                                       Text="{Binding Total, StringFormat={}{0:N2} €}"
+                                       VerticalAlignment="Center"
+                                       FontSize="24" FontWeight="Bold" />
+                        </DockPanel>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

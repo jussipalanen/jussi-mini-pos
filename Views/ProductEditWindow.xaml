@@ -1,0 +1,194 @@
+﻿<Window x:Class="JussiMiniPos.Views.ProductEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        Title="{Binding WindowTitle}"
+        Width="560" Height="760"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="22,20,22,0">
+                <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Text.SectionHeader}" />
+                <TextBlock Text="Muutokset tallennetaan tietokantaan."
+                           Style="{StaticResource Text.Muted}" Margin="0,6,0,0" />
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,0" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="22,16,22,0">
+                <StackPanel>
+
+                    <TextBlock Text="Nimi" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                    <TextBox x:Name="TitleBox" Style="{StaticResource FormBox}" />
+
+                    <TextBlock Text="Kuvaus" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <TextBox x:Name="DescriptionBox" Style="{StaticResource FormBox}"
+                             Height="62" TextWrapping="Wrap" AcceptsReturn="True"
+                             VerticalContentAlignment="Top" />
+
+                    <Grid Margin="0,14,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Hinta (€)" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                            <TextBox x:Name="PriceBox" Style="{StaticResource FormBox}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Tarjoushinta (€, valinnainen)" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                            <TextBox x:Name="SalePriceBox" Style="{StaticResource FormBox}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- ===== Feature image ===== -->
+                    <TextBlock Text="Pääkuva" Style="{StaticResource Text.Muted}" Margin="0,18,0,6" />
+                    <Border Background="{StaticResource Brush.SurfaceMuted}"
+                            BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                            CornerRadius="9" Padding="12">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Width="76" Height="76" CornerRadius="8"
+                                    Background="{StaticResource Brush.Surface}"
+                                    BorderBrush="{StaticResource Brush.Border}" BorderThickness="1">
+                                <Grid>
+                                    <ContentControl Style="{StaticResource Icon}"
+                                                    Tag="{StaticResource Icon.Image}"
+                                                    Width="26" Height="26"
+                                                    Foreground="{StaticResource Brush.Border}"
+                                                    Visibility="{Binding HasNoFeatureImage, Converter={StaticResource BoolToVis}}" />
+                                    <Image Source="{Binding FeatureImage.Thumbnail}" Stretch="UniformToFill" />
+                                </Grid>
+                            </Border>
+
+                            <StackPanel VerticalAlignment="Center" Margin="14,0,0,0">
+                                <TextBlock Text="{Binding FeatureImageText}"
+                                           Style="{StaticResource Text.Muted}" FontSize="12"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="330" />
+                                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                                    <Button Style="{StaticResource Button.Ghost}" Height="32" Padding="12,0"
+                                            Content="Valitse kuva…"
+                                            AutomationProperties.Name="Valitse pääkuva"
+                                            Click="PickFeatureImage_Click" />
+                                    <Button Style="{StaticResource Button.Ghost}" Height="32" Padding="12,0"
+                                            Margin="6,0,0,0"
+                                            Content="Poista"
+                                            AutomationProperties.Name="Poista pääkuva"
+                                            IsEnabled="{Binding HasFeatureImage}"
+                                            Click="ClearFeatureImage_Click" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- ===== Gallery ===== -->
+                    <DockPanel Margin="0,18,0,6">
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource Button.Ghost}" Height="30" Padding="10,0"
+                                AutomationProperties.Name="Lisää kuvia"
+                                Click="AddGalleryImages_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <ContentControl Style="{StaticResource Icon}"
+                                                Tag="{StaticResource Icon.ImagePlus}"
+                                                Width="15" Height="15"
+                                                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                                VerticalAlignment="Center" />
+                                <TextBlock Text="Lisää kuvia" Margin="7,0,0,0" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <TextBlock Text="Galleria" Style="{StaticResource Text.Muted}" VerticalAlignment="Center" />
+                    </DockPanel>
+
+                    <TextBlock Text="Ei kuvia. Lisää kuvia painikkeella yllä."
+                               Style="{StaticResource Text.Muted}" FontSize="12"
+                               Visibility="{Binding HasNoGalleryImages, Converter={StaticResource BoolToVis}}" />
+
+                    <ItemsControl ItemsSource="{Binding GalleryImages}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="84" Height="84" CornerRadius="8" Margin="0,0,8,8"
+                                        Background="{StaticResource Brush.SurfaceMuted}"
+                                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                                        ToolTip="{Binding RelativePath}">
+                                    <Grid>
+                                        <ContentControl Style="{StaticResource Icon}"
+                                                        Tag="{StaticResource Icon.Image}"
+                                                        Width="22" Height="22"
+                                                        Foreground="{StaticResource Brush.Border}" />
+                                        <Image Source="{Binding Thumbnail}" Stretch="UniformToFill" />
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Top"
+                                                    HorizontalAlignment="Right" Margin="3">
+                                            <Button Style="{StaticResource Button.Icon}"
+                                                    Width="22" Height="22"
+                                                    Tag="{StaticResource Icon.Star}"
+                                                    ToolTip="Aseta pääkuvaksi"
+                                                    AutomationProperties.Name="Aseta pääkuvaksi"
+                                                    Click="PromoteToFeature_Click" />
+                                            <Button Style="{StaticResource Button.IconDanger}"
+                                                    Width="22" Height="22" Margin="3,0,0,0"
+                                                    Tag="{StaticResource Icon.X}"
+                                                    ToolTip="Poista kuva"
+                                                    AutomationProperties.Name="Poista kuva"
+                                                    Click="RemoveGalleryImage_Click" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="Kategoriat" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <ListBox x:Name="CategoryList"
+                             Style="{StaticResource ChipList}"
+                             ItemContainerStyle="{StaticResource ChipItem}"
+                             DisplayMemberPath="Title"
+                             SelectionMode="Multiple" />
+
+                    <CheckBox x:Name="PublicBox" Margin="0,10,0,0"
+                              Style="{StaticResource FormCheckBox}"
+                              Content="Näytetään kassassa" />
+
+                    <TextBlock x:Name="ErrorText"
+                               Style="{StaticResource Text.Muted}"
+                               Foreground="{StaticResource Brush.Danger}"
+                               TextWrapping="Wrap"
+                               Margin="0,14,0,0"
+                               Visibility="Collapsed" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" Margin="22,0,22,20">
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,16" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                            Content="Peruuta" IsCancel="True"
+                            AutomationProperties.Name="Peruuta"
+                            Click="Cancel_Click" />
+                    <Button Style="{StaticResource Button.Primary}" Width="140" Margin="10,0,0,0"
+                            Content="Tallenna" IsDefault="True"
+                            AutomationProperties.Name="Tallenna"
+                            Click="Save_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

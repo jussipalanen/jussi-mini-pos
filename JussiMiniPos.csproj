@@ -6,6 +6,19 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+
+    <!-- AssemblyVersion has to be numeric, so the "-beta" survives only in
+         InformationalVersion, which is what the file properties show. -->
+    <Version>1.0.0-beta</Version>
+    <Product>JussiMiniPos</Product>
+
+    <!-- Embedded as the exe's Win32 icon, which is what Explorer, the taskbar
+         and the window title bar all pick up. -->
+    <ApplicationIcon>Assets\Icons\icon\favicon.ico</ApplicationIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.11" />
+  </ItemGroup>
 
 </Project>

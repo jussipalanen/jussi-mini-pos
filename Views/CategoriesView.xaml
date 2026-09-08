@@ -1,0 +1,152 @@
+﻿<UserControl x:Class="JussiMiniPos.Views.CategoriesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="760" d:DesignWidth="1200"
+             FontFamily="Segoe UI">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,18">
+            <Button DockPanel.Dock="Right"
+                    Style="{StaticResource Button.Primary}" Width="180"
+                    AutomationProperties.Name="Uusi kategoria"
+                    Click="New_Click">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.Plus}"
+                                    Width="16" Height="16"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="Uusi kategoria" Margin="8,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+
+            <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource Button.Ghost}" Click="Back_Click" Padding="10,0"
+                        AutomationProperties.Name="Takaisin">
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{StaticResource Icon.ArrowLeft}"
+                                        Width="16" Height="16"
+                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                        VerticalAlignment="Center" />
+                        <TextBlock Text="Takaisin" Margin="7,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <TextBlock Text="Kategoriat" Style="{StaticResource Text.SectionHeader}"
+                           FontSize="26" Margin="16,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+        </DockPanel>
+
+        <Border Grid.Row="1" Style="{StaticResource Card}" Padding="18">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Text="{Binding ResultText}"
+                           Style="{StaticResource Text.Muted}" Margin="0,0,0,12" />
+
+                <Border Grid.Row="1" Background="{StaticResource Brush.SurfaceMuted}"
+                        BorderBrush="{StaticResource Brush.Border}" BorderThickness="1"
+                        CornerRadius="8" Padding="14,8" Margin="0,0,0,8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="64" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="150" />
+                            <ColumnDefinition Width="110" />
+                            <ColumnDefinition Width="76" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="Nro" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="1" Text="Nimi" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="2" Text="Yläkategoria" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
+                        <TextBlock Grid.Column="3" Text="Tuotteita" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
+                        <TextBlock Grid.Column="4" Text="Toiminnot" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" TextAlignment="Right" />
+                    </Grid>
+                </Border>
+
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Rows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Brush.Surface}"
+                                        BorderBrush="{StaticResource Brush.Border}"
+                                        BorderThickness="1" CornerRadius="8"
+                                        Padding="14,10" Margin="0,0,4,6">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="64" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="76" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Column="0" Text="{Binding Category.Id}"
+                                                   Style="{StaticResource Text.Muted}" VerticalAlignment="Center" />
+
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center"
+                                                    Margin="{Binding Indent}">
+                                            <TextBlock Text="{Binding Category.Title}"
+                                                       FontSize="14" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Text}" />
+                                            <Border Style="{StaticResource Badge}" Margin="8,0,0,0"
+                                                    Visibility="{Binding IsHidden, Converter={StaticResource BoolToVis}}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ContentControl Style="{StaticResource Icon}"
+                                                                    Tag="{StaticResource Icon.EyeOff}"
+                                                                    Width="11" Height="11"
+                                                                    Foreground="{StaticResource Brush.TextMuted}"
+                                                                    VerticalAlignment="Center" />
+                                                    <TextBlock Text="Piilotettu" FontSize="11" Margin="5,0,0,0"
+                                                               Foreground="{StaticResource Brush.TextMuted}" />
+                                                </StackPanel>
+                                            </Border>
+                                        </StackPanel>
+
+                                        <TextBlock Grid.Column="2" Text="{Binding ParentTitle}"
+                                                   Style="{StaticResource Text.Muted}" FontSize="12"
+                                                   VerticalAlignment="Center" />
+
+                                        <TextBlock Grid.Column="3" Text="{Binding ProductCount}"
+                                                   Style="{StaticResource Text.Muted}"
+                                                   VerticalAlignment="Center" TextAlignment="Right" />
+
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                                    HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource Button.Icon}"
+                                                    Tag="{StaticResource Icon.Pencil}"
+                                                    ToolTip="Muokkaa"
+                                                    AutomationProperties.Name="Muokkaa kategoriaa"
+                                                    Click="Edit_Click" />
+                                            <Button Style="{StaticResource Button.IconDanger}"
+                                                    Tag="{StaticResource Icon.Trash}"
+                                                    ToolTip="Poista"
+                                                    AutomationProperties.Name="Poista kategoria"
+                                                    Margin="6,0,0,0"
+                                                    Click="Delete_Click" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

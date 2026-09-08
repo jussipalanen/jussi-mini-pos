@@ -5,8 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:JussiMiniPos"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
+        Title="JussiMiniPos"
+        Height="780" Width="1220"
+        MinHeight="640" MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource Brush.Background}">
 
-    </Grid>
+    <!-- Views are swapped in from code-behind; see MainWindow.xaml.cs -->
+    <ContentControl x:Name="ViewHost" />
 </Window>
