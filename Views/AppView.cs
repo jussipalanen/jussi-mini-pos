@@ -12,6 +12,7 @@ public enum AppView
     Sales,
     Reports,
     Admin,
+    Profile,
 }
 
 /// <summary>Finnish display names for <see cref="AppView"/>.</summary>
@@ -24,6 +25,7 @@ public static class AppViewNames
         AppView.Sales => "Myynti",
         AppView.Reports => "Raportit",
         AppView.Admin => "Admin",
+        AppView.Profile => "Oma profiili",
         _ => view.ToString(),
     };
 }

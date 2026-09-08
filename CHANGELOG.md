@@ -7,8 +7,51 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.0.0-beta.2] - 2026-09-08
+
+Still a beta of 1.0.0 rather than a release: the gaps under *Known limitations*
+have not moved, and VAT in particular is still a schema change that is far
+cheaper to make before there is real sales data than after. What this adds is
+the AI assistant, the settings and users behind it, and a profile view.
+
 ### Added
 
+- **The version in the corner of the start screen**, read from the assembly's
+  informational version so it can only ever be the version that was built.
+  `--version` prints the same string without opening the database.
+- **The logo on the start screen**, in place of the "JussiMiniPos" heading —
+  the logo carries the name, so a heading under it only said it twice.
+  `Assets/Icons/jussi-mini-pos-logo.svg` is kept as the design source and
+  redrawn in XAML by the `Logo` and `Logo.Mark` styles, because WPF cannot
+  render SVG and that file asks for a font nobody has installed. Its colours
+  are `Brush.Brand` and `Brush.BrandText`, deliberately separate from
+  `Brush.Accent`.
+
+- **Oma profiili**, reached by clicking the signed-in name on the start screen.
+  A user can change their own first name, last name and email, and their
+  password. The two halves save independently: renaming yourself should not
+  require your password, and changing your password should not be bundled with
+  an edit you might not want to keep.
+  - Save stays dead until a field differs from the stored row, compared against
+    the row rather than tracked with a flag, so typing a change and undoing it
+    leaves nothing to save. The email is checked for shape and for being free
+    before anything is written. A save re-reads the row and hands it to the
+    shell, so the start screen follows a renamed user without signing out.
+  - Changing the password needs the current one, the new one and the new one
+    again. The confirmation is checked while it is typed rather than on save,
+    the new password must differ from the old, and both PBKDF2 derivations run
+    off the UI thread.
+  - **A user cannot change their own username or role here.** Those belong to
+    an administrator, and `UserRepository.UpdateProfile` names neither column,
+    so the view cannot reach them however it is rewritten.
+- **`FirstName` and `LastName` on users**, added through
+  `Database.ApplyMigrations` because the table already existed. Where a name is
+  set it replaces the username in the signed-in line and anywhere else a user
+  is shown; the seeded administrator starts without one, so the username
+  stands in. `--user-add` and `--user-update` take `--firstname` and
+  `--lastname`, and `--users` has a Name column.
 - **User management on the command line**: `--users` lists them, and
   `--user-add`, `--user-update` and `--user-delete` do what they say.
   `--user` takes a username or an email. Leaving `--password` with no value
@@ -36,11 +79,21 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   rights yet, and `UserRole.CanOpenAdmin` is the single place that decides.
   Admin's header shows which account is making the change.
 - **A seeded default administrator** — `admin` / `admin@example.com` /
-  `AdminPos1234!` — written into an empty `Users` table. Keyed off the table
-  being empty rather than the database being new, unlike the catalogue, because
-  `Users` is new to databases that already exist and an empty one would mean
-  nobody can ever open Admin again. The password is in the README, so it is a
-  starting point and not a secret.
+  `admin` — written into an empty `Users` table, with the application and the
+  command line both saying so and telling the user to change it. Keyed off the
+  table being empty rather than the database being new, unlike the catalogue,
+  because `Users` is new to databases that already exist and an empty one would
+  mean nobody can ever open Admin again — which also makes deleting every user
+  the way back in when the password is lost, since only its hash is stored.
+  This is the one fixed password in the application, and it is trivial on
+  purpose: it exists to be typed once and replaced.
+- **Generated passwords** (`PasswordGenerator`) for every other user created
+  without one. `--user-add` with no `--password` makes one up and prints it
+  once, and `--user-update --generate-password` resets somebody's forgotten
+  password the same way. Sixteen characters from an alphabet with no lookalikes
+  (no `O`/`0`, no `I`/`l`/`1`), grouped as `Kfx7-Rm9t-Qbv4-Xhn6` so it can be
+  read aloud and typed back. Nothing is written into the source, so no two
+  installs share a credential.
 - **PBKDF2 password hashing** (`PasswordHasher`): SHA-256 at 600,000
   iterations, a random 16-byte salt per user, stored self-describing as
   `pbkdf2-sha256$iterations$salt$hash` so the iteration count can be raised
@@ -236,11 +289,11 @@ cheaper to make before there is real sales data than after.
 
 ### Known limitations
 
-- **User management is command line only.** `--user-add`, `--user-update` and
-  `--user-delete` cover it, but nothing in the UI does: there is no
-  password-change screen and no way to add a user without a terminal. There is
-  also no account lockout after repeated failures beyond a fixed delay, and no
-  session timeout.
+- **Adding and removing users is command line only.** A signed-in user can edit
+  their own details and password in *Oma profiili*, but adding a user, changing
+  someone else's role or deleting an account needs `--user-add`,
+  `--user-update` or `--user-delete`. There is also no account lockout after
+  repeated failures beyond a fixed delay, and no session timeout.
 - **Signing in gates Admin only.** Kassa, Tuotteet, Myynti and Raportit are
   open to anyone at the machine, as before; `manager` and `seller` exist so the
   roles are in place rather than because they do anything yet.

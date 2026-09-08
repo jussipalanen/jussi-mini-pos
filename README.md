@@ -6,7 +6,8 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 > payment and storing the sale. Tuotteet manages the catalogue: search, paging,
 > view, add, edit, delete, images, and category management. Myynti lists past
 > sales with a receipt view. Kassa also has an AI assistant that recommends
-> products out of the catalogue. Raportit is still a placeholder.
+> products out of the catalogue, an Admin view for its settings, users with
+> roles, and a profile view. Raportit is still a placeholder.
 
 ## Requirements
 
@@ -88,11 +89,11 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `CHANGELOG.md`         | What changed in each release                            |
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
-| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView`, `AdminView`, `LoginWindow` and their dialogs; `Pager` is shared paging state |
+| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView`, `AdminView`, `ProfileView`, `LoginWindow` and their dialogs; `Pager` is shared paging state |
 | `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `PaymentMethod`, `User` |
-| `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog`, `OptionsRepository`, `UserRepository`, `PasswordHasher`, and the assistant's `ProductSearch`, `ShoppingAssistant`, `GeminiClient`, `AiSettings` |
-| `CommandLine.cs`       | `--seed` / `--dump` / `--clear` / `--ask` / `--user-*` handling |
-| `Assets/`              | `Styles.xaml`, `Icons.xaml` and the Lucide `.svg` sources |
+| `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog`, `OptionsRepository`, `UserRepository`, `PasswordHasher`, `PasswordGenerator`, `AppInfo`, and the assistant's `ProductSearch`, `ShoppingAssistant`, `GeminiClient`, `AiSettings` |
+| `CommandLine.cs`       | `--seed` / `--dump` / `--clear` / `--ask` / `--user-*` / `--version` handling |
+| `Assets/`              | `Styles.xaml`, `Icons.xaml`, the Lucide `.svg` sources and `jussi-mini-pos-logo.svg` |
 | `Assets/Icons/icon/`   | Application icon; `favicon.ico` is embedded in the exe  |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
 
@@ -106,6 +107,23 @@ Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
   between the two and are the seam to replace if real localisation is added.
 - **Prices are euros**, held as `decimal` in memory and formatted through
   `fi-FI`, so they render as `2,50 €`.
+- **SVGs are design sources, not assets WPF loads.** WPF cannot render SVG at
+  all, so `Assets/Icons/*.svg` are kept for reference and their shapes live in
+  `Icons.xaml` as `PathGeometry`. The logo follows the same rule: the
+  `Logo` and `Logo.Mark` styles in `Styles.xaml` redraw
+  `jussi-mini-pos-logo.svg` in XAML, which also avoids depending on the
+  `'Anthropic Sans'` font that file asks for and nobody has installed. Both are
+  laid out on the SVG's own 170×60 canvas inside a `Viewbox`, so setting
+  `Width` or `Height` at the usage site keeps the proportions:
+
+  ```xml
+  <ContentControl Style="{StaticResource Logo}" Width="300" />
+  ```
+
+  Its colours are `Brush.Brand` and `Brush.BrandText`, kept apart from
+  `Brush.Accent` on purpose: the logo is the brand and the accent is the
+  interface. Point them at `Brush.Accent` to make the logo match the UI blue
+  instead.
 
 ## Database
 
@@ -157,6 +175,7 @@ JussiMiniPos.exe --dump           # print the catalogue tables
 JussiMiniPos.exe --clear          # delete the catalogue rows (sales are kept)
 JussiMiniPos.exe --ask "Mitä sopii kahvin kanssa?"   # one AI assistant question
 JussiMiniPos.exe --users          # list the users
+JussiMiniPos.exe --version        # print the version and exit
 JussiMiniPos.exe --user-add / --user-update / --user-delete   # see "Users" below
 JussiMiniPos.exe --help
 ```
@@ -422,9 +441,16 @@ Users
 ├── Id
 ├── Username      (UNIQUE, COLLATE NOCASE)
 ├── Email         (UNIQUE, COLLATE NOCASE)
+├── FirstName     (empty when not given)
+├── LastName      (empty when not given)
 ├── PasswordHash
 └── Role          (CHECK: 'admin' | 'manager' | 'seller')
 ```
+
+`FirstName` and `LastName` were added after the table existed, so they arrive
+through `Database.ApplyMigrations` rather than the `CREATE TABLE`. `ALTER TABLE
+ADD COLUMN` appends them physically after `Role`, which is why every query
+names its columns explicitly instead of relying on their order.
 
 Either the username or the email works at the prompt, matched
 case-insensitively — `COLLATE NOCASE` on the column, so the match is
@@ -434,18 +460,67 @@ case-insensitive without `lower()` defeating the unique index.
 rights yet: `admin` is the only one that unlocks anything. `UserRole.CanOpenAdmin`
 is the single place that decides.
 
-An empty `Users` table gets the default administrator seeded into it:
+### First run: signing in for the first time
+
+An empty `Users` table gets one administrator seeded into it, so a new install
+has somebody who can open Admin:
 
 | Username | Email | Password | Role |
 | -------- | ----- | -------- | ---- |
-| `admin`  | `admin@example.com` | `AdminPos1234!` | admin |
+| `admin`  | `admin@example.com` | `admin` | admin |
 
-That is keyed off the table being empty rather than the database being new,
-unlike the catalogue: `Users` is new to databases that already exist, and an
-empty one would otherwise mean nobody can ever open Admin again.
+The application says so in a dialog before its window appears, and the command
+line prints it the first time any command runs. So:
 
-**That password is in this README, so it is a starting point and not a secret.**
-Change it with the command line below.
+1. Start the app. Dismiss the dialog that gives you the credentials above.
+2. Click **Kirjaudu** under the tiles and sign in as `admin` / `admin`.
+3. Click your name, now shown at the bottom of the start screen, to open
+   **Oma profiili**, and change the password under *Vaihda salasana*. It wants
+   the current password (`admin`), the new one, and the new one again.
+
+**Change it before doing anything else.** `admin` / `admin` is the weakest
+credential there is and it is written in this file, so anyone who has seen the
+repository knows it. Nothing enforces the change — the app only warns.
+
+From a terminal instead, without the UI:
+
+```powershell
+JussiMiniPos.exe --user-update --user admin --password
+```
+
+The seeding is keyed off the table being empty rather than the database being
+new, unlike the catalogue: `Users` is new to databases that already exist, and
+an empty one would otherwise mean nobody can ever open Admin again. Delete
+every user and the next start seeds `admin` / `admin` again — which is also the
+way back in if the password is lost, since only its hash is stored and there is
+nothing to recover.
+
+**Only this seeded administrator gets a fixed password.** Any other user
+created without one gets a generated password instead — see below.
+
+### Oma profiili
+
+Signed in, the name on the start screen is a button that opens the profile
+view: first name, last name, email, and a password change.
+
+The two halves save independently. Renaming yourself should not require your
+password, and changing your password should not be bundled with an edit you
+might not want to keep.
+
+- **Details.** Save is dead until a field actually differs from what is stored,
+  compared against the row rather than tracked with a flag, so typing a change
+  and undoing it leaves nothing to save. The email is checked for a plausible
+  shape and for being free before anything is written, so a clash is a sentence
+  rather than a SQLite error about an index. Saving re-reads the row and tells
+  the shell, so the start screen follows a renamed user without signing out.
+- **Password.** Needs the current password, the new one, and the new one again.
+  The confirmation is checked as it is typed rather than on save, the new
+  password must differ from the old, and the minimum length comes from
+  `PasswordHasher.MinimumLength` so this and the command line cannot disagree.
+
+**A user cannot change their own username or role here.** Those belong to an
+administrator, and `UserRepository.UpdateProfile` names neither column, so no
+amount of rewriting the view can reach them.
 
 ### Managing users from the command line
 
@@ -456,24 +531,34 @@ takes a username or an email, and roles are `admin`, `manager` or `seller`:
 JussiMiniPos.exe --users | Out-String        # list them
 
 JussiMiniPos.exe --user-add --username matti --email matti@example.com `
-                 --role seller --password
+                 --role seller --password --firstname Matti --lastname Meikäläinen
 JussiMiniPos.exe --user-update --user matti --role manager
 JussiMiniPos.exe --user-update --user matti --password
 JussiMiniPos.exe --user-delete --user matti
 ```
 
-**Leave `--password` with no value to be prompted for it**, so it stays out of
-your shell history and off the screen. Passing `--password "..."` works too and
-is what a script wants; piping a line into a prompting command works as well.
-Passwords must be at least 8 characters, and `--user-update` only touches the
-password when `--password` is given, so changing a role cannot reset one by
-accident.
+Passwords have three ways in, so a person, a script and an unattended run each
+have one that suits:
 
-To change the seeded administrator's password:
+| How | What happens |
+| --- | ------------ |
+| `--password "..."`     | Uses exactly that. What a script wants. |
+| `--password` (no value) | Prompts, without echoing — stays out of shell history. |
+| omitted                 | **Generates one and prints it once.** |
 
-```powershell
-JussiMiniPos.exe --user-update --user admin --password
-```
+A generated password looks like `Kfx7-Rm9t-Qbv4-Xhn6`: sixteen characters from
+an alphabet with no lookalikes (no `O`/`0`, no `I`/`l`/`1`), grouped so it can
+be read aloud and typed back. Only its hash is stored, so the line the command
+prints is the one and only time it can be seen.
+
+`--user-update --generate-password` replaces someone's password with a fresh
+generated one — the "they forgot theirs" case, where nobody has to invent a
+password. Otherwise `--user-update` only touches the password when
+`--password` is given, so changing a role cannot reset one by accident.
+
+Passwords given by hand must be at least `PasswordHasher.MinimumLength`
+characters — 8. The seeded `admin` / `admin` is the one exception, since its
+whole point is being easy to type once.
 
 **The last administrator cannot be deleted or demoted.** Either would leave
 Admin unreachable with no way back short of editing the database by hand, so

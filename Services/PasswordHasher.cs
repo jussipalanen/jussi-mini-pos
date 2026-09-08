@@ -21,6 +21,13 @@ public static class PasswordHasher
     /// costs a fraction of a second once per login, which nobody notices, and
     /// multiplies the cost of guessing by the same factor.
     /// </summary>
+    /// <summary>
+    /// Shortest password that will be stored. Not much of a policy — more a
+    /// guard against a typo becoming a one-character password. Lives here so
+    /// the profile view and the command line cannot disagree about it.
+    /// </summary>
+    public const int MinimumLength = 8;
+
     private const int Iterations = 600_000;
 
     private const int SaltBytes = 16;

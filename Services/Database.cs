@@ -89,6 +89,12 @@ public sealed class Database
         // Added when products gained a price and an offer price.
         AddColumnIfMissing(connection, "Products", "PriceCents", "INTEGER NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "Products", "SalePriceCents", "INTEGER NULL");
+
+        // Added when users gained a name of their own. Empty rather than NULL,
+        // so "no name given" is one state and the profile form has something
+        // to bind to; the seeded administrator starts without one.
+        AddColumnIfMissing(connection, "Users", "FirstName", "TEXT NOT NULL DEFAULT ''");
+        AddColumnIfMissing(connection, "Users", "LastName", "TEXT NOT NULL DEFAULT ''");
     }
 
     private static void AddColumnIfMissing(
@@ -154,6 +160,8 @@ public sealed class Database
             Id           INTEGER PRIMARY KEY AUTOINCREMENT,
             Username     TEXT    NOT NULL UNIQUE COLLATE NOCASE,
             Email        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+            FirstName    TEXT    NOT NULL DEFAULT '',
+            LastName     TEXT    NOT NULL DEFAULT '',
             PasswordHash TEXT    NOT NULL,
             Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller'))
         );

@@ -19,6 +19,12 @@
     <SolidColorBrush x:Key="Brush.DangerSurface" Color="#FEF2F2" />
     <SolidColorBrush x:Key="Brush.Success" Color="#15803D" />
 
+    <!-- Logo colours, from Assets/Icons/jussi-mini-pos-logo.svg. Kept apart
+         from the accent: this is the brand, and the accent is the interface.
+         Point them at Brush.Accent to make the logo match the UI instead. -->
+    <SolidColorBrush x:Key="Brush.Brand" Color="#0F766E" />
+    <SolidColorBrush x:Key="Brush.BrandText" Color="#14100E" />
+
     <!-- ===================== Typography ===================== -->
     <Style x:Key="Text.Title" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="Segoe UI" />
@@ -84,6 +90,81 @@
         <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="14" />
+    </Style>
+
+    <!-- ===================== Logo =====================
+         Assets/Icons/jussi-mini-pos-logo.svg rebuilt as XAML. WPF cannot load
+         an SVG, and that file is built from <text> elements asking for a font
+         nobody has installed, so redrawing the lockup here is both closer to
+         what was designed and crisp at any DPI. Sized on the SVG's own 170x60
+         canvas and scaled by a Viewbox, so set Width or Height at the usage
+         site and the proportions follow:
+
+             <ContentControl Style="{StaticResource Logo}" Width="240" />
+    -->
+    <Style x:Key="Logo" TargetType="ContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Viewbox Stretch="Uniform">
+                        <Grid Width="170" Height="60">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="60" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- The mark: a rounded square holding the initial -->
+                            <Border Grid.Column="0" Width="60" Height="60" CornerRadius="14"
+                                    Background="{StaticResource Brush.Brand}">
+                                <TextBlock Text="J" FontFamily="Segoe UI" FontSize="34"
+                                           FontWeight="Medium"
+                                           Foreground="{StaticResource Brush.TextOnAccent}"
+                                           HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Margin="0,-2,0,0" />
+                            </Border>
+
+                            <!-- The wordmark, on the SVG's own 16px gap -->
+                            <StackPanel Grid.Column="1" Margin="16,0,0,0"
+                                        VerticalAlignment="Center">
+                                <TextBlock Text="Jussi" FontFamily="Segoe UI" FontSize="30"
+                                           FontWeight="Medium" LineHeight="32"
+                                           LineStackingStrategy="BlockLineHeight"
+                                           Foreground="{StaticResource Brush.BrandText}" />
+                                <TextBlock Text="mini-POS" FontFamily="Segoe UI" FontSize="17"
+                                           LineHeight="20"
+                                           LineStackingStrategy="BlockLineHeight"
+                                           Foreground="{StaticResource Brush.Brand}" />
+                            </StackPanel>
+                        </Grid>
+                    </Viewbox>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Just the mark, for anywhere the wordmark would be redundant or the
+         space is square. -->
+    <Style x:Key="Logo.Mark" TargetType="ContentControl">
+        <Setter Property="Focusable" Value="False" />
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ContentControl">
+                    <Viewbox Stretch="Uniform">
+                        <Border Width="60" Height="60" CornerRadius="14"
+                                Background="{StaticResource Brush.Brand}">
+                            <TextBlock Text="J" FontFamily="Segoe UI" FontSize="34"
+                                       FontWeight="Medium"
+                                       Foreground="{StaticResource Brush.TextOnAccent}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Margin="0,-2,0,0" />
+                        </Border>
+                    </Viewbox>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <!-- ===================== Start view tile ===================== -->

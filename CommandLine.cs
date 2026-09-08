@@ -45,6 +45,16 @@ public static class CommandLine
 
         var flags = args.Select(a => a.TrimStart('-', '/').ToLowerInvariant()).ToHashSet();
 
+        if (flags.Overlaps(["version", "v"]))
+        {
+            // Answered without opening the database: asking what this build is
+            // should not depend on the database being usable.
+            AttachToTerminal();
+            Write($"JussiMiniPos {AppInfo.DisplayVersion}");
+            Flush();
+            return 0;
+        }
+
         if (flags.Overlaps(["help", "h", "?"]))
         {
             return Run(_ => WriteUsage());
@@ -118,6 +128,17 @@ public static class CommandLine
             database.EnsureCreated();
             Write($"Database: {database.Path}");
             Write(string.Empty);
+
+            // Same seeding the application does, so a database set up from a
+            // terminal is not left with nobody who can open Admin.
+            if (new UserRepository(database).EnsureDefaultAdmin() is { } seeded)
+            {
+                Write($"Created the administrator \"{UserRepository.DefaultUsername}\" " +
+                      $"<{UserRepository.DefaultEmail}> with the first-run password \"{seeded}\".");
+                Write("Change it now: --user-update --user admin --password");
+                Write(string.Empty);
+            }
+
             action(database);
         }
         catch (Exception ex)
@@ -245,12 +266,6 @@ public static class CommandLine
 
     // ---------- Users ----------
 
-    /// <summary>
-    /// Shortest password these commands will store. Not a policy so much as a
-    /// guard against a typo becoming a one-character password.
-    /// </summary>
-    private const int MinPasswordLength = 8;
-
     private static void ListUsers(Database database)
     {
         using var connection = database.OpenConnection();
@@ -259,7 +274,12 @@ public static class CommandLine
         // a password, but printing it hands a copy to anybody watching the
         // terminal for no benefit.
         Write("Users");
-        WriteTable(connection, "SELECT Id, Username, Email, Role FROM Users ORDER BY Id;");
+        WriteTable(connection,
+            """
+            SELECT Id, Username, Email, TRIM(FirstName || ' ' || LastName) AS Name, Role
+            FROM Users
+            ORDER BY Id;
+            """);
     }
 
     private static void AddUser(UserRepository users, IReadOnlyDictionary<string, string> options)
@@ -267,7 +287,7 @@ public static class CommandLine
         var username = Required(options, "username");
         var email = Required(options, "email");
         var role = ParseRole(Required(options, "role"));
-        var password = Password(options, "New password: ");
+        var password = Password(options, "New password: ", out var generated);
 
         // Checked here as well as by the UNIQUE constraint, so the failure is
         // a sentence rather than a SQLite error about an index.
@@ -283,8 +303,16 @@ public static class CommandLine
                 $"Email \"{email}\" is taken by user #{byEmail.Id}.");
         }
 
-        var id = users.InsertUser(username, email, password, role);
+        var firstName = Value(options, "firstname") ?? string.Empty;
+        var lastName = Value(options, "lastname") ?? string.Empty;
+
+        var id = users.InsertUser(username, email, password, role, firstName, lastName);
         Write($"Added user #{id}  {username} <{email}>  role={UserRoleNames.ToStorage(role)}");
+
+        if (generated)
+        {
+            WriteGenerated(password);
+        }
     }
 
     private static void UpdateUser(UserRepository users, IReadOnlyDictionary<string, string> options)
@@ -296,15 +324,24 @@ public static class CommandLine
         var username = Value(options, "username") ?? user.Username;
         var email = Value(options, "email") ?? user.Email;
         var role = Value(options, "role") is { } roleText ? ParseRole(roleText) : user.Role;
-        var changingPassword = options.ContainsKey("password");
+        var firstName = Value(options, "firstname") ?? user.FirstName;
+        var lastName = Value(options, "lastname") ?? user.LastName;
+
+        // --generate-password is the "reset it for someone who forgot theirs"
+        // case: nobody has to invent a password, and it is printed once.
+        var generating = options.ContainsKey("generate-password");
+        var changingPassword = generating || options.ContainsKey("password");
 
         if (username == user.Username
             && email == user.Email
             && role == user.Role
+            && firstName == user.FirstName
+            && lastName == user.LastName
             && !changingPassword)
         {
             throw new InvalidOperationException(
-                "Nothing to change. Pass --username, --email, --role or --password.");
+                "Nothing to change. Pass --username, --email, --firstname, --lastname, " +
+                "--role, --password or --generate-password.");
         }
 
         // Losing the last administrator would leave Admin unreachable with no
@@ -331,9 +368,22 @@ public static class CommandLine
 
         // The password is read before anything is written, so cancelling the
         // prompt leaves the user exactly as it was.
-        var password = changingPassword ? Password(options, "New password: ") : null;
+        string? password = null;
+        if (generating)
+        {
+            password = PasswordGenerator.Generate();
+        }
+        else if (changingPassword)
+        {
+            password = Password(options, "New password: ", out _);
+        }
 
         users.UpdateUser(user.Id, username, email, role);
+
+        if (firstName != user.FirstName || lastName != user.LastName)
+        {
+            users.SetName(user.Id, firstName, lastName);
+        }
 
         if (password is not null)
         {
@@ -342,9 +392,19 @@ public static class CommandLine
 
         Write($"Updated user #{user.Id}  {username} <{email}>  role={UserRoleNames.ToStorage(role)}");
 
+        if (firstName.Length > 0 || lastName.Length > 0)
+        {
+            Write($"Name: {$"{firstName} {lastName}".Trim()}");
+        }
+
         if (password is not null)
         {
             Write("Password changed.");
+        }
+
+        if (generating)
+        {
+            WriteGenerated(password!);
         }
     }
 
@@ -382,20 +442,50 @@ public static class CommandLine
                 $"Unknown role \"{value}\". Use admin, manager or seller.");
 
     /// <summary>
-    /// The password to store: the one given with <c>--password</c>, or one
-    /// typed at a prompt when the option was passed without a value.
+    /// The password to store. Three ways in, so a script, a person and an
+    /// unattended run all have one that suits:
+    ///   --password "..."   use exactly this
+    ///   --password         type it at a prompt, without it being echoed
+    ///   (omitted)          generate one and print it once
     /// </summary>
-    private static string Password(IReadOnlyDictionary<string, string> options, string prompt)
+    /// <param name="generated">
+    /// Set when the password was made up here, so the caller can print it —
+    /// nobody can look it up afterwards.
+    /// </param>
+    private static string Password(
+        IReadOnlyDictionary<string, string> options,
+        string prompt,
+        out bool generated)
     {
+        if (!options.ContainsKey("password"))
+        {
+            generated = true;
+            return PasswordGenerator.Generate();
+        }
+
+        generated = false;
+
         var password = Value(options, "password") ?? ReadHiddenLine(prompt);
 
-        if (password.Length < MinPasswordLength)
+        if (password.Length < PasswordHasher.MinimumLength)
         {
             throw new InvalidOperationException(
-                $"The password must be at least {MinPasswordLength} characters.");
+                $"The password must be at least {PasswordHasher.MinimumLength} characters.");
         }
 
         return password;
+    }
+
+    /// <summary>
+    /// Prints a generated password, with the warning that goes with it. Only
+    /// the hash is stored, so this is the one time it can be read.
+    /// </summary>
+    private static void WriteGenerated(string password)
+    {
+        Write(string.Empty);
+        Write($"Generated password: {password}");
+        Write("Write it down now — only its hash is stored, so it cannot be shown again.");
+        Write("Pass --password to choose one yourself, or --password with no value to be prompted.");
     }
 
     /// <summary>
@@ -607,15 +697,22 @@ public static class CommandLine
         Write("  JussiMiniPos.exe --clear         delete the catalogue rows (keeps sales)");
         Write($"""  JussiMiniPos.exe --ask "..."     ask the AI assistant one question""");
         Write("  JussiMiniPos.exe --users         list the users");
+        Write("  JussiMiniPos.exe --version       print the version and exit");
         Write("  JussiMiniPos.exe --help          this text");
         Write(string.Empty);
         Write("Users. Roles are admin, manager or seller; only admin can open the Admin view.");
-        Write("--user takes a username or an email. Leave --password with no value to be");
-        Write("prompted for it instead of putting it in your shell history.");
+        Write("--user takes a username or an email. Passwords: give --password a value to set");
+        Write("one, pass --password with no value to be prompted without it reaching your");
+        Write("shell history, or leave it out entirely and one is generated and printed once.");
         Write(string.Empty);
         Write("  JussiMiniPos.exe --user-add --username matti --email matti@example.com \\");
-        Write("                   --role seller --password");
+        Write("                   --role seller --password \\");
+        Write("                   --firstname Matti --lastname Meikäläinen");
         Write("  JussiMiniPos.exe --user-update --user matti --role manager");
+        Write("  JussiMiniPos.exe --user-add --username liisa --email liisa@example.com \\");
+        Write("                   --role manager            (password is generated)");
+        Write("  JussiMiniPos.exe --user-update --user matti --firstname Matti");
+        Write("  JussiMiniPos.exe --user-update --user matti --generate-password");
         Write("  JussiMiniPos.exe --user-update --user matti --password \"NewPass1234!\"");
         Write("  JussiMiniPos.exe --user-delete --user matti");
         Write(string.Empty);

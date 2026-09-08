@@ -1,0 +1,173 @@
+<UserControl x:Class="JussiMiniPos.Views.ProfileView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d"
+             d:DesignHeight="760" d:DesignWidth="1200"
+             FontFamily="Segoe UI">
+
+    <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </UserControl.Resources>
+
+    <Grid Margin="22">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============ Header ============ -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,18">
+            <Button Style="{StaticResource Button.Ghost}" Click="Back_Click" Padding="10,0"
+                    AutomationProperties.Name="Takaisin">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.ArrowLeft}"
+                                    Width="16" Height="16"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="Takaisin" Margin="7,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
+            <TextBlock Text="Oma profiili" Style="{StaticResource Text.SectionHeader}"
+                       FontSize="26" Margin="16,0,0,0" VerticalAlignment="Center" />
+
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="18,2,0,0">
+                <ContentControl Style="{StaticResource Icon}"
+                                Tag="{StaticResource Icon.User}"
+                                Width="14" Height="14"
+                                Foreground="{StaticResource Brush.TextMuted}"
+                                VerticalAlignment="Center" />
+                <TextBlock Text="{Binding AccountText}" Margin="7,0,0,0"
+                           Style="{StaticResource Text.Muted}" FontSize="13"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+
+        <!-- ============ Two cards ============ -->
+        <Grid Grid.Row="1" MaxWidth="1000" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="320" />
+                <ColumnDefinition Width="18" />
+                <ColumnDefinition Width="*" MinWidth="320" />
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== Left: name and email ===== -->
+            <Border Grid.Column="0" Style="{StaticResource Card}" Padding="24,22"
+                    VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="Omat tiedot" Style="{StaticResource Text.SectionHeader}" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="12"
+                               Margin="0,7,0,0" TextWrapping="Wrap"
+                               Text="Nimi näkyy sisäänkirjautuneena aloitusnäytöllä. Käyttäjätunnusta ja roolia voi muuttaa vain ylläpitäjä." />
+
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,18" />
+
+                    <TextBlock Text="Etunimi" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                    <TextBox x:Name="FirstNameBox" Style="{StaticResource FormBox}"
+                             AutomationProperties.Name="Etunimi"
+                             TextChanged="Details_Changed" />
+
+                    <TextBlock Text="Sukunimi" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <TextBox x:Name="LastNameBox" Style="{StaticResource FormBox}"
+                             AutomationProperties.Name="Sukunimi"
+                             TextChanged="Details_Changed" />
+
+                    <TextBlock Text="Sähköposti" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <TextBox x:Name="EmailBox" Style="{StaticResource FormBox}"
+                             AutomationProperties.Name="Sähköposti"
+                             TextChanged="Details_Changed" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="12"
+                               Margin="0,7,0,0" TextWrapping="Wrap"
+                               Text="Sähköpostilla voi myös kirjautua sisään, joten sen on oltava uniikki." />
+
+                    <!-- Result of saving the details, good or bad -->
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0"
+                                Visibility="{Binding HasDetailsStatus, Converter={StaticResource BoolToVis}}">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{Binding DetailsStatusIcon}"
+                                        Width="16" Height="16"
+                                        Foreground="{Binding DetailsStatusBrush}"
+                                        VerticalAlignment="Top" Margin="0,1,0,0" />
+                        <TextBlock Text="{Binding DetailsStatusText}" Margin="8,0,0,0"
+                                   FontSize="12" TextWrapping="Wrap" MaxWidth="300"
+                                   Foreground="{Binding DetailsStatusBrush}" />
+                    </StackPanel>
+
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,16" />
+
+                    <Button Style="{StaticResource Button.Primary}"
+                            HorizontalAlignment="Right" Width="180"
+                            Content="Tallenna tiedot"
+                            Click="SaveDetails_Click"
+                            IsEnabled="{Binding CanSaveDetails}"
+                            AutomationProperties.Name="Tallenna omat tiedot" />
+                </StackPanel>
+            </Border>
+
+            <!-- ===== Right: password ===== -->
+            <Border Grid.Column="2" Style="{StaticResource Card}" Padding="24,22"
+                    VerticalAlignment="Top">
+                <StackPanel>
+                    <TextBlock Text="Vaihda salasana" Style="{StaticResource Text.SectionHeader}" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="12"
+                               Margin="0,7,0,0" TextWrapping="Wrap"
+                               Text="{Binding PasswordRuleText}" />
+
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,18" />
+
+                    <TextBlock Text="Nykyinen salasana" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                    <PasswordBox x:Name="OldPasswordBox" Style="{StaticResource FormPasswordBox}"
+                                 AutomationProperties.Name="Nykyinen salasana"
+                                 PasswordChanged="Password_Changed" />
+
+                    <TextBlock Text="Uusi salasana" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <PasswordBox x:Name="NewPasswordBox" Style="{StaticResource FormPasswordBox}"
+                                 AutomationProperties.Name="Uusi salasana"
+                                 PasswordChanged="Password_Changed" />
+
+                    <TextBlock Text="Uusi salasana uudelleen" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <PasswordBox x:Name="ConfirmPasswordBox" Style="{StaticResource FormPasswordBox}"
+                                 AutomationProperties.Name="Uusi salasana uudelleen"
+                                 PasswordChanged="Password_Changed" />
+
+                    <!-- Mismatch is worth saying while it is being typed, rather
+                         than only after the save is attempted. -->
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="12"
+                               Margin="0,7,0,0" TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.Danger}"
+                               Text="Salasanat eivät täsmää."
+                               Visibility="{Binding HasConfirmMismatch, Converter={StaticResource BoolToVis}}" />
+
+                    <StackPanel Orientation="Horizontal" Margin="0,16,0,0"
+                                Visibility="{Binding HasPasswordStatus, Converter={StaticResource BoolToVis}}">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{Binding PasswordStatusIcon}"
+                                        Width="16" Height="16"
+                                        Foreground="{Binding PasswordStatusBrush}"
+                                        VerticalAlignment="Top" Margin="0,1,0,0" />
+                        <TextBlock Text="{Binding PasswordStatusText}" Margin="8,0,0,0"
+                                   FontSize="12" TextWrapping="Wrap" MaxWidth="300"
+                                   Foreground="{Binding PasswordStatusBrush}" />
+                    </StackPanel>
+
+                    <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,16" />
+
+                    <DockPanel LastChildFill="False">
+                        <TextBlock DockPanel.Dock="Left" VerticalAlignment="Center"
+                                   Style="{StaticResource Text.Muted}" FontSize="12"
+                                   Text="Vaihdetaan…"
+                                   Visibility="{Binding IsChangingPassword, Converter={StaticResource BoolToVis}}" />
+                        <Button DockPanel.Dock="Right"
+                                Style="{StaticResource Button.Primary}" Width="180"
+                                Content="Vaihda salasana"
+                                Click="ChangePassword_Click"
+                                IsEnabled="{Binding CanChangePassword}"
+                                AutomationProperties.Name="Vaihda salasana" />
+                    </DockPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

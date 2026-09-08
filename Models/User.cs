@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 
 namespace JussiMiniPos.Models;
 
@@ -10,14 +11,36 @@ namespace JussiMiniPos.Models;
 /// <param name="Id">Row id.</param>
 /// <param name="Username">What is typed at the login prompt.</param>
 /// <param name="Email">Also accepted at the login prompt.</param>
+/// <param name="FirstName">Given name, empty when none has been entered.</param>
+/// <param name="LastName">Family name, empty when none has been entered.</param>
 /// <param name="Role">What the user is allowed to do.</param>
-public sealed record User(int Id, string Username, string Email, UserRole Role)
+public sealed record User(
+    int Id,
+    string Username,
+    string Email,
+    string FirstName,
+    string LastName,
+    UserRole Role)
 {
     /// <summary>Only an administrator may open Admin.</summary>
     public bool CanOpenAdmin => Role == UserRole.Admin;
 
-    /// <summary>"admin (Ylläpitäjä)", for the line that says who is signed in.</summary>
-    public string Display => $"{Username} ({UserRoleNames.Finnish(Role)})";
+    /// <summary>
+    /// "Matti Meikäläinen", or as much of it as has been filled in. Empty when
+    /// neither name is set — <see cref="Name"/> is what callers want.
+    /// </summary>
+    public string FullName => string.Join(' ',
+        new[] { FirstName, LastName }.Where(part => !string.IsNullOrWhiteSpace(part)));
+
+    /// <summary>
+    /// What to call this user on screen: their name when there is one, and the
+    /// username otherwise. The seeded administrator has no name, so something
+    /// always has to stand in.
+    /// </summary>
+    public string Name => FullName.Length > 0 ? FullName : Username;
+
+    /// <summary>"Matti Meikäläinen (Ylläpitäjä)", for the line that says who is signed in.</summary>
+    public string Display => $"{Name} ({UserRoleNames.Finnish(Role)})";
 }
 
 /// <summary>

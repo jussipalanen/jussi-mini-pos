@@ -59,7 +59,25 @@ public partial class MainWindow : Window
         // Keyed off the table being empty rather than the database being new,
         // unlike the catalogue: Users is new to databases that already exist,
         // and an empty one would mean nobody can ever open Admin again.
-        _users.EnsureDefaultAdmin();
+        //
+        // The first-run password is trivial and known to anyone who has seen
+        // the source, so the point of this dialog is not to reveal it but to
+        // say it needs replacing. Shown before the window appears, and
+        // deliberately blocking, so it cannot be missed.
+        if (_users.EnsureDefaultAdmin() is { } password)
+        {
+            MessageBox.Show(
+                $"Ylläpitäjän tunnus luotiin ensimmäistä käyttöä varten:\n\n" +
+                $"Käyttäjätunnus:  {UserRepository.DefaultUsername}\n" +
+                $"Sähköposti:      {UserRepository.DefaultEmail}\n" +
+                $"Salasana:        {password}\n\n" +
+                $"Kirjaudu sisään aloitusnäytöltä ja vaihda salasana heti kohdassa " +
+                $"Oma profiili. Tämä salasana on tiedossa kaikilla, joilla on " +
+                $"sovelluksen lähdekoodi.",
+                "JussiMiniPos",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
 
         ShowStartView();
     }
@@ -190,6 +208,28 @@ public partial class MainWindow : Window
         ViewHost.Content = view;
     }
 
+    /// <summary>
+    /// The signed-in user's own details. Reachable only while signed in — the
+    /// start screen only offers it then, and there is nothing to edit
+    /// otherwise, so this prompts rather than refuses.
+    /// </summary>
+    private void ShowProfileView()
+    {
+        if (_currentUser is null && !SignIn("Kirjaudu sisään nähdäksesi omat tietosi."))
+        {
+            return;
+        }
+
+        var view = new ProfileView(_users, _currentUser!);
+        view.Back += ShowStartView;
+
+        // A renamed user has to reach the session too, or the start screen
+        // keeps greeting them by the old name until they sign in again.
+        view.Updated += user => _currentUser = user;
+
+        ViewHost.Content = view;
+    }
+
     private void ShowPaymentView()
     {
         if (_checkoutView is null)
@@ -233,6 +273,12 @@ public partial class MainWindow : Window
         if (destination == AppView.Admin)
         {
             ShowAdminView();
+            return;
+        }
+
+        if (destination == AppView.Profile)
+        {
+            ShowProfileView();
             return;
         }
 

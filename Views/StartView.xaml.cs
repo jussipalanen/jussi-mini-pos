@@ -2,6 +2,7 @@ using System;
 using System.Windows;
 using System.Windows.Controls;
 using JussiMiniPos.Models;
+using JussiMiniPos.Services;
 
 namespace JussiMiniPos.Views;
 
@@ -34,6 +35,9 @@ public partial class StartView : UserControl
 
     public User? CurrentUser { get; }
 
+    /// <summary>The build's version, stamped in the corner.</summary>
+    public string Version => AppInfo.DisplayVersion;
+
     public bool IsSignedIn => CurrentUser is not null;
 
     public bool IsSignedOut => CurrentUser is null;
@@ -51,6 +55,8 @@ public partial class StartView : UserControl
     private void Reports_Click(object sender, RoutedEventArgs e) => Navigate?.Invoke(AppView.Reports);
 
     private void Admin_Click(object sender, RoutedEventArgs e) => Navigate?.Invoke(AppView.Admin);
+
+    private void Profile_Click(object sender, RoutedEventArgs e) => Navigate?.Invoke(AppView.Profile);
 
     private void Login_Click(object sender, RoutedEventArgs e) => LoginRequested?.Invoke();
 

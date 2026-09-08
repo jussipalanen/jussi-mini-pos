@@ -18,7 +18,11 @@
 
     <StackPanel Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="24">
 
-        <TextBlock Text="JussiMiniPos" Style="{StaticResource Text.Title}" />
+        <!-- The logo is the title: it carries the name already, so a
+             "JussiMiniPos" heading under it only said it twice. -->
+        <ContentControl Style="{StaticResource Logo}" Width="300"
+                        HorizontalAlignment="Center" Margin="0,0,0,4"
+                        AutomationProperties.Name="Jussi mini-POS" />
 
         <TextBlock Text="Tervetuloa JussiMiniPos -järjestelmään."
                    Style="{StaticResource Text.Subtitle}" />
@@ -49,20 +53,24 @@
         <StackPanel Grid.Row="1" Orientation="Horizontal"
                     HorizontalAlignment="Center" Margin="0,0,0,22">
 
-            <!-- Who is signed in. Shown rather than implied, because it is
-                 what decides whether Admin opens. -->
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
-                        Margin="0,0,6,0"
-                        Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}">
-                <ContentControl Style="{StaticResource Icon}"
-                                Tag="{StaticResource Icon.User}"
-                                Width="14" Height="14"
-                                Foreground="{StaticResource Brush.TextMuted}"
-                                VerticalAlignment="Center" />
-                <TextBlock Text="{Binding SignedInText}" Margin="7,0,0,0"
-                           Style="{StaticResource Text.Muted}" FontSize="13"
-                           VerticalAlignment="Center" />
-            </StackPanel>
+            <!-- Who is signed in, and the way to their own details. Shown
+                 rather than implied, because it is what decides whether Admin
+                 opens. -->
+            <Button Style="{StaticResource Button.Ghost}"
+                    ToolTip="Oma profiili"
+                    Click="Profile_Click"
+                    AutomationProperties.Name="Oma profiili"
+                    Visibility="{Binding IsSignedIn, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.User}"
+                                    Width="15" Height="15"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding SignedInText}" Margin="8,0,0,0"
+                               VerticalAlignment="Center" FontSize="13" />
+                </StackPanel>
+            </Button>
 
             <Button Style="{StaticResource Button.Ghost}"
                     Click="Login_Click"
@@ -105,5 +113,15 @@
                 </StackPanel>
             </Button>
         </StackPanel>
+
+        <!-- Corner-stamped rather than part of the row above: it is a fact
+             about the build, not something to interact with. Shares the row's
+             cell, which the session buttons never grow wide enough to reach. -->
+        <TextBlock Grid.Row="1"
+                   Text="{Binding Version}"
+                   Style="{StaticResource Text.Muted}" FontSize="12"
+                   HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                   Margin="0,0,18,20"
+                   AutomationProperties.Name="Sovelluksen versio" />
     </Grid>
 </UserControl>
