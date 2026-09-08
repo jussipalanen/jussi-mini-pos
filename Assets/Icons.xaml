@@ -74,4 +74,19 @@
                   Figures="M 18,6 L 6,18
                            M 6,6 L 18,18" />
 
+    <!-- lucide: loader-circle (rotated by a storyboard to make a spinner) -->
+    <PathGeometry x:Key="Icon.Loader"
+                  Figures="M 21,12 A 9,9 0 1 1 14.781,3.44" />
+
+    <!-- lucide: circle-check -->
+    <PathGeometry x:Key="Icon.CircleCheck"
+                  Figures="M 2,12 A 10,10 0 1 0 22,12 A 10,10 0 1 0 2,12 Z
+                           M 16,9 L 10.5,14.5 L 8,12" />
+
+    <!-- lucide: circle-alert -->
+    <PathGeometry x:Key="Icon.CircleAlert"
+                  Figures="M 2,12 A 10,10 0 1 0 22,12 A 10,10 0 1 0 2,12 Z
+                           M 12,8 L 12,12
+                           M 12,16 L 12.01,16" />
+
 </ResourceDictionary>

@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using JussiMiniPos.Services;
 using JussiMiniPos.Views;
 
 namespace JussiMiniPos;
@@ -9,14 +10,29 @@ namespace JussiMiniPos;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private readonly Database _database = new();
+    private readonly SalesRepository _salesRepository;
+
+    /// <summary>
+    /// Kept alive across the payment flow so cancelling a payment returns to
+    /// the cart the user built rather than an empty one.
+    /// </summary>
+    private CheckoutView? _checkoutView;
+
     public MainWindow()
     {
         InitializeComponent();
+
+        _database.EnsureCreated();
+        _salesRepository = new SalesRepository(_database);
+
         ShowStartView();
     }
 
     private void ShowStartView()
     {
+        _checkoutView = null;
+
         var view = new StartView();
         view.Navigate += OnNavigate;
         ViewHost.Content = view;
@@ -24,9 +40,34 @@ public partial class MainWindow : Window
 
     private void ShowCheckoutView()
     {
-        var view = new CheckoutView();
-        view.Back += ShowStartView;
+        if (_checkoutView is null)
+        {
+            _checkoutView = new CheckoutView();
+            _checkoutView.Back += ShowStartView;
+            _checkoutView.PayRequested += ShowPaymentView;
+        }
+
+        ViewHost.Content = _checkoutView;
+    }
+
+    private void ShowPaymentView()
+    {
+        if (_checkoutView is null)
+        {
+            return;
+        }
+
+        var view = new PaymentView(_checkoutView.Cart, _salesRepository);
+        view.Cancelled += ShowCheckoutView;
+        view.Finished += StartNewSale;
         ViewHost.Content = view;
+    }
+
+    /// <summary>After a paid sale the next customer starts from an empty cart.</summary>
+    private void StartNewSale()
+    {
+        _checkoutView = null;
+        ShowCheckoutView();
     }
 
     private void OnNavigate(AppView destination)

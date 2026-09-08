@@ -80,14 +80,89 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 
 ## Project layout
 
-| Path                   | Purpose                                       |
-| ---------------------- | --------------------------------------------- |
-| `JussiMiniPos.csproj`  | Project file (`net10.0-windows`, WPF enabled) |
-| `App.xaml(.cs)`        | Application entry point and global resources  |
-| `MainWindow.xaml(.cs)` | Main application window                       |
-| `AssemblyInfo.cs`      | Assembly-level theme configuration            |
+| Path                   | Purpose                                                |
+| ---------------------- | ------------------------------------------------------ |
+| `JussiMiniPos.csproj`  | Project file (`net10.0-windows`, WPF enabled)          |
+| `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
+| `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
+| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`             |
+| `Models/`              | `Product`, `CartLine`, `Sale`, `PaymentMethod`         |
+| `Services/`            | `ProductCatalog` (demo data), `SalesRepository` (SQLite) |
+| `Assets/`              | `Styles.xaml`, `Icons.xaml` and the Lucide `.svg` sources |
+| `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
 
 Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
+
+## Conventions
+
+- **Code is English, the UI is Finnish.** Class, method and resource names use
+  English (`CheckoutView`, `Icon.Checkout`, `PaymentMethod.Card`); only strings
+  the user reads are Finnish. `AppViewNames` and `PaymentMethodNames` map
+  between the two and are the seam to replace if real localisation is added.
+- **Prices are euros**, held as `decimal` in memory and formatted through
+  `fi-FI`, so they render as `2,50 €`.
+
+## Database
+
+Completed sales are stored in SQLite at:
+
+```
+%LOCALAPPDATA%\JussiMiniPos\jussiminipos.db
+```
+
+The file and its schema are created on first run by `Database.EnsureCreated()`;
+delete the file to start over. Every statement is `IF NOT EXISTS`, so adding
+tables to an existing database is safe.
+
+### Catalogue
+
+```
+Categories                    Products
+├── Id                        ├── Id
+├── Title                     ├── Title
+├── ParentId → Categories.Id  ├── Description
+└── IsPublic (0/1)            ├── FeatureImage
+                              └── IsPublic (0/1)
+
+ProductImages                 ProductCategories
+├── Id                        ├── ProductId  → Products.Id
+├── ProductId → Products.Id   └── CategoryId → Categories.Id
+├── Path                          (composite primary key)
+└── SortOrder
+```
+
+`Categories.ParentId` is a self-reference, so categories nest. A product can
+belong to several categories at once, so that link lives in its own table
+rather than a column; its extra images do too.
+
+### Sales
+
+```
+Sales                         SaleItems
+├── Id                        ├── Id
+├── DateTime   (ISO 8601)     ├── SaleId  → Sales.Id
+├── TotalCents (integer)      ├── ProductId
+└── PaymentMethod             ├── Name
+                              ├── Category
+                              ├── UnitPriceCents
+                              └── Quantity
+```
+
+A sale and its items are written in one transaction, and only after the payment
+succeeds — cancelling or failing a payment leaves nothing in the database.
+Sold lines copy the name and price, so later catalogue edits never rewrite
+past receipts.
+
+### Conventions
+
+- Column names are **PascalCase** throughout, matching the C# side.
+- Booleans are `INTEGER` `0`/`1` with a `CHECK`, since SQLite has no boolean.
+- Money is an **integer number of cents**, not `REAL`. SQLite has no decimal
+  type, and binary floating point cannot hold values like `0.10` exactly, so a
+  column of `REAL` totals drifts once you start summing it for reports.
+  `SalesRepository.FromCents` converts back for display.
+- Foreign keys are enforced: `Database.OpenConnection()` sets
+  `PRAGMA foreign_keys = ON`, which SQLite otherwise leaves off per connection.
 
 ## License
 

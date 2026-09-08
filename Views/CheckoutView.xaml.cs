@@ -49,6 +49,9 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     /// <summary>Raised when the user wants to leave the checkout view.</summary>
     public event Action? Back;
 
+    /// <summary>Raised when the user is ready to pay for the current cart.</summary>
+    public event Action? PayRequested;
+
     public ICollectionView ProductsView => _productsView;
 
     public IReadOnlyList<string> Categories { get; }
@@ -282,18 +285,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
         Cart.Clear();
     }
 
-    private void Pay_Click(object sender, RoutedEventArgs e)
-    {
-        // TODO: replace with a real payment flow and a receipt.
-        MessageBox.Show(
-            Window.GetWindow(this),
-            $"Maksettu {Total:N2} € ({ItemCount} kpl).",
-            "JussiMiniPos",
-            MessageBoxButton.OK,
-            MessageBoxImage.Information);
-
-        ClearCart_Click(sender, e);
-    }
+    private void Pay_Click(object sender, RoutedEventArgs e) => PayRequested?.Invoke();
 
     private void Back_Click(object sender, RoutedEventArgs e) => Back?.Invoke();
 
