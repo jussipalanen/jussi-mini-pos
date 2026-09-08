@@ -63,6 +63,7 @@ public static class CommandLine
             {
                 CatalogSeeder.Clear(database);
                 Write("Catalogue tables cleared. Sales were left untouched.");
+                SweepImages(database);
             });
         }
 
@@ -111,8 +112,26 @@ public static class CommandLine
         }
 
         var result = CatalogSeeder.Seed(database);
-        Write($"Seeded {result.Categories} categories, {result.Products} products, " +
-              $"{result.Images} images and {result.Links} product/category links.");
+        Write($"Seeded {result.Categories} categories, {result.Products} products and " +
+              $"{result.Links} product/category links.");
+
+        SweepImages(database);
+    }
+
+    /// <summary>
+    /// Removes image files nothing points at any more. Dropping catalogue rows
+    /// leaves their pictures on disk, so every command that deletes rows sweeps
+    /// afterwards.
+    /// </summary>
+    private static void SweepImages(Database database)
+    {
+        var store = new ImageStore(database);
+        var removed = store.DeleteUnreferenced(new CatalogRepository(database).GetAllImagePaths());
+
+        if (removed > 0)
+        {
+            Write($"Removed {removed} unreferenced image file(s) from {store.RootPath}.");
+        }
     }
 
     private static void Dump(Database database)

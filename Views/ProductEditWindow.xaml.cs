@@ -1,33 +1,70 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using JussiMiniPos.Models;
+using JussiMiniPos.Services;
+using Microsoft.Win32;
 
 namespace JussiMiniPos.Views;
 
 /// <summary>
-/// Modal editor for one product. It validates and exposes the entered values;
-/// writing them back is the caller's job, so this window never touches the
-/// database itself.
+/// Modal editor for one product, used both for editing an existing row and for
+/// creating a new one. It validates and exposes the entered values as a draft;
+/// writing that to the database is the caller's job.
+///
+/// Picked images are copied into the <see cref="ImageStore"/> straight away so
+/// a thumbnail can be shown, and the ones that end up unused are cleaned up
+/// when the dialog closes.
 /// </summary>
-public partial class ProductEditWindow : Window
+public partial class ProductEditWindow : Window, INotifyPropertyChanged
 {
-    public ProductEditWindow(Product product, IReadOnlyList<Category> categories)
+    private readonly ImageStore _images;
+    private readonly Product? _product;
+
+    /// <summary>Files copied in during this session, to undo on cancel.</summary>
+    private readonly List<string> _imported = [];
+
+    /// <summary>Images dropped from the product, to delete once the save sticks.</summary>
+    private readonly List<string> _removed = [];
+
+    private ImageEntry? _featureImage;
+
+    public ProductEditWindow(Product? product, IReadOnlyList<Category> categories, ImageStore images)
     {
         InitializeComponent();
 
-        HeaderText = $"{product.Name} ({product.Id})";
+        _product = product;
+        _images = images;
+
+        IsNew = product is null;
+        WindowTitle = IsNew ? "Uusi tuote" : "Muokkaa tuotetta";
+        HeaderText = IsNew ? "Uusi tuote" : $"{product!.Name} ({product.Id})";
+
         DataContext = this;
 
-        TitleBox.Text = product.Name;
-        DescriptionBox.Text = product.Description;
-        PriceBox.Text = product.Price.ToString("N2", CultureInfo.CurrentCulture);
-        SalePriceBox.Text = product.SalePrice?.ToString("N2", CultureInfo.CurrentCulture) ?? string.Empty;
-        PublicBox.IsChecked = product.IsPublic;
+        TitleBox.Text = product?.Name ?? string.Empty;
+        DescriptionBox.Text = product?.Description ?? string.Empty;
+        PriceBox.Text = product?.Price.ToString("N2", CultureInfo.CurrentCulture) ?? string.Empty;
+        SalePriceBox.Text = product?.SalePrice?.ToString("N2", CultureInfo.CurrentCulture) ?? string.Empty;
+        PublicBox.IsChecked = product?.IsPublic ?? true;
+
+        FeatureImage = product?.FeatureImage is { } feature ? Entry(feature) : null;
+
+        foreach (var path in product?.Images ?? [])
+        {
+            GalleryImages.Add(Entry(path));
+        }
 
         CategoryList.ItemsSource = categories;
-        foreach (var category in categories.Where(c => product.Categories.Any(pc => pc.Id == c.Id)))
+        foreach (var category in categories.Where(c => product?.Categories.Any(pc => pc.Id == c.Id) == true))
         {
             CategoryList.SelectedItems.Add(category);
         }
@@ -36,37 +73,218 @@ public partial class ProductEditWindow : Window
         TitleBox.SelectAll();
     }
 
+    public bool IsNew { get; }
+
+    public string WindowTitle { get; }
+
     public string HeaderText { get; }
 
-    public string ProductTitle { get; private set; } = string.Empty;
+    public ObservableCollection<ImageEntry> GalleryImages { get; } = [];
 
-    public string Description { get; private set; } = string.Empty;
+    public ImageEntry? FeatureImage
+    {
+        get => _featureImage;
+        private set
+        {
+            _featureImage = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(HasFeatureImage));
+            OnPropertyChanged(nameof(HasNoFeatureImage));
+            OnPropertyChanged(nameof(FeatureImageText));
+        }
+    }
 
-    public decimal Price { get; private set; }
+    public bool HasFeatureImage => _featureImage is not null;
 
-    public decimal? SalePrice { get; private set; }
+    public bool HasNoFeatureImage => _featureImage is null;
 
-    public bool IsPublic { get; private set; }
+    public string FeatureImageText => _featureImage switch
+    {
+        null => "Ei pääkuvaa valittuna.",
+        { Thumbnail: null } entry => $"{entry.RelativePath} (tiedostoa ei löydy)",
+        var entry => entry.RelativePath,
+    };
+
+    public bool HasNoGalleryImages => GalleryImages.Count == 0;
+
+    /// <summary>The values to save, filled in once <see cref="Validate"/> passes.</summary>
+    public CatalogRepository.ProductDraft? Draft { get; private set; }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>A stored image plus a thumbnail, or null when the file is missing.</summary>
+    public sealed class ImageEntry(string relativePath, ImageSource? thumbnail)
+    {
+        public string RelativePath { get; } = relativePath;
+
+        public ImageSource? Thumbnail { get; } = thumbnail;
+    }
+
+    private ImageEntry Entry(string relativePath) =>
+        new(relativePath, LoadThumbnail(_images.ResolveExisting(relativePath)));
 
     /// <summary>
-    /// Selected categories in the order they appear in the list, so the first
-    /// stays the product's primary category.
+    /// Decodes the picture up front and closes the file. Without OnLoad the
+    /// bitmap keeps the file open, and deleting a removed image would fail.
     /// </summary>
-    public IReadOnlyList<int> SelectedCategoryIds { get; private set; } = [];
+    private static ImageSource? LoadThumbnail(string? absolutePath)
+    {
+        if (absolutePath is null)
+        {
+            return null;
+        }
+
+        try
+        {
+            var bitmap = new BitmapImage();
+            bitmap.BeginInit();
+            bitmap.UriSource = new Uri(absolutePath);
+            bitmap.CacheOption = BitmapCacheOption.OnLoad;
+            bitmap.DecodePixelWidth = 200;
+            bitmap.EndInit();
+            bitmap.Freeze();
+            return bitmap;
+        }
+        catch (Exception)
+        {
+            // A corrupt or unreadable file should show the placeholder, not
+            // take the dialog down.
+            return null;
+        }
+    }
+
+    private string[] PickFiles(bool multiple)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = multiple ? "Valitse kuvat" : "Valitse pääkuva",
+            Filter = ImageStore.FileFilter,
+            Multiselect = multiple,
+        };
+
+        return dialog.ShowDialog(this) == true ? dialog.FileNames : [];
+    }
+
+    /// <summary>Copies a picked file into the store, reporting failures inline.</summary>
+    private ImageEntry? ImportFile(string sourceFile)
+    {
+        try
+        {
+            var relative = _images.Import(sourceFile);
+            _imported.Add(relative);
+            return Entry(relative);
+        }
+        catch (Exception ex) when (ex is IOException or NotSupportedException or UnauthorizedAccessException)
+        {
+            ShowError($"Kuvaa {Path.GetFileName(sourceFile)} ei voitu lisätä: {ex.Message}");
+            return null;
+        }
+    }
+
+    private void PickFeatureImage_Click(object sender, RoutedEventArgs e)
+    {
+        if (PickFiles(multiple: false) is [var file] && ImportFile(file) is { } entry)
+        {
+            ReplaceFeature(entry);
+        }
+    }
+
+    private void ClearFeatureImage_Click(object sender, RoutedEventArgs e) => ReplaceFeature(null);
+
+    /// <summary>
+    /// Swaps the feature image, marking the old file for deletion unless the
+    /// gallery still shows it.
+    /// </summary>
+    private void ReplaceFeature(ImageEntry? entry)
+    {
+        if (_featureImage is { } old && GalleryImages.All(i => i.RelativePath != old.RelativePath))
+        {
+            _removed.Add(old.RelativePath);
+        }
+
+        FeatureImage = entry;
+    }
+
+    private void AddGalleryImages_Click(object sender, RoutedEventArgs e)
+    {
+        foreach (var file in PickFiles(multiple: true))
+        {
+            if (ImportFile(file) is { } entry)
+            {
+                GalleryImages.Add(entry);
+            }
+        }
+
+        OnPropertyChanged(nameof(HasNoGalleryImages));
+    }
+
+    private void RemoveGalleryImage_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not ImageEntry entry)
+        {
+            return;
+        }
+
+        GalleryImages.Remove(entry);
+
+        if (_featureImage?.RelativePath != entry.RelativePath)
+        {
+            _removed.Add(entry.RelativePath);
+        }
+
+        OnPropertyChanged(nameof(HasNoGalleryImages));
+    }
+
+    /// <summary>Makes a gallery picture the feature image without re-importing it.</summary>
+    private void PromoteToFeature_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is ImageEntry entry)
+        {
+            ReplaceFeature(entry);
+        }
+    }
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
         if (!Validate(out var error))
         {
-            ErrorText.Text = error;
-            ErrorText.Visibility = Visibility.Visible;
+            ShowError(error);
             return;
         }
+
+        // The save is going through, so the dropped files are safe to remove.
+        var keeping = GalleryImages.Select(i => i.RelativePath)
+            .Append(_featureImage?.RelativePath ?? string.Empty)
+            .ToHashSet();
+
+        _images.Delete(_removed.Where(path => !keeping.Contains(path)));
 
         DialogResult = true;
     }
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
+
+    protected override void OnClosed(EventArgs e)
+    {
+        // Nothing was saved, so every file copied in during this session is an
+        // orphan. Keep the ones the product already had.
+        if (DialogResult != true)
+        {
+            var existing = (_product?.Images ?? [])
+                .Append(_product?.FeatureImage ?? string.Empty)
+                .ToHashSet();
+
+            _images.Delete(_imported.Where(path => !existing.Contains(path)));
+        }
+
+        base.OnClosed(e);
+    }
+
+    private void ShowError(string message)
+    {
+        ErrorText.Text = message;
+        ErrorText.Visibility = Visibility.Visible;
+    }
 
     private bool Validate(out string error)
     {
@@ -116,12 +334,16 @@ public partial class ProductEditWindow : Window
             return false;
         }
 
-        ProductTitle = title;
-        Description = DescriptionBox.Text.Trim();
-        Price = price;
-        SalePrice = salePrice;
-        IsPublic = PublicBox.IsChecked == true;
-        SelectedCategoryIds = categoryIds;
+        Draft = new CatalogRepository.ProductDraft(
+            title,
+            DescriptionBox.Text.Trim(),
+            price,
+            salePrice,
+            PublicBox.IsChecked == true,
+            _featureImage?.RelativePath,
+            categoryIds,
+            [.. GalleryImages.Select(i => i.RelativePath)]);
+
         return true;
     }
 
@@ -138,4 +360,7 @@ public partial class ProductEditWindow : Window
             CultureInfo.GetCultureInfo("fi-FI"),
             out value);
     }
+
+    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

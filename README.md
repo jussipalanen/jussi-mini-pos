@@ -2,8 +2,9 @@
 
 A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 
-> **Status:** in progress. The checkout (Kassa) works end to end — product
-> search, cart, payment and storing the sale. Tuotteet, Myynti and Raportit are
+> **Status:** in progress. Kassa works end to end — product search, cart,
+> payment and storing the sale. Tuotteet manages the catalogue: search, paging,
+> add, edit, delete, images, and category management. Myynti and Raportit are
 > still placeholders.
 
 ## Requirements
@@ -85,9 +86,9 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `JussiMiniPos.csproj`  | Project file (`net10.0-windows`, WPF enabled)          |
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
-| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`             |
+| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView` and their edit dialogs |
 | `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `PaymentMethod` |
-| `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `DemoCatalog` |
+| `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog` |
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` handling               |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml` and the Lucide `.svg` sources |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
@@ -119,6 +120,27 @@ On startup the app also seeds the catalogue tables **if they are empty**, so a
 fresh install has something to look at. Once there are rows it does nothing, so
 hand-edited data is never overwritten.
 
+### Product images
+
+Pictures live beside the database, so the whole `JussiMiniPos` folder is one
+backup unit:
+
+```
+%LOCALAPPDATA%\JussiMiniPos\images\
+```
+
+Adding a picture in the product editor copies it into that folder under a fresh
+GUID name and stores the relative path (`images/ab12cd34ef56.jpg`) in the
+database — `Products.FeatureImage` for the thumbnail, `ProductImages` for the
+gallery. The original file is left where it was, and importing the same picture
+twice makes two copies, so removing one product's image can never blank
+another's.
+
+Rows can outlive their files, or point at files that were never there, so the
+UI treats a missing image as a placeholder rather than an error. Deleting a
+product removes its files; `--seed --reset` and `--clear` sweep up anything left
+unreferenced.
+
 ### Command line
 
 The same exe doubles as a catalogue tool. It has no console of its own, so it
@@ -133,9 +155,10 @@ JussiMiniPos.exe --help
 ```
 
 Seeding writes 7 categories (two of them nested under *Juomat*), the 20 demo
-products with prices in euros (four of them on offer), 2 placeholder image rows
-each, and 27 product/category links — seven products sit in two categories, to
-exercise the link table.
+products with prices in euros (four of them on offer), and 27 product/category
+links — seven products sit in two categories, to exercise the link table. It
+leaves images alone: no picture files ship with the app, so seeded products
+start without them.
 
 Because this is a `WinExe`, PowerShell does not wait for it and the prompt can
 come back before the output does. Pipe it to make the shell wait:

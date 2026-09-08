@@ -13,12 +13,15 @@ public partial class MainWindow : Window
     private readonly Database _database = new();
     private readonly SalesRepository _salesRepository;
     private readonly CatalogRepository _catalogRepository;
+    private readonly ImageStore _imageStore;
 
     /// <summary>
     /// Kept alive across the payment flow so cancelling a payment returns to
     /// the cart the user built rather than an empty one.
     /// </summary>
     private CheckoutView? _checkoutView;
+
+    private ProductsView? _productsView;
 
     public MainWindow()
     {
@@ -37,6 +40,7 @@ public partial class MainWindow : Window
 
         _salesRepository = new SalesRepository(_database);
         _catalogRepository = new CatalogRepository(_database);
+        _imageStore = new ImageStore(_database);
 
         ShowStartView();
     }
@@ -44,6 +48,7 @@ public partial class MainWindow : Window
     private void ShowStartView()
     {
         _checkoutView = null;
+        _productsView = null;
 
         var view = new StartView();
         view.Navigate += OnNavigate;
@@ -64,8 +69,26 @@ public partial class MainWindow : Window
 
     private void ShowProductsView()
     {
-        var view = new ProductsView(_catalogRepository);
-        view.Back += ShowStartView;
+        // Kept alive so returning from category management lands back on the
+        // same page and filter, refreshed.
+        if (_productsView is null)
+        {
+            _productsView = new ProductsView(_catalogRepository, _imageStore);
+            _productsView.Back += ShowStartView;
+            _productsView.ManageCategories += ShowCategoriesView;
+        }
+        else
+        {
+            _productsView.Reload();
+        }
+
+        ViewHost.Content = _productsView;
+    }
+
+    private void ShowCategoriesView()
+    {
+        var view = new CategoriesView(_catalogRepository);
+        view.Back += ShowProductsView;
         ViewHost.Content = view;
     }
 

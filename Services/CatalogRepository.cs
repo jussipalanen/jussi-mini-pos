@@ -22,7 +22,7 @@ public sealed class CatalogRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             $"""
-            SELECT Id, Title, ParentId
+            SELECT Id, Title, ParentId, IsPublic
             FROM Categories
             {(publicOnly ? "WHERE IsPublic = 1" : string.Empty)}
             ORDER BY COALESCE(ParentId, Id), Id;
@@ -36,7 +36,8 @@ public sealed class CatalogRepository(Database database)
             categories.Add(new Category(
                 reader.GetInt32(0),
                 reader.GetString(1),
-                reader.IsDBNull(2) ? null : reader.GetInt32(2)));
+                reader.IsDBNull(2) ? null : reader.GetInt32(2),
+                reader.GetInt64(3) != 0));
         }
 
         return categories;
@@ -51,6 +52,7 @@ public sealed class CatalogRepository(Database database)
         using var connection = database.OpenConnection();
 
         var categoriesByProduct = ReadProductCategories(connection, publicOnly);
+        var imagesByProduct = ReadProductImages(connection);
 
         using var command = connection.CreateCommand();
         command.CommandText =
@@ -76,25 +78,57 @@ public sealed class CatalogRepository(Database database)
                 reader.IsDBNull(4) ? null : SalesRepository.FromCents(reader.GetInt64(4)),
                 reader.IsDBNull(5) ? null : reader.GetString(5),
                 reader.GetInt64(6) != 0,
-                categoriesByProduct.TryGetValue(id, out var categories) ? categories : []));
+                categoriesByProduct.TryGetValue(id, out var categories) ? categories : [])
+            {
+                Images = imagesByProduct.TryGetValue(id, out var images) ? images : [],
+            });
         }
 
         return products;
     }
 
+    /// <summary>The values a product edit or insert writes.</summary>
+    public sealed record ProductDraft(
+        string Title,
+        string Description,
+        decimal Price,
+        decimal? SalePrice,
+        bool IsPublic,
+        string? FeatureImage,
+        IReadOnlyList<int> CategoryIds,
+        IReadOnlyList<string> Images);
+
+    /// <summary>Adds a product and returns the id SQLite assigned.</summary>
+    public int InsertProduct(ProductDraft draft)
+    {
+        using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        using var insert = connection.CreateCommand();
+        insert.Transaction = transaction;
+        insert.CommandText =
+            """
+            INSERT INTO Products (Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic)
+            VALUES ($title, $description, $priceCents, $salePriceCents, $featureImage, $isPublic);
+            SELECT last_insert_rowid();
+            """;
+        AddProductParameters(insert, draft);
+
+        var id = (int)(long)insert.ExecuteScalar()!;
+
+        WriteCategories(connection, transaction, id, draft.CategoryIds);
+        WriteImages(connection, transaction, id, draft.Images);
+
+        transaction.Commit();
+        return id;
+    }
+
     /// <summary>
-    /// Saves an edited product and replaces its category links, in one
-    /// transaction. <paramref name="categoryIds"/> is written in the order
-    /// given, and the first one becomes the product's primary category.
+    /// Saves an edited product and replaces its category links and gallery, in
+    /// one transaction. The category ids are written in the order given, so the
+    /// first one stays the product's primary category.
     /// </summary>
-    public void UpdateProduct(
-        int id,
-        string title,
-        string description,
-        decimal price,
-        decimal? salePrice,
-        bool isPublic,
-        IReadOnlyList<int> categoryIds)
+    public void UpdateProduct(int id, ProductDraft draft)
     {
         using var connection = database.OpenConnection();
         using var transaction = connection.BeginTransaction();
@@ -109,48 +143,29 @@ public sealed class CatalogRepository(Database database)
                        Description = $description,
                        PriceCents = $priceCents,
                        SalePriceCents = $salePriceCents,
+                       FeatureImage = $featureImage,
                        IsPublic = $isPublic
                  WHERE Id = $id;
                 """;
             command.Parameters.AddWithValue("$id", id);
-            command.Parameters.AddWithValue("$title", title);
-            command.Parameters.AddWithValue("$description", description);
-            command.Parameters.AddWithValue("$priceCents", SalesRepository.ToCents(price));
-            command.Parameters.AddWithValue(
-                "$salePriceCents",
-                salePrice is { } sale ? SalesRepository.ToCents(sale) : DBNull.Value);
-            command.Parameters.AddWithValue("$isPublic", isPublic ? 1 : 0);
+            AddProductParameters(command, draft);
             command.ExecuteNonQuery();
         }
 
-        using (var delete = connection.CreateCommand())
-        {
-            delete.Transaction = transaction;
-            delete.CommandText = "DELETE FROM ProductCategories WHERE ProductId = $id;";
-            delete.Parameters.AddWithValue("$id", id);
-            delete.ExecuteNonQuery();
-        }
+        Execute(connection, transaction, "DELETE FROM ProductCategories WHERE ProductId = $id;", id);
+        Execute(connection, transaction, "DELETE FROM ProductImages WHERE ProductId = $id;", id);
 
-        foreach (var categoryId in categoryIds.Distinct())
-        {
-            using var insert = connection.CreateCommand();
-            insert.Transaction = transaction;
-            insert.CommandText =
-                """
-                INSERT INTO ProductCategories (ProductId, CategoryId) VALUES ($id, $categoryId);
-                """;
-            insert.Parameters.AddWithValue("$id", id);
-            insert.Parameters.AddWithValue("$categoryId", categoryId);
-            insert.ExecuteNonQuery();
-        }
+        WriteCategories(connection, transaction, id, draft.CategoryIds);
+        WriteImages(connection, transaction, id, draft.Images);
 
         transaction.Commit();
     }
 
     /// <summary>
-    /// Removes a product. Its images and category links go with it through ON
-    /// DELETE CASCADE. Past sales are untouched: SaleItems keeps its own copy
-    /// of the name and price and has no foreign key back to Products.
+    /// Removes a product. Its image rows and category links go with it through
+    /// ON DELETE CASCADE. Past sales are untouched: SaleItems keeps its own
+    /// copy of the name and price and has no foreign key back to Products.
+    /// The image *files* are the caller's to clean up.
     /// </summary>
     public void DeleteProduct(int id)
     {
@@ -159,6 +174,183 @@ public sealed class CatalogRepository(Database database)
         command.CommandText = "DELETE FROM Products WHERE Id = $id;";
         command.Parameters.AddWithValue("$id", id);
         command.ExecuteNonQuery();
+    }
+
+    // ---------- Categories ----------
+
+    /// <summary>Adds a category and returns its new id.</summary>
+    public int InsertCategory(string title, int? parentId, bool isPublic)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO Categories (Title, ParentId, IsPublic) VALUES ($title, $parentId, $isPublic);
+            SELECT last_insert_rowid();
+            """;
+        command.Parameters.AddWithValue("$title", title);
+        command.Parameters.AddWithValue("$parentId", (object?)parentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("$isPublic", isPublic ? 1 : 0);
+        return (int)(long)command.ExecuteScalar()!;
+    }
+
+    public void UpdateCategory(int id, string title, int? parentId, bool isPublic)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            UPDATE Categories SET Title = $title, ParentId = $parentId, IsPublic = $isPublic
+             WHERE Id = $id;
+            """;
+        command.Parameters.AddWithValue("$id", id);
+        command.Parameters.AddWithValue("$title", title);
+        command.Parameters.AddWithValue("$parentId", (object?)parentId ?? DBNull.Value);
+        command.Parameters.AddWithValue("$isPublic", isPublic ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Removes a category. Product links go with it, leaving the products
+    /// themselves alone. A category with children cannot be deleted: ParentId
+    /// is ON DELETE RESTRICT, so SQLite refuses.
+    /// </summary>
+    public void DeleteCategory(int id)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "DELETE FROM Categories WHERE Id = $id;";
+        command.Parameters.AddWithValue("$id", id);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Direct children of a category, for the delete guard.</summary>
+    public int CountChildCategories(int id) =>
+        Count("SELECT COUNT(*) FROM Categories WHERE ParentId = $id;", id);
+
+    /// <summary>Products linked to a category, for the delete warning.</summary>
+    public int CountProductsInCategory(int id) =>
+        Count("SELECT COUNT(*) FROM ProductCategories WHERE CategoryId = $id;", id);
+
+    /// <summary>Gallery paths per product, in SortOrder.</summary>
+    private static Dictionary<int, List<string>> ReadProductImages(SqliteConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "SELECT ProductId, Path FROM ProductImages ORDER BY ProductId, SortOrder, Id;";
+
+        using var reader = command.ExecuteReader();
+
+        var result = new Dictionary<int, List<string>>();
+        while (reader.Read())
+        {
+            var productId = reader.GetInt32(0);
+            if (!result.TryGetValue(productId, out var list))
+            {
+                list = [];
+                result[productId] = list;
+            }
+
+            list.Add(reader.GetString(1));
+        }
+
+        return result;
+    }
+
+    // ---------- Shared plumbing ----------
+
+    private static void AddProductParameters(SqliteCommand command, ProductDraft draft)
+    {
+        command.Parameters.AddWithValue("$title", draft.Title);
+        command.Parameters.AddWithValue("$description", draft.Description);
+        command.Parameters.AddWithValue("$priceCents", SalesRepository.ToCents(draft.Price));
+        command.Parameters.AddWithValue(
+            "$salePriceCents",
+            draft.SalePrice is { } sale ? SalesRepository.ToCents(sale) : DBNull.Value);
+        command.Parameters.AddWithValue("$featureImage", (object?)draft.FeatureImage ?? DBNull.Value);
+        command.Parameters.AddWithValue("$isPublic", draft.IsPublic ? 1 : 0);
+    }
+
+    private static void WriteCategories(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        int productId,
+        IReadOnlyList<int> categoryIds)
+    {
+        foreach (var categoryId in categoryIds.Distinct())
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText =
+                "INSERT INTO ProductCategories (ProductId, CategoryId) VALUES ($id, $categoryId);";
+            insert.Parameters.AddWithValue("$id", productId);
+            insert.Parameters.AddWithValue("$categoryId", categoryId);
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    private static void WriteImages(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        int productId,
+        IReadOnlyList<string> images)
+    {
+        for (var i = 0; i < images.Count; i++)
+        {
+            using var insert = connection.CreateCommand();
+            insert.Transaction = transaction;
+            insert.CommandText =
+                "INSERT INTO ProductImages (ProductId, Path, SortOrder) VALUES ($id, $path, $sortOrder);";
+            insert.Parameters.AddWithValue("$id", productId);
+            insert.Parameters.AddWithValue("$path", images[i]);
+            insert.Parameters.AddWithValue("$sortOrder", i);
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    private static void Execute(
+        SqliteConnection connection,
+        SqliteTransaction transaction,
+        string sql,
+        int id)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$id", id);
+        command.ExecuteNonQuery();
+    }
+
+    private int Count(string sql, int id)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = sql;
+        command.Parameters.AddWithValue("$id", id);
+        return Convert.ToInt32(command.ExecuteScalar());
+    }
+
+    /// <summary>Every image path the catalogue still refers to, feature images included.</summary>
+    public IReadOnlyList<string> GetAllImagePaths()
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT Path FROM ProductImages
+            UNION
+            SELECT FeatureImage FROM Products WHERE FeatureImage IS NOT NULL;
+            """;
+
+        using var reader = command.ExecuteReader();
+
+        var paths = new List<string>();
+        while (reader.Read())
+        {
+            paths.Add(reader.GetString(0));
+        }
+
+        return paths;
     }
 
     /// <summary>How many times a product appears on past receipts.</summary>

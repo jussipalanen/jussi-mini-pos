@@ -18,21 +18,50 @@
         </Grid.RowDefinitions>
 
         <!-- ============ Header ============ -->
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,18">
-            <Button Style="{StaticResource Button.Ghost}" Click="Back_Click" Padding="10,0"
-                    AutomationProperties.Name="Takaisin">
-                <StackPanel Orientation="Horizontal">
-                    <ContentControl Style="{StaticResource Icon}"
-                                    Tag="{StaticResource Icon.ArrowLeft}"
-                                    Width="16" Height="16"
-                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                                    VerticalAlignment="Center" />
-                    <TextBlock Text="Takaisin" Margin="7,0,0,0" VerticalAlignment="Center" />
-                </StackPanel>
-            </Button>
-            <TextBlock Text="Tuotteet" Style="{StaticResource Text.SectionHeader}"
-                       FontSize="26" Margin="16,0,0,0" VerticalAlignment="Center" />
-        </StackPanel>
+        <DockPanel Grid.Row="0" Margin="0,0,0,18">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="16,0"
+                        AutomationProperties.Name="Kategoriat"
+                        Click="Categories_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{StaticResource Icon.Products}"
+                                        Width="16" Height="16"
+                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                        VerticalAlignment="Center" />
+                        <TextBlock Text="Kategoriat" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <Button Style="{StaticResource Button.Primary}" Width="170" Margin="10,0,0,0"
+                        AutomationProperties.Name="Uusi tuote"
+                        Click="New_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{StaticResource Icon.Plus}"
+                                        Width="16" Height="16"
+                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                        VerticalAlignment="Center" />
+                        <TextBlock Text="Uusi tuote" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal">
+                <Button Style="{StaticResource Button.Ghost}" Click="Back_Click" Padding="10,0"
+                        AutomationProperties.Name="Takaisin">
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{StaticResource Icon.ArrowLeft}"
+                                        Width="16" Height="16"
+                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                        VerticalAlignment="Center" />
+                        <TextBlock Text="Takaisin" Margin="7,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+                <TextBlock Text="Tuotteet" Style="{StaticResource Text.SectionHeader}"
+                           FontSize="26" Margin="16,0,0,0" VerticalAlignment="Center" />
+            </StackPanel>
+        </DockPanel>
 
         <Border Grid.Row="1" Style="{StaticResource Card}" Padding="18">
             <Grid>

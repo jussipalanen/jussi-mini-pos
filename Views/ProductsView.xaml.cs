@@ -22,21 +22,23 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     private const int MaxPageButtons = 7;
 
     private readonly CatalogRepository _catalog;
+    private readonly ImageStore _images;
 
     private IReadOnlyList<Product> _allProducts = [];
     private IReadOnlyList<Product> _matches = [];
+    private IReadOnlyList<Category> _allCategories = [];
 
     private string _searchText = string.Empty;
     private Category _selectedCategory = Category.All;
     private int _pageSize = 10;
     private int _currentPage = 1;
 
-    public ProductsView(CatalogRepository catalog)
+    public ProductsView(CatalogRepository catalog, ImageStore images)
     {
         InitializeComponent();
 
         _catalog = catalog;
-        Categories = [Category.All, .. catalog.GetCategories(publicOnly: false)];
+        _images = images;
 
         Reload();
 
@@ -46,7 +48,11 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     /// <summary>Raised when the user wants to leave the products view.</summary>
     public event Action? Back;
 
-    public IReadOnlyList<Category> Categories { get; }
+    /// <summary>Raised when the user opens category management.</summary>
+    public event Action? ManageCategories;
+
+    /// <summary>Filter chips: "Kaikki" plus every category, hidden ones included.</summary>
+    public ObservableCollection<Category> Categories { get; } = [];
 
     public IReadOnlyList<int> PageSizes { get; } = [10, 25, 50, 100];
 
@@ -151,9 +157,24 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     }
 
     /// <summary>Re-reads the catalogue, keeping the current filters and page.</summary>
-    private void Reload()
+    public void Reload()
     {
-        // publicOnly: false — this is where products get hidden and unhidden.
+        // publicOnly: false — this is where products and categories get hidden
+        // and unhidden, so hidden rows have to be listed.
+        _allCategories = _catalog.GetCategories(publicOnly: false);
+
+        var previous = _selectedCategory;
+        Categories.Clear();
+        Categories.Add(Category.All);
+        foreach (var category in _allCategories)
+        {
+            Categories.Add(category);
+        }
+
+        // Keep the chip selection, unless that category has just been deleted.
+        _selectedCategory = Categories.FirstOrDefault(c => c.Id == previous.Id) ?? Category.All;
+        OnPropertyChanged(nameof(SelectedCategory));
+
         _allProducts = _catalog.GetProducts(publicOnly: false);
         ApplyFilters(keepPage: true);
     }
@@ -257,6 +278,15 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
         }
     }
 
+    private void New_Click(object sender, RoutedEventArgs e)
+    {
+        if (Edit(product: null) is { } draft)
+        {
+            _catalog.InsertProduct(draft);
+            Reload();
+        }
+    }
+
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
         if (((FrameworkElement)sender).DataContext is not Product product)
@@ -264,27 +294,27 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        var window = new ProductEditWindow(product, Categories.Where(c => !c.IsAll).ToList())
+        if (Edit(product) is { } draft)
+        {
+            _catalog.UpdateProduct(product.Id, draft);
+            Reload();
+        }
+    }
+
+    /// <summary>Opens the editor and returns the draft, or null if cancelled.</summary>
+    private CatalogRepository.ProductDraft? Edit(Product? product)
+    {
+        // Editing needs every category, including hidden ones, so a product
+        // already in a hidden category does not silently lose it on save.
+        var window = new ProductEditWindow(product, _allCategories, _images)
         {
             Owner = Window.GetWindow(this),
         };
 
-        if (window.ShowDialog() != true)
-        {
-            return;
-        }
-
-        _catalog.UpdateProduct(
-            product.Id,
-            window.ProductTitle,
-            window.Description,
-            window.Price,
-            window.SalePrice,
-            window.IsPublic,
-            window.SelectedCategoryIds);
-
-        Reload();
+        return window.ShowDialog() == true ? window.Draft : null;
     }
+
+    private void Categories_Click(object sender, RoutedEventArgs e) => ManageCategories?.Invoke();
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
@@ -311,6 +341,10 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
         }
 
         _catalog.DeleteProduct(product.Id);
+
+        // The rows cascade away, but the files on disk are ours to clean up.
+        _images.Delete(product.Images.Append(product.FeatureImage));
+
         Reload();
     }
 

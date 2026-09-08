@@ -76,7 +76,7 @@ public static class CatalogSeeder
     };
 
     /// <summary>What a seed run did.</summary>
-    public sealed record Result(int Categories, int Products, int Images, int Links);
+    public sealed record Result(int Categories, int Products, int Links);
 
     /// <summary>True when the catalogue tables already hold rows.</summary>
     public static bool HasData(Database database)
@@ -147,13 +147,10 @@ public static class CatalogSeeder
             categoryIds[title] = InsertCategory(connection, transaction, title, categoryIds[parent]);
         }
 
-        var images = 0;
         var links = 0;
 
         foreach (var product in DemoCatalog.Products)
         {
-            var slug = Slug(product.Name);
-
             var salePrice = SalePrices.TryGetValue(product.Id, out var offer)
                 ? SalesRepository.ToCents(offer)
                 : (object)DBNull.Value;
@@ -166,23 +163,9 @@ public static class CatalogSeeder
                 ("$id", product.Id),
                 ("$title", product.Name),
                 ("$description", Descriptions.GetValueOrDefault(product.Id, string.Empty)),
-                ("$featureImage", $"images/{slug}.jpg"),
+                ("$featureImage", DBNull.Value),
                 ("$priceCents", SalesRepository.ToCents(product.Price)),
                 ("$salePriceCents", salePrice));
-
-            // Placeholder paths: no image files ship with the app yet.
-            for (var i = 1; i <= 2; i++)
-            {
-                Execute(connection, transaction,
-                    """
-                    INSERT INTO ProductImages (ProductId, Path, SortOrder)
-                    VALUES ($productId, $path, $sortOrder);
-                    """,
-                    ("$productId", product.Id),
-                    ("$path", $"images/{slug}-{i}.jpg"),
-                    ("$sortOrder", i - 1));
-                images++;
-            }
 
             var categories = new List<string> { product.Category };
             if (ExtraCategory.TryGetValue(product.Id, out var extra))
@@ -205,7 +188,7 @@ public static class CatalogSeeder
 
         transaction.Commit();
 
-        return new Result(categoryIds.Count, DemoCatalog.Products.Count, images, links);
+        return new Result(categoryIds.Count, DemoCatalog.Products.Count, links);
     }
 
     private static long InsertCategory(
@@ -243,16 +226,4 @@ public static class CatalogSeeder
         command.ExecuteNonQuery();
     }
 
-    /// <summary>Filename-safe form of a product name, for the placeholder image paths.</summary>
-    private static string Slug(string name)
-    {
-        var mapped = name
-            .ToLowerInvariant()
-            .Replace('ä', 'a')
-            .Replace('ö', 'o')
-            .Replace('å', 'a');
-
-        var characters = mapped.Select(c => char.IsLetterOrDigit(c) ? c : '-');
-        return string.Join(string.Empty, characters).Trim('-').Replace("--", "-");
-    }
 }

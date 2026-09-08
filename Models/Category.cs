@@ -7,7 +7,7 @@
 /// <param name="Id">Row id. The filter chips select by this, never by title.</param>
 /// <param name="Title">Name shown to the user.</param>
 /// <param name="ParentId">Parent category, or null for a root category.</param>
-public sealed record Category(int Id, string Title, int? ParentId)
+public sealed record Category(int Id, string Title, int? ParentId, bool IsPublic = true)
 {
     /// <summary>
     /// The synthetic "show everything" chip. Id 0 never collides with a real

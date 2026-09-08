@@ -24,6 +24,9 @@ public sealed record Product(
     bool IsPublic,
     IReadOnlyList<Category> Categories)
 {
+    /// <summary>Gallery image paths, relative to the JussiMiniPos data folder.</summary>
+    public IReadOnlyList<string> Images { get; init; } = [];
+
     /// <summary>The inverse of <see cref="IsPublic"/>, for badges and triggers.</summary>
     public bool IsHidden => !IsPublic;
 
