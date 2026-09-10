@@ -1,4 +1,4 @@
-# JussiMiniPos
+# Jussi mini-POS
 
 A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 
