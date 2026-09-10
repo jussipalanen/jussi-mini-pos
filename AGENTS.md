@@ -6,7 +6,7 @@ baseline and the expectations for automated coding agents working here.
 ## Project snapshot
 
 JussiMiniPos is a Windows-only point-of-sale desktop application built with WPF
-on .NET 10. The current project version is `1.0.0-beta.2`. It uses
+on .NET 10. The current project version is `1.0.0-beta.3`. It uses
 `Microsoft.Data.Sqlite` for local persistence and has no automated test project
 yet.
 

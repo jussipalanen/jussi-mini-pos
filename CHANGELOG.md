@@ -7,6 +7,10 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.0.0-beta.3] - 2026-09-11
+
 ### Changed
 
 - The main application window title is now **Jussi mini-POS**.
@@ -21,6 +25,8 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   Reports use historical sale snapshots and load without blocking the UI.
   Date inputs use matching rounded fields, vertically centered text and clear
   calendar buttons aligned with the report action.
+- GitHub Actions checks for Release builds, formatting, NuGet vulnerabilities,
+  dependency review and CodeQL, plus Dependabot update configuration.
 
 ## [1.0.0-beta.2] - 2026-09-08
 
