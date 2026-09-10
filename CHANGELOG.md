@@ -313,10 +313,9 @@ cheaper to make before there is real sales data than after.
   someone else's role or deleting an account needs `--user-add`,
   `--user-update` or `--user-delete`. There is also no account lockout after
   repeated failures beyond a fixed delay, and no session timeout.
-- **Signing in gates Admin only.** Kassa, Tuotteet, Myynti and Raportit are
-  open to anyone at the machine, as before; `manager` and `seller` exist so the
-  roles are in place rather than because they do anything yet.
-- **Raportit** is a placeholder and opens nothing.
+- **Signing in gates Admin and Raportit.** Kassa, Tuotteet and Myynti are open
+  to anyone at the machine, as before; `seller` exists so the role is in place
+  rather than because it does anything yet.
 - **No VAT (ALV)** is recorded or shown anywhere.
 - Payment is simulated; there is no card terminal integration, no cash
   handling, and no receipt printing.
