@@ -1,0 +1,40 @@
+# A PostgreSQL server for developing and testing the PostgreSQL driver.
+#
+# This is a development convenience, not how the till is deployed. A real
+# installation points at a PostgreSQL server that is already running
+# somewhere; nothing in the application knows or cares that this one is a
+# container.
+#
+#   docker compose up -d          start it
+#   docker compose down           stop it, keeping the data
+#   docker compose down -v        stop it and throw the data away
+#
+# The credentials here are deliberately trivial: this server listens on
+# localhost only and holds nothing but demo data. Do not reuse them anywhere
+# that matters.
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: jussipos-pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: jussiminipos
+      POSTGRES_USER: jussipos
+      POSTGRES_PASSWORD: jussipos
+    ports:
+      # Published on localhost only, so the server is not reachable from the
+      # network even on a laptop with a public address.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      # The application creates its own schema on first run, so "ready" here
+      # only has to mean the server accepts connections.
+      test: ["CMD-SHELL", "pg_isready -U jussipos -d jussiminipos"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres-data:

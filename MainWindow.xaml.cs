@@ -224,7 +224,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var view = new AdminView(_options, System.IO.Path.GetDirectoryName(_database.Path), _currentUser);
+        var view = new AdminView(_options, _database.DataDirectory, _currentUser);
         view.Back += ShowStartView;
         ViewHost.Content = view;
     }

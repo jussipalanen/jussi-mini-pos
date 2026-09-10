@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Services;
 
@@ -17,8 +17,8 @@ public sealed class OptionsRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT OptionValue FROM Options WHERE OptionName = $name;";
-        command.Parameters.AddWithValue("$name", name);
+        command.CommandText = "SELECT OptionValue FROM Options WHERE OptionName = @name;";
+        Database.AddParameter(command, "@name", name);
 
         return command.ExecuteScalar() as string;
     }
@@ -45,11 +45,11 @@ public sealed class OptionsRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO Options (OptionName, OptionValue) VALUES ($name, $value)
+            INSERT INTO Options (OptionName, OptionValue) VALUES (@name, @value)
             ON CONFLICT(OptionName) DO UPDATE SET OptionValue = excluded.OptionValue;
             """;
-        command.Parameters.AddWithValue("$name", name);
-        command.Parameters.AddWithValue("$value", value);
+        Database.AddParameter(command, "@name", name);
+        Database.AddParameter(command, "@value", value);
         command.ExecuteNonQuery();
     }
 

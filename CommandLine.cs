@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos;
 
@@ -216,7 +216,7 @@ public static class CommandLine
     private static async Task Ask(Database database, string question)
     {
         var options = new OptionsRepository(database);
-        var settings = AiSettings.Load(options, System.IO.Path.GetDirectoryName(database.Path));
+        var settings = AiSettings.Load(options, database.DataDirectory);
 
         Write($"Model:   {settings.Model}");
         Write($"API key: {(settings.HasApiKey ? "found" : "missing")}");
@@ -292,7 +292,8 @@ public static class CommandLine
         Write("Users");
         WriteTable(connection,
             """
-            SELECT Id, Username, Email, TRIM(FirstName || ' ' || LastName) AS Name, Role
+            SELECT Id AS "Id", Username AS "Username", Email AS "Email",
+                   TRIM(FirstName || ' ' || LastName) AS "Name", Role AS "Role"
             FROM Users
             ORDER BY Id;
             """);
@@ -655,13 +656,18 @@ public static class CommandLine
         // a password, but printing it to a terminal still hands a copy to
         // anybody watching, for no benefit.
         Write("Users");
-        WriteTable(connection, "SELECT Id, Username, Email, Role FROM Users ORDER BY Id;");
+        WriteTable(connection,
+            """
+            SELECT Id AS "Id", Username AS "Username", Email AS "Email", Role AS "Role"
+            FROM Users ORDER BY Id;
+            """);
 
         Write("Categories");
         WriteTable(connection,
             """
-            SELECT c.Id, c.Title, COALESCE(p.Title, '-') AS Parent, c.IsPublic AS Public,
-                   (SELECT COUNT(*) FROM ProductCategories pc WHERE pc.CategoryId = c.Id) AS Products
+            SELECT c.Id AS "Id", c.Title AS "Title", COALESCE(p.Title, '-') AS "Parent",
+                   c.IsPublic AS "Public",
+                   (SELECT COUNT(*) FROM ProductCategories pc WHERE pc.CategoryId = c.Id) AS "Products"
             FROM Categories c
             LEFT JOIN Categories p ON p.Id = c.ParentId
             ORDER BY COALESCE(c.ParentId, c.Id), c.Id;
@@ -671,23 +677,23 @@ public static class CommandLine
 
         // Columns named *Cents are rendered as euros by WriteTable.
         WriteTable(connection,
-            """
-            SELECT p.Id, p.Title,
-                   p.PriceCents,
-                   p.SalePriceCents,
-                   p.IsPublic AS Public,
-                   (SELECT GROUP_CONCAT(c.Id || '=' || c.Title, ', ')
+            $"""
+            SELECT p.Id AS "Id", p.Title AS "Title",
+                   p.PriceCents AS "PriceCents",
+                   p.SalePriceCents AS "SalePriceCents",
+                   p.IsPublic AS "Public",
+                   (SELECT {database.Dialect.GroupConcat("c.Id || '=' || c.Title", "', '")}
                       FROM ProductCategories pc
                       JOIN Categories c ON c.Id = pc.CategoryId
-                     WHERE pc.ProductId = p.Id) AS Categories,
-                   (SELECT COUNT(*) FROM ProductImages i WHERE i.ProductId = p.Id) AS Images
+                     WHERE pc.ProductId = p.Id) AS "Categories",
+                   (SELECT COUNT(*) FROM ProductImages i WHERE i.ProductId = p.Id) AS "Images"
             FROM Products p
             ORDER BY p.Id;
             """);
     }
 
     /// <summary>Prints a query as an aligned text table.</summary>
-    private static void WriteTable(SqliteConnection connection, string sql)
+    private static void WriteTable(DbConnection connection, string sql)
     {
         using var command = connection.CreateCommand();
         command.CommandText = sql;
@@ -697,7 +703,7 @@ public static class CommandLine
 
         // Money is stored as cents; show it as euros and drop the suffix from
         // the heading, so PriceCents reads as "Price  2,50 €".
-        var isMoney = names.Select(n => n.EndsWith("Cents", StringComparison.Ordinal)).ToArray();
+        var isMoney = names.Select(n => n.EndsWith("Cents", StringComparison.OrdinalIgnoreCase)).ToArray();
         var headers = names
             .Select((n, i) => isMoney[i] ? n[..^"Cents".Length] : n)
             .ToArray();

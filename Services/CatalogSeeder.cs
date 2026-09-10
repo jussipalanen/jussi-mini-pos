@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Services;
 
@@ -127,7 +128,7 @@ public static class CatalogSeeder
         transaction.Commit();
     }
 
-    private static int CountCategories(SqliteConnection connection, SqliteTransaction transaction)
+    private static int CountCategories(DbConnection connection, DbTransaction transaction)
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -135,7 +136,7 @@ public static class CatalogSeeder
         return Convert.ToInt32(command.ExecuteScalar());
     }
 
-    private static int DeleteLeafCategories(SqliteConnection connection, SqliteTransaction transaction)
+    private static int DeleteLeafCategories(DbConnection connection, DbTransaction transaction)
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
@@ -179,14 +180,14 @@ public static class CatalogSeeder
             Execute(connection, transaction,
                 """
                 INSERT INTO Products (Id, Title, Description, FeatureImage, PriceCents, SalePriceCents, IsPublic)
-                VALUES ($id, $title, $description, $featureImage, $priceCents, $salePriceCents, 1);
+                VALUES (@id, @title, @description, @featureImage, @priceCents, @salePriceCents, 1);
                 """,
-                ("$id", product.Id),
-                ("$title", product.Name),
-                ("$description", Descriptions.GetValueOrDefault(product.Id, string.Empty)),
-                ("$featureImage", DBNull.Value),
-                ("$priceCents", SalesRepository.ToCents(product.Price)),
-                ("$salePriceCents", salePrice));
+                ("@id", product.Id),
+                ("@title", product.Name),
+                ("@description", Descriptions.GetValueOrDefault(product.Id, string.Empty)),
+                ("@featureImage", DBNull.Value),
+                ("@priceCents", SalesRepository.ToCents(product.Price)),
+                ("@salePriceCents", salePrice));
 
             var categories = new List<string> { product.Category };
             if (ExtraCategory.TryGetValue(product.Id, out var extra))
@@ -194,15 +195,19 @@ public static class CatalogSeeder
                 categories.Add(extra);
             }
 
+            // SortOrder carries the order of this list, so the product's own
+            // category stays ahead of any extra one it was given.
+            var sortOrder = 0;
             foreach (var category in categories)
             {
                 Execute(connection, transaction,
                     """
-                    INSERT INTO ProductCategories (ProductId, CategoryId)
-                    VALUES ($productId, $categoryId);
+                    INSERT INTO ProductCategories (ProductId, CategoryId, SortOrder)
+                    VALUES (@productId, @categoryId, @sortOrder);
                     """,
-                    ("$productId", product.Id),
-                    ("$categoryId", categoryIds[category]));
+                    ("@productId", product.Id),
+                    ("@categoryId", categoryIds[category]),
+                    ("@sortOrder", sortOrder++));
                 links++;
             }
         }
@@ -213,8 +218,8 @@ public static class CatalogSeeder
     }
 
     private static long InsertCategory(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
+        DbConnection connection,
+        DbTransaction transaction,
         string title,
         long? parentId)
     {
@@ -222,17 +227,17 @@ public static class CatalogSeeder
         command.Transaction = transaction;
         command.CommandText =
             """
-            INSERT INTO Categories (Title, ParentId, IsPublic) VALUES ($title, $parentId, 1);
-            SELECT last_insert_rowid();
+            INSERT INTO Categories (Title, ParentId, IsPublic) VALUES (@title, @parentId, 1)
+            RETURNING Id;
             """;
-        command.Parameters.AddWithValue("$title", title);
-        command.Parameters.AddWithValue("$parentId", (object?)parentId ?? DBNull.Value);
-        return (long)command.ExecuteScalar()!;
+        Database.AddParameter(command, "@title", title);
+        Database.AddParameter(command, "@parentId", (object?)parentId ?? DBNull.Value);
+        return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
     private static void Execute(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
+        DbConnection connection,
+        DbTransaction transaction,
         string sql,
         params (string Name, object Value)[] parameters)
     {
@@ -241,7 +246,7 @@ public static class CatalogSeeder
         command.CommandText = sql;
         foreach (var (name, value) in parameters)
         {
-            command.Parameters.AddWithValue(name, value);
+            Database.AddParameter(command, name, value);
         }
 
         command.ExecuteNonQuery();
