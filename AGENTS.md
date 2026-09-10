@@ -26,6 +26,9 @@ The application is intentionally small and direct:
   application settings, catalogue search, and Gemini integration.
 - `CommandLine.cs` provides non-UI catalogue, user, assistant, and version
   commands through the same executable.
+- `.github/workflows/` enforces a strict Release build, formatting, dependency
+  review, NuGet auditing, and CodeQL analysis. Keep these checks green and keep
+  `.github/dependabot.yml` aligned when package ecosystems change.
 - `Assets/Styles.xaml` and `Assets/Icons.xaml` are the shared WPF design system.
   SVG files under `Assets/Icons/` are design sources; WPF uses the corresponding
   `PathGeometry` resources rather than loading SVG files at runtime.
