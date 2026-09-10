@@ -22,10 +22,10 @@ public sealed class ImageStore
 
     public ImageStore(Database database)
     {
-        var directory = Path.GetDirectoryName(database.Path)
-            ?? throw new InvalidOperationException("The database path has no directory.");
-
-        _rootPath = Path.Combine(directory, FolderName);
+        // Under PostgreSQL there is no database file to sit beside, so the
+        // data directory is configured in its own right; under SQLite it is
+        // still the folder the database file lives in.
+        _rootPath = Path.Combine(database.DataDirectory, FolderName);
     }
 
     /// <summary>Filter string for <c>OpenFileDialog</c>.</summary>

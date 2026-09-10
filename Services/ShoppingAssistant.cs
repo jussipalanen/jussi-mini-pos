@@ -6,7 +6,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using JussiMiniPos.Models;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Services;
 
@@ -95,7 +95,7 @@ public sealed class ShoppingAssistant
 
         // The key file lives beside the database, so a till that is configured
         // once keeps working without an environment variable.
-        _dataDirectory = System.IO.Path.GetDirectoryName(database.Path);
+        _dataDirectory = database.DataDirectory;
     }
 
     /// <summary>One recommended product, with the model's reason for it.</summary>
@@ -232,7 +232,7 @@ public sealed class ShoppingAssistant
 
             return [.. ids.Where(byId.ContainsKey).Select(id => byId[id])];
         }
-        catch (SqliteException ex)
+        catch (DbException ex)
         {
             throw new AssistantException($"Tuotehaku ei onnistunut: {ex.Message}", ex);
         }

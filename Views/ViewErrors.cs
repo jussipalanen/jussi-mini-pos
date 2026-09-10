@@ -1,7 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Windows;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Views;
 
@@ -25,7 +25,7 @@ public static class ViewErrors
         // naming separately: a read-only file or a folder without write
         // permission throws it, and file writes reach here from the product
         // editor's images and from the AI assistant's key file.
-        catch (Exception ex) when (ex is SqliteException
+        catch (Exception ex) when (ex is DbException
             or IOException
             or UnauthorizedAccessException
             or InvalidOperationException)

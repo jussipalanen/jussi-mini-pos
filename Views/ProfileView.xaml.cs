@@ -7,7 +7,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Views;
 
@@ -324,7 +324,7 @@ public partial class ProfileView : UserControl, INotifyPropertyChanged
 
             SetPasswordStatus("Salasana vaihdettu.", ok: true);
         }
-        catch (Exception ex) when (ex is SqliteException or InvalidOperationException)
+        catch (Exception ex) when (ex is DbException or InvalidOperationException)
         {
             // An exception out of an async void handler is unhandled and would
             // take the application down. A failed change is not worth that.

@@ -5,7 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Views;
 
@@ -200,7 +200,7 @@ public partial class ReportsView : UserControl, INotifyPropertyChanged
         }
     }
 
-    private static bool IsReadFailure(Exception ex) => ex is SqliteException or IOException
+    private static bool IsReadFailure(Exception ex) => ex is DbException or IOException
         or UnauthorizedAccessException or InvalidOperationException or OverflowException;
 
     private void Back_Click(object sender, RoutedEventArgs e) => Back?.Invoke();
