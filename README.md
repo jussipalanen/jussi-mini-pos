@@ -7,7 +7,8 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 > view, add, edit, delete, images, and category management. Myynti lists past
 > sales with a receipt view. Kassa also has an AI assistant that recommends
 > products out of the catalogue, an Admin view for its settings, users with
-> roles, and a profile view. Raportit is still a placeholder.
+> roles, and a profile view. Raportit provides date-filtered sales summaries
+> and daily, product and category breakdowns for administrators and managers.
 
 ## Requirements
 
@@ -89,9 +90,9 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `CHANGELOG.md`         | What changed in each release                            |
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
-| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView`, `AdminView`, `ProfileView`, `LoginWindow` and their dialogs; `Pager` is shared paging state |
-| `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `PaymentMethod`, `User` |
-| `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog`, `OptionsRepository`, `UserRepository`, `PasswordHasher`, `PasswordGenerator`, `AppInfo`, and the assistant's `ProductSearch`, `ShoppingAssistant`, `GeminiClient`, `AiSettings` |
+| `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView`, `ReportsView`, `AdminView`, `ProfileView`, `LoginWindow` and their dialogs; `Pager` is shared paging state |
+| `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `SalesReport`, `PaymentMethod`, `User` |
+| `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `ReportsRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog`, `OptionsRepository`, `UserRepository`, `PasswordHasher`, `PasswordGenerator`, `AppInfo`, and the assistant's `ProductSearch`, `ShoppingAssistant`, `GeminiClient`, `AiSettings` |
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` / `--ask` / `--user-*` / `--version` handling |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml`, the Lucide `.svg` sources and `jussi-mini-pos-logo.svg` |
 | `Assets/Icons/icon/`   | Application icon; `favicon.ico` is embedded in the exe  |
@@ -283,6 +284,44 @@ past receipts.
 - Foreign keys are enforced: `Database.OpenConnection()` sets
   `PRAGMA foreign_keys = ON`, which SQLite otherwise leaves off per connection.
 
+## Sales reports (Raportit)
+
+Open **Raportit** from the start screen and sign in as an administrator or
+manager. Sellers cannot open reports; this is checked by the navigation shell
+using `User.CanOpenReports`, not just by the button's visibility.
+
+The initial report covers the current month through today. Choose **Tänään**,
+**Tämä viikko** (Monday through today), **Tämä kuukausi**, or enter inclusive
+start and end dates and press **Näytä raportti**. Changing a date clears the
+previous result so it cannot be mistaken for the newly selected period.
+All reporting dates and drill-down times use Finnish time, including daylight
+saving changes, regardless of the offset originally stored with the sale.
+
+- Summary: total recorded sales in euros, transaction count, units sold and
+  average transaction value. An empty period displays zero totals.
+- **Päivittäin**: one row per day with sales, totals and proportional bars.
+  Days without sales are omitted. **Näytä myynnit** opens that day's current
+  transactions, with access to the existing receipt details dialog.
+- **Tuotteittain**: quantities and revenue grouped by product ID and recorded
+  name. A renamed product can have several rows, preserving historical names.
+- **Kategorioittain**: quantities and revenue grouped by the single category
+  name saved on each sale line. Missing categories display **Ei kategoriaa**.
+- Click table column headings to sort, including quantity and revenue.
+
+Reports read the existing `Sales` and `SaleItems` snapshots; no schema change,
+remote service or new package is needed. Catalogue edits and product deletion
+do not alter historical results. Deleting a sale removes it from reports.
+SQL aggregates integer cents and reads all report sections in one transaction.
+Queries run off the UI thread and returning to the start screen prevents a late
+result from reopening a view. Date conversion happens during queries; the
+existing textual timestamp index does not accelerate this Finnish-date filter.
+
+These reports describe recorded sales from the simulated payment flow. They
+do not provide bank settlement, VAT, margin, discount savings, cashier-level
+analysis, returns, period comparisons or file exports. Those require additional
+features and, for several metrics, new sale-time data. Invalid legacy timestamps
+are excluded because they cannot be assigned a reporting date reliably.
+
 ## AI assistant (AI-avustaja)
 
 The *AI-avustaja* button in the top right of Kassa's product list opens a
@@ -461,8 +500,8 @@ Either the username or the email works at the prompt, matched
 case-insensitively — `COLLATE NOCASE` on the column, so the match is
 case-insensitive without `lower()` defeating the unique index.
 
-`manager` and `seller` exist so the roles are in place, but carry no extra
-rights yet: `admin` is the only one that unlocks anything. `UserRole.CanOpenAdmin`
+`manager` can open Raportit alongside `admin`; `seller` cannot. Admin settings
+remain restricted to administrators. `User.CanOpenAdmin`
 is the single place that decides.
 
 ### First run: signing in for the first time

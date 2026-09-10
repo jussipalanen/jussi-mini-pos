@@ -7,7 +7,20 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- The main application window title is now **Jussi mini-POS**.
+
+### Added
+
+- **Raportit** for administrators and managers: inclusive date filters,
+  today/week/month presets, sales totals, transaction and unit counts, average
+  transaction value, and sortable daily, product and category breakdowns.
+  Daily rows include proportional sales bars and access to transactions and
+  receipt details. Dates use Finnish time with daylight saving support.
+  Reports use historical sale snapshots and load without blocking the UI.
+  Date inputs use matching rounded fields, vertically centered text and clear
+  calendar buttons aligned with the report action.
 
 ## [1.0.0-beta.2] - 2026-09-08
 

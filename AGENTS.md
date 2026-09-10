@@ -35,7 +35,9 @@ The application is intentionally small and direct:
 - `README.md` documents behavior and operator workflows. `CHANGELOG.md` follows
   Keep a Changelog and records release-facing changes.
 
-`Raportit` is still a placeholder. Do not describe or treat it as implemented.
+`Raportit` provides read-only sales summaries and daily/product/category
+breakdowns for administrators and managers. Preserve Finnish date boundaries,
+sale snapshots, and the `CanOpenReports` domain rule when changing reporting.
 
 ## Build and run
 
