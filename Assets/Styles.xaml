@@ -55,6 +55,131 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
     </Style>
 
+    <Style x:Key="Text.Metric" TargetType="TextBlock" BasedOn="{StaticResource Text.SectionHeader}">
+        <Setter Property="FontSize" Value="22" />
+        <Setter Property="Margin" Value="0,4,0,0" />
+    </Style>
+
+    <Style x:Key="Button.Calendar" TargetType="Button">
+        <Setter Property="Width" Value="34" />
+        <Setter Property="Height" Value="34" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome" Background="Transparent" CornerRadius="6">
+                        <Path Data="{StaticResource Icon.Calendar}" Width="18" Height="20" Stretch="Uniform"
+                              Stroke="{TemplateBinding Foreground}" StrokeThickness="1.6"
+                              StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round"
+                              HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.SurfaceHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.SurfacePressed}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="FormDatePicker" TargetType="DatePicker">
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="Height" Value="46" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="SelectedDateFormat" Value="Short" />
+        <Setter Property="FirstDayOfWeek" Value="Monday" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="DatePicker">
+                    <Grid x:Name="PART_Root">
+                        <Border x:Name="Chrome" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="1" CornerRadius="9">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="42" />
+                                </Grid.ColumnDefinitions>
+                                <DatePickerTextBox x:Name="PART_TextBox" BorderThickness="0" Background="Transparent"
+                                                   Foreground="{TemplateBinding Foreground}" Padding="0"
+                                                   Margin="12,0,0,0" VerticalContentAlignment="Center"
+                                                   HorizontalContentAlignment="Left" />
+                                <Button x:Name="PART_Button" Grid.Column="1" Style="{StaticResource Button.Calendar}"
+                                        ToolTip="Avaa kalenteri" AutomationProperties.Name="Avaa kalenteri" />
+                            </Grid>
+                        </Border>
+                        <Popup x:Name="PART_Popup" Placement="Bottom" StaysOpen="False" AllowsTransparency="True"
+                               PlacementTarget="{Binding ElementName=PART_Root}" />
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                            <Setter TargetName="Chrome" Property="BorderBrush" Value="{StaticResource Brush.Accent}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.SurfaceMuted}" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                            <Setter TargetName="PART_Button" Property="Opacity" Value="0.5" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Table.ReadOnly" TargetType="DataGrid">
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="IsReadOnly" Value="True" />
+        <Setter Property="CanUserAddRows" Value="False" />
+        <Setter Property="CanUserDeleteRows" Value="False" />
+        <Setter Property="CanUserReorderColumns" Value="False" />
+        <Setter Property="HeadersVisibility" Value="Column" />
+        <Setter Property="GridLinesVisibility" Value="Horizontal" />
+        <Setter Property="HorizontalGridLinesBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text}" />
+        <Setter Property="BorderBrush" Value="{StaticResource Brush.Border}" />
+        <Setter Property="RowBackground" Value="{StaticResource Brush.Surface}" />
+        <Setter Property="AlternatingRowBackground" Value="{StaticResource Brush.SurfaceMuted}" />
+        <Setter Property="FontFamily" Value="Segoe UI" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="MinRowHeight" Value="40" />
+        <Setter Property="SelectionMode" Value="Single" />
+        <Setter Property="EnableRowVirtualization" Value="True" />
+        <Setter Property="ColumnHeaderStyle">
+            <Setter.Value>
+                <Style TargetType="DataGridColumnHeader">
+                    <Setter Property="Background" Value="{StaticResource Brush.SurfaceMuted}" />
+                    <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="Padding" Value="10" />
+                </Style>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="Table.Text" TargetType="TextBlock">
+        <Setter Property="Margin" Value="10,4" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        <Setter Property="ToolTip" Value="{Binding Text, RelativeSource={RelativeSource Self}}" />
+    </Style>
+
+    <Style x:Key="Table.Number" TargetType="TextBlock" BasedOn="{StaticResource Table.Text}">
+        <Setter Property="TextAlignment" Value="Right" />
+    </Style>
+
     <!-- ===================== Icon host =====================
          Draws a Lucide geometry (passed through Tag) on the 24x24 canvas the
          icons were authored on:

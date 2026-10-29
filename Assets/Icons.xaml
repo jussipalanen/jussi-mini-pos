@@ -8,6 +8,11 @@
         See Assets/Icons/README.md for the original .svg sources.
     -->
 
+    <!-- Custom calendar outline on the shared 24x24 grid. -->
+    <PathGeometry x:Key="Icon.Calendar"
+                  Figures="M 5,4 L 19,4 Q 21,4 21,6 L 21,20 Q 21,22 19,22 L 5,22 Q 3,22 3,20 L 3,6 Q 3,4 5,4 Z
+                           M 7,2 L 7,6 M 17,2 L 17,6 M 3,10 L 21,10" />
+
     <!-- lucide: shopping-cart -->
     <PathGeometry x:Key="Icon.Checkout"
                   Figures="M 2.05,2.05 L 3.149,2.022 A 1,1 0 0 1 4.157,2.837 L 6.847,17.184 A 1,1 0 0 0 7.83,18 L 18,18

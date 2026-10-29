@@ -25,6 +25,9 @@ public sealed record User(
     /// <summary>Only an administrator may open Admin.</summary>
     public bool CanOpenAdmin => Role == UserRole.Admin;
 
+    /// <summary>Sales reports are available to administrators and managers.</summary>
+    public bool CanOpenReports => Role is UserRole.Admin or UserRole.Manager;
+
     /// <summary>
     /// "Matti Meikäläinen", or as much of it as has been filled in. Empty when
     /// neither name is set — <see cref="Name"/> is what callers want.
@@ -52,7 +55,7 @@ public enum UserRole
     /// <summary>Full access, including Admin.</summary>
     Admin,
 
-    /// <summary>Reserved for later; no extra rights yet.</summary>
+    /// <summary>May open sales reports.</summary>
     Manager,
 
     /// <summary>Reserved for later; no extra rights yet.</summary>

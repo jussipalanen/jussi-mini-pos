@@ -10,6 +10,9 @@ data into absolute commands and expands `<circle>` / `<rect>` / `<polyline>`
 elements into equivalent path segments. Coordinates stay on the original
 24x24 canvas.
 
+`calendar.svg` is a custom outline following the same 24x24 grid, with its
+matching WPF geometry stored as `Icon.Calendar`.
+
 Resource keys are English; the Finnish text is what the user sees on screen.
 
 | File                | Resource key       | Shown as   |
@@ -18,6 +21,7 @@ Resource keys are English; the Finnish text is what the user sees on screen.
 | `package.svg`       | `Icon.Products`    | Tuotteet   |
 | `banknote.svg`      | `Icon.Sales`       | Myynti     |
 | `chart-column.svg`  | `Icon.Reports`     | Raportit   |
+| `calendar.svg`      | `Icon.Calendar`    | Date picker |
 | `search.svg`        | `Icon.Search`      | —          |
 | `plus.svg`          | `Icon.Plus`        | —          |
 | `minus.svg`         | `Icon.Minus`       | —          |

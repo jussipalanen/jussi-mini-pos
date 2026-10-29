@@ -9,6 +9,25 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 Nothing yet.
 
+## [1.0.0-beta.3] - 2026-09-11
+
+### Changed
+
+- The main application window title is now **Jussi mini-POS**.
+
+### Added
+
+- **Raportit** for administrators and managers: inclusive date filters,
+  today/week/month presets, sales totals, transaction and unit counts, average
+  transaction value, and sortable daily, product and category breakdowns.
+  Daily rows include proportional sales bars and access to transactions and
+  receipt details. Dates use Finnish time with daylight saving support.
+  Reports use historical sale snapshots and load without blocking the UI.
+  Date inputs use matching rounded fields, vertically centered text and clear
+  calendar buttons aligned with the report action.
+- GitHub Actions checks for Release builds, formatting, NuGet vulnerabilities,
+  dependency review and CodeQL, plus Dependabot update configuration.
+
 ## [1.0.0-beta.2] - 2026-09-08
 
 Still a beta of 1.0.0 rather than a release: the gaps under *Known limitations*
@@ -294,10 +313,9 @@ cheaper to make before there is real sales data than after.
   someone else's role or deleting an account needs `--user-add`,
   `--user-update` or `--user-delete`. There is also no account lockout after
   repeated failures beyond a fixed delay, and no session timeout.
-- **Signing in gates Admin only.** Kassa, Tuotteet, Myynti and Raportit are
-  open to anyone at the machine, as before; `manager` and `seller` exist so the
-  roles are in place rather than because they do anything yet.
-- **Raportit** is a placeholder and opens nothing.
+- **Signing in gates Admin and Raportit.** Kassa, Tuotteet and Myynti are open
+  to anyone at the machine, as before; `seller` exists so the role is in place
+  rather than because it does anything yet.
 - **No VAT (ALV)** is recorded or shown anywhere.
 - Payment is simulated; there is no card terminal integration, no cash
   handling, and no receipt printing.

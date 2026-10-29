@@ -171,6 +171,27 @@ public partial class MainWindow : Window
         ViewHost.Content = view;
     }
 
+    private void ShowReportsView()
+    {
+        if (_currentUser is null
+            && !SignIn("Raportit ovat ylläpitäjille ja esimiehille. Kirjaudu jatkaaksesi."))
+        {
+            return;
+        }
+
+        if (_currentUser is not { CanOpenReports: true })
+        {
+            MessageBox.Show(this, "Raportit ovat vain ylläpitäjille ja esimiehille.",
+                "JussiMiniPos", MessageBoxButton.OK, MessageBoxImage.Information);
+            ShowStartView();
+            return;
+        }
+
+        var view = new ReportsView(new ReportsRepository(_database));
+        view.Back += ShowStartView;
+        ViewHost.Content = view;
+    }
+
     /// <summary>
     /// Application settings. Leaving here goes through the start view, which
     /// drops the cached checkout view — so switching the AI assistant off
@@ -282,7 +303,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        // TODO: Reports still needs its own view.
+        if (destination == AppView.Reports)
+        {
+            ShowReportsView();
+            return;
+        }
+
         MessageBox.Show(
             this,
             $"{AppViewNames.Finnish(destination)} ei ole vielä käytettävissä.",
