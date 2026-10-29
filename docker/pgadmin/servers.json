@@ -1,0 +1,14 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "JussiMiniPos (dev)",
+      "Group": "Servers",
+      "Host": "postgres",
+      "Port": 5432,
+      "MaintenanceDB": "jussiminipos",
+      "Username": "jussipos",
+      "PassFile": "/var/lib/pgadmin/.pgpass",
+      "SSLMode": "prefer"
+    }
+  }
+}

@@ -1,0 +1,5 @@
+# Files read by bash or inside Linux containers keep LF endings on every
+# checkout. A CRLF would break ./dev ("bad interpreter") and make the password
+# in docker/pgadmin/pgpass "jussipos\r".
+dev text eol=lf
+docker/** text eol=lf
