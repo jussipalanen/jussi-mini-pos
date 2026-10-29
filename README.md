@@ -1,6 +1,31 @@
-# Jussi mini-POS
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="Assets/Icons/jussi-mini-pos-logo-dark.svg">
+    <img src="Assets/Icons/jussi-mini-pos-logo.svg" width="340" alt="Jussi mini-POS">
+  </picture>
+</h1>
 
-A small point-of-sale (POS) desktop application built with WPF on .NET 10.
+<p align="center">
+  A small point-of-sale (POS) desktop application built with WPF on .NET 10.
+</p>
+
+<p align="center">
+  <a href="https://github.com/jussipalanen/jussi-mini-pos/actions/workflows/ci.yml"><img src="https://github.com/jussipalanen/jussi-mini-pos/actions/workflows/ci.yml/badge.svg" alt="Build and standards"></a>
+  <a href="https://github.com/jussipalanen/jussi-mini-pos/actions/workflows/codeql.yml"><img src="https://github.com/jussipalanen/jussi-mini-pos/actions/workflows/codeql.yml/badge.svg" alt="CodeQL"></a>
+</p>
+
+<p align="center">
+  <a href="#-download">📥 Download</a> ·
+  <a href="#-requirements">🧰 Requirements</a> ·
+  <a href="#-running-the-application-locally">🚀 Run</a> ·
+  <a href="#-project-layout">📁 Layout</a> ·
+  <a href="#-conventions">📐 Conventions</a> ·
+  <a href="#-database">💾 Database</a> ·
+  <a href="#-sales-reports-raportit">📊 Reports</a> ·
+  <a href="#-ai-assistant-ai-avustaja">🤖 AI assistant</a> ·
+  <a href="#-admin-and-signing-in">🔐 Admin</a> ·
+  <a href="#-license">📄 License</a>
+</p>
 
 > **Status:** in progress. Kassa works end to end — product search, cart,
 > payment and storing the sale. Tuotteet manages the catalogue: search, paging,
@@ -12,7 +37,7 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 > Data is stored in SQLite by default, or in PostgreSQL when several tills
 > share one catalogue and one sales history.
 
-## Download
+## 📥 Download
 
 <a href="https://github.com/jussipalanen/jussi-mini-pos/releases/latest/download/JussiMiniPos-setup.exe"><img src="Assets/Icons/icon/android-chrome-192x192.png" width="32" height="32" alt=""> <b>Download the latest Windows installer (JussiMiniPos-setup.exe)</b></a>
 
@@ -24,7 +49,10 @@ and release notes are on the
 The installer is not code-signed yet, so Windows may show *"Windows protected
 your PC"*. Choose **More info → Run anyway** to continue.
 
-## Requirements
+## 🧰 Requirements
+
+<details>
+<summary><b>Windows, the .NET 10 SDK and optional tools</b></summary>
 
 - **Windows** (WPF does not run on Linux or macOS)
 - **.NET SDK 10.0** or newer — <https://dotnet.microsoft.com/download>
@@ -40,7 +68,12 @@ Verify the SDK is installed and on your `PATH`:
 dotnet --version      # should print 10.x
 ```
 
-## Running the application locally
+</details>
+
+## 🚀 Running the application locally
+
+<details>
+<summary><b>Clone, build, run, publish, the installer and troubleshooting</b></summary>
 
 ### 1. Get the source
 
@@ -126,7 +159,7 @@ shortcut and an optional desktop one, and registers a proper uninstaller.
 Publishing a GitHub release does this automatically:
 [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the
 installer from the release's tag and attaches it as `JussiMiniPos-setup.exe`,
-which is what the [download link](#download) at the top points to. The workflow
+which is what the [download link](#-download) at the top points to. The workflow
 fails if the tag and `<Version>` in `JussiMiniPos.csproj` disagree, so bump the
 version before tagging. `releases/latest` skips drafts and pre-releases, so the
 link keeps pointing at the previous release until a new one is published as
@@ -166,7 +199,12 @@ info* → *Run anyway*). A code-signing certificate is the only real fix.
 | Build errors after pulling changes | `dotnet clean` then `dotnet restore` |
 | The app builds but no window appears | Check `StartupUri` in `App.xaml` points at `MainWindow.xaml` |
 
-## Project layout
+</details>
+
+## 📁 Project layout
+
+<details>
+<summary><b>What lives where in the repository</b></summary>
 
 | Path                   | Purpose                                                |
 | ---------------------- | ------------------------------------------------------ |
@@ -178,14 +216,19 @@ info* → *Run anyway*). A code-signing certificate is the only real fix.
 | `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `SalesReport`, `PaymentMethod`, `User` |
 | `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `ReportsRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog`, `OptionsRepository`, `UserRepository`, `PasswordHasher`, `PasswordGenerator`, `AppInfo`, and the assistant's `ProductSearch`, `ShoppingAssistant`, `GeminiClient`, `AiSettings` |
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` / `--ask` / `--user-*` / `--version` handling |
-| `Assets/`              | `Styles.xaml`, `Icons.xaml`, the Lucide `.svg` sources and `jussi-mini-pos-logo.svg` |
+| `Assets/`              | `Styles.xaml`, `Icons.xaml`, the Lucide `.svg` sources, `jussi-mini-pos-logo.svg` and its `-dark` variant for this README |
 | `Assets/Icons/icon/`   | Application icon; `favicon.ico` is embedded in the exe  |
 | `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
 
 Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
 
-## Conventions
+</details>
+
+## 📐 Conventions
+
+<details>
+<summary><b>English code and Finnish UI, prices, icons and the logo</b></summary>
 
 - **Code is English, the UI is Finnish.** Class, method and resource names use
   English (`CheckoutView`, `Icon.Checkout`, `PaymentMethod.Card`); only strings
@@ -211,7 +254,12 @@ Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
   interface. Point them at `Brush.Accent` to make the logo match the UI blue
   instead.
 
-## Database
+</details>
+
+## 💾 Database
+
+<details>
+<summary><b>SQLite or PostgreSQL, images, the command line, catalogue, schema and sales</b></summary>
 
 JussiMiniPos runs on **SQLite** or **PostgreSQL**. SQLite is the default and
 needs no configuration, no server and no setup — a first run creates the file
@@ -537,7 +585,12 @@ past receipts.
   PostgreSQL always enforces them and needs no equivalent.
 - Parameters are written `@name`, which both drivers accept.
 
-## Sales reports (Raportit)
+</details>
+
+## 📊 Sales reports (Raportit)
+
+<details>
+<summary><b>What Raportit shows and who can open it</b></summary>
 
 Open **Raportit** from the start screen and sign in as an administrator or
 manager. Sellers cannot open reports; this is checked by the navigation shell
@@ -575,7 +628,12 @@ analysis, returns, period comparisons or file exports. Those require additional
 features and, for several metrics, new sale-time data. Invalid legacy timestamps
 are excluded because they cannot be assigned a reporting date reliably.
 
-## AI assistant (AI-avustaja)
+</details>
+
+## 🤖 AI assistant (AI-avustaja)
+
+<details>
+<summary><b>How it answers, configuring it, key storage and fallbacks</b></summary>
 
 The *AI-avustaja* button in the top right of Kassa's product list opens a
 dialog where the cashier can ask, in Finnish, what a customer is after —
@@ -714,7 +772,12 @@ box rather than a dead end: it lists what the search found, and says in the
 notice band that AI suggestions are off and to add a key in Admin. A failed or
 rejected API call behaves the same way, with the API's own message.
 
-## Admin and signing in
+</details>
+
+## 🔐 Admin and signing in
+
+<details>
+<summary><b>Users and roles, first sign-in, profiles and password storage</b></summary>
 
 Under the tiles on the start screen are **Kirjaudu**, **Admin** and, once
 signed in, who that is and **Kirjaudu ulos**. Admin holds the application's own
@@ -900,6 +963,8 @@ used to find out which usernames exist.
 
 `--dump` prints users without the hash column.
 
-## License
+</details>
+
+## 📄 License
 
 Not yet specified.

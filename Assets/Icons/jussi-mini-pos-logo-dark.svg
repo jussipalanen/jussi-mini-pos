@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="340" height="120" viewBox="0 0 170 60" role="img" aria-label="Jussi mini-POS">
+<title>Jussi mini-POS</title>
+<!-- jussi-mini-pos-logo.svg recoloured for dark backgrounds, such as the
+     README on GitHub's dark theme. The mark keeps the brand teal; only the
+     wordmark is lightened so it stays readable. -->
+<rect x="0" y="0" width="60" height="60" rx="14" fill="#0F766E"/>
+<text x="30" y="41" text-anchor="middle" font-family="'Anthropic Sans', 'Helvetica Neue', Arial, sans-serif" font-size="34" font-weight="500" fill="#FFFFFF">J</text>
+<text x="76" y="30" font-family="'Anthropic Sans', 'Helvetica Neue', Arial, sans-serif" font-size="30" font-weight="500" fill="#F5F5F4">Jussi</text>
+<text x="76" y="52" font-family="'Anthropic Sans', 'Helvetica Neue', Arial, sans-serif" font-size="17" font-weight="400" fill="#2DD4BF">mini-POS</text>
+</svg>
