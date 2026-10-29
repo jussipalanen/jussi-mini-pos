@@ -59,19 +59,74 @@ public sealed class SalesRepositoryTests
         Assert.Equal(0, test.Scalar("SELECT COUNT(*) FROM SaleItems;"));
     }
 
+    /// <summary>
+    /// Voiding keeps the sale and its lines, marked with who, when and why;
+    /// nothing is deleted, so the record of what happened survives.
+    /// </summary>
     [Theory]
     [MemberData(nameof(TestDatabase.Engines), MemberType = typeof(TestDatabase))]
-    public void Deleting_a_sale_removes_its_lines(string engine)
+    public void A_voided_sale_keeps_its_lines_and_records_who_why_and_when(string engine)
     {
         using var test = TestDatabase.Create(engine);
         var sales = new SalesRepository(test.Database);
         var kept = sales.Save(new Sale(DateTimeOffset.Now, 1.00m, PaymentMethod.Card, [new SaleItem(1, "Vesi", "", 1.00m, 1)]));
-        var deleted = sales.Save(new Sale(DateTimeOffset.Now, 2.00m, PaymentMethod.Card, [new SaleItem(1, "Vesi", "", 1.00m, 2)]));
+        var voided = sales.Save(new Sale(DateTimeOffset.Now, 2.00m, PaymentMethod.Card, [new SaleItem(1, "Vesi", "", 1.00m, 2)]));
+        var before = DateTimeOffset.Now.AddSeconds(-1);
 
-        sales.DeleteSale(deleted.Id);
+        sales.VoidSale(voided.Id, "maija", "  Väärä tuote  ");
 
-        Assert.Equal([kept.Id], sales.GetSales().Select(s => s.Id));
-        Assert.Equal(1, test.Scalar("SELECT COUNT(*) FROM SaleItems;"));
+        var stored = sales.GetSales();
+        Assert.Equal([voided.Id, kept.Id], stored.Select(s => s.Id));
+        Assert.Equal(2, test.Scalar("SELECT COUNT(*) FROM SaleItems;"));
+
+        var record = Assert.IsType<SaleVoid>(stored[0].Void);
+        Assert.Equal(("maija", "Väärä tuote"), (record.By, record.Reason));
+        Assert.True(record.At >= before);
+        Assert.Null(stored[1].Void);
+    }
+
+    [Theory]
+    [MemberData(nameof(TestDatabase.Engines), MemberType = typeof(TestDatabase))]
+    public void A_sale_is_voided_once_and_never_without_a_reason(string engine)
+    {
+        using var test = TestDatabase.Create(engine);
+        var sales = new SalesRepository(test.Database);
+        var sale = sales.Save(new Sale(DateTimeOffset.Now, 1.00m, PaymentMethod.Card, [new SaleItem(1, "Vesi", "", 1.00m, 1)]));
+
+        Assert.Throws<ArgumentException>(() => sales.VoidSale(sale.Id, "maija", "   "));
+        Assert.Null(Assert.Single(sales.GetSales()).Void);
+
+        sales.VoidSale(sale.Id, "maija", "Testimyynti");
+
+        // A second void must not overwrite who did it first.
+        Assert.Throws<InvalidOperationException>(() => sales.VoidSale(sale.Id, "matti", "Uudestaan"));
+        Assert.Equal("maija", Assert.Single(sales.GetSales()).Void?.By);
+
+        Assert.Throws<InvalidOperationException>(() => sales.VoidSale(9999, "maija", "Ei ole"));
+    }
+
+    /// <summary>Voided sales stay listed but drop out of every report figure.</summary>
+    [Theory]
+    [MemberData(nameof(TestDatabase.Engines), MemberType = typeof(TestDatabase))]
+    public void A_voided_sale_is_left_out_of_reports_and_product_totals(string engine)
+    {
+        using var test = TestDatabase.Create(engine);
+        var sales = new SalesRepository(test.Database);
+        var soldAt = DateTimeOffset.Parse("2026-05-04T12:00:00+03:00", System.Globalization.CultureInfo.InvariantCulture);
+        sales.Save(new Sale(soldAt, 4.50m, PaymentMethod.Card, [SaleItem.Taxed(7, "Kahvi", "Juomat", 4.50m, 1, 1350)]));
+        var voided = sales.Save(new Sale(soldAt.AddHours(1), 9.00m, PaymentMethod.Card, [SaleItem.Taxed(7, "Kahvi", "Juomat", 4.50m, 2, 1350)]));
+
+        sales.VoidSale(voided.Id, "maija", "Asiakas peruutti");
+
+        var day = DateOnly.FromDateTime(soldAt.Date);
+        var reports = new ReportsRepository(test.Database);
+        var report = reports.GetReport(day, day);
+        Assert.Equal((1L, 1L, 4.50m), (report.SaleCount, report.ItemCount, report.Total));
+        Assert.Equal(4.50m, Assert.Single(report.VatLines).Gross);
+        Assert.Single(reports.GetDaySales(day));
+
+        var summary = new CatalogRepository(test.Database).GetSalesSummary(7);
+        Assert.Equal((1, 1, 4.50m), (summary.Lines, summary.Quantity, summary.Revenue));
     }
 
     /// <summary>Catalogue edits must never rewrite sale history.</summary>

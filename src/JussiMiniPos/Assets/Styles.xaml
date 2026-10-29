@@ -16,6 +16,8 @@
     <SolidColorBrush x:Key="Brush.TextMuted" Color="#6B7280" />
     <SolidColorBrush x:Key="Brush.TextOnAccent" Color="#FFFFFF" />
     <SolidColorBrush x:Key="Brush.Danger" Color="#DC2626" />
+    <SolidColorBrush x:Key="Brush.DangerHover" Color="#B91C1C" />
+    <SolidColorBrush x:Key="Brush.DangerPressed" Color="#991B1B" />
     <SolidColorBrush x:Key="Brush.DangerSurface" Color="#FEF2F2" />
     <SolidColorBrush x:Key="Brush.Success" Color="#15803D" />
 
@@ -364,6 +366,34 @@
                         </Trigger>
                         <Trigger Property="IsPressed" Value="True">
                             <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.AccentPressed}" />
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.Border}" />
+                            <Setter Property="Foreground" Value="{StaticResource Brush.TextMuted}" />
+                            <Setter Property="Cursor" Value="Arrow" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- The primary button for an action that cannot be undone, such as
+         voiding a sale: red, and staying red on hover. -->
+    <Style x:Key="Button.Danger" TargetType="Button" BasedOn="{StaticResource Button.Primary}">
+        <Setter Property="Background" Value="{StaticResource Brush.Danger}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Chrome" Background="{TemplateBinding Background}" CornerRadius="10">
+                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.DangerHover}" />
+                        </Trigger>
+                        <Trigger Property="IsPressed" Value="True">
+                            <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.DangerPressed}" />
                         </Trigger>
                         <Trigger Property="IsEnabled" Value="False">
                             <Setter TargetName="Chrome" Property="Background" Value="{StaticResource Brush.Border}" />

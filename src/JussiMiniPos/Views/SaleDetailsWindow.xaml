@@ -10,6 +10,10 @@
         FontFamily="Segoe UI"
         Background="{StaticResource Brush.Background}">
 
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
     <Border Style="{StaticResource Card}" Margin="18" Padding="0">
         <Grid>
             <Grid.RowDefinitions>
@@ -52,6 +56,15 @@
                                    Style="{StaticResource Text.Muted}" FontSize="12" />
                     </Border>
                 </StackPanel>
+
+                <!-- Who voided the sale, when and why, kept on the receipt itself. -->
+                <Border Background="{StaticResource Brush.DangerSurface}"
+                        BorderBrush="{StaticResource Brush.Danger}" BorderThickness="1"
+                        CornerRadius="8" Padding="12,9" Margin="0,14,0,0"
+                        Visibility="{Binding Sale.IsVoided, Converter={StaticResource BoolToVis}}">
+                    <TextBlock Text="{Binding Sale.Void.Display}" TextWrapping="Wrap"
+                               Foreground="{StaticResource Brush.Danger}" FontSize="13" />
+                </Border>
 
                 <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,0" />
 

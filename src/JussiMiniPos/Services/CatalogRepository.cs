@@ -138,7 +138,9 @@ public sealed class CatalogRepository(Database database)
     public int InsertVatRate(string name, int basisPoints, bool isActive)
     {
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             """
             INSERT INTO VatRates (Name, BasisPoints, IsActive) VALUES (@name, @basisPoints, @isActive)
@@ -147,7 +149,13 @@ public sealed class CatalogRepository(Database database)
         Database.AddParameter(command, "@name", name);
         Database.AddParameter(command, "@basisPoints", basisPoints);
         Database.AddParameter(command, "@isActive", isActive ? 1 : 0);
-        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        var id = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+
+        database.Audit.Record(connection, transaction, AuditActions.VatRateCreated,
+            $"{name} {Vat.FormatPercent(basisPoints)}{(isActive ? string.Empty : ", ei valittavissa")}");
+
+        transaction.Commit();
+        return id;
     }
 
     /// <summary>
@@ -157,7 +165,12 @@ public sealed class CatalogRepository(Database database)
     public void UpdateVatRate(int id, string name, int basisPoints, bool isActive)
     {
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        var before = ReadVatRates(connection, activeOnly: false, transaction).FirstOrDefault(rate => rate.Id == id);
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             "UPDATE VatRates SET Name = @name, BasisPoints = @basisPoints, IsActive = @isActive WHERE Id = @id;";
         Database.AddParameter(command, "@id", id);
@@ -165,15 +178,40 @@ public sealed class CatalogRepository(Database database)
         Database.AddParameter(command, "@basisPoints", basisPoints);
         Database.AddParameter(command, "@isActive", isActive ? 1 : 0);
         command.ExecuteNonQuery();
+
+        if (before is not null)
+        {
+            var changes = new List<string>();
+            if (before.Name != name)
+            {
+                changes.Add($"nimi {before.Name} → {name}");
+            }
+
+            if (before.BasisPoints != basisPoints)
+            {
+                changes.Add($"{before.PercentText} → {Vat.FormatPercent(basisPoints)}");
+            }
+
+            if (before.IsActive != isActive)
+            {
+                changes.Add(isActive ? "valittavissa" : "ei valittavissa");
+            }
+
+            database.Audit.Record(connection, transaction, AuditActions.VatRateUpdated,
+                $"{before.Display}: {(changes.Count == 0 ? "ei muutoksia" : string.Join("; ", changes))}");
+        }
+
+        transaction.Commit();
     }
 
     /// <summary>Products charged at a rate, for the warning before changing it.</summary>
     public int CountProductsWithVatRate(int id) =>
         Count("SELECT COUNT(*) FROM Products WHERE VatRateId = @id;", id);
 
-    private static List<VatRate> ReadVatRates(DbConnection connection, bool activeOnly)
+    private static List<VatRate> ReadVatRates(DbConnection connection, bool activeOnly, DbTransaction? transaction = null)
     {
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             $"""
             SELECT Id, Name, BasisPoints, IsActive
@@ -226,8 +264,80 @@ public sealed class CatalogRepository(Database database)
         WriteCategories(connection, transaction, id, draft.CategoryIds);
         WriteImages(connection, transaction, id, draft.Images);
 
+        var created = ReadAuditSnapshot(connection, transaction, id);
+        database.Audit.Record(connection, transaction, AuditActions.ProductCreated,
+            $"{created.Title} ({id}): {AuditLog.Money(created.Price)}"
+            + (created.SalePrice is { } sale ? $", tarjous {AuditLog.Money(sale)}" : string.Empty)
+            + $", ALV {created.VatText}");
+
         transaction.Commit();
         return id;
+    }
+
+    /// <summary>The fields an audit entry about a product mentions, as stored.</summary>
+    private sealed record AuditSnapshot(string Title, decimal Price, decimal? SalePrice, int? VatBasisPoints, bool IsPublic)
+    {
+        public string VatText => VatBasisPoints is { } rate ? Vat.FormatPercent(rate) : "–";
+
+        public string SaleText => SalePrice is { } sale ? AuditLog.Money(sale) : "–";
+    }
+
+    private static AuditSnapshot ReadAuditSnapshot(DbConnection connection, DbTransaction transaction, int id)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            SELECT p.Title, p.PriceCents, p.SalePriceCents, v.BasisPoints, p.IsPublic
+            FROM Products p LEFT JOIN VatRates v ON v.Id = p.VatRateId
+            WHERE p.Id = @id;
+            """;
+        Database.AddParameter(command, "@id", id);
+
+        using var reader = command.ExecuteReader();
+        if (!reader.Read())
+        {
+            throw new InvalidOperationException($"Tuotetta {id} ei löydy.");
+        }
+
+        return new AuditSnapshot(
+            reader.GetString(0),
+            SalesRepository.FromCents(reader.GetInt64(1)),
+            reader.IsDBNull(2) ? null : SalesRepository.FromCents(reader.GetInt64(2)),
+            reader.IsDBNull(3) ? null : reader.GetInt32(3),
+            reader.GetInt64(4) != 0);
+    }
+
+    /// <summary>"hinta 2,50 € → 2,80 €; ALV 13,5 % → 25,5 %", or what else changed.</summary>
+    private static string DescribeChanges(AuditSnapshot before, AuditSnapshot after)
+    {
+        var changes = new List<string>();
+        if (before.Title != after.Title)
+        {
+            changes.Add($"nimi {before.Title} → {after.Title}");
+        }
+
+        if (before.Price != after.Price)
+        {
+            changes.Add($"hinta {AuditLog.Money(before.Price)} → {AuditLog.Money(after.Price)}");
+        }
+
+        if (before.SalePrice != after.SalePrice)
+        {
+            changes.Add($"tarjoushinta {before.SaleText} → {after.SaleText}");
+        }
+
+        if (before.VatBasisPoints != after.VatBasisPoints)
+        {
+            changes.Add($"ALV {before.VatText} → {after.VatText}");
+        }
+
+        if (before.IsPublic != after.IsPublic)
+        {
+            changes.Add(after.IsPublic ? "näytetään kassassa" : "piilotettu kassasta");
+        }
+
+        return changes.Count == 0 ? "kuvaus, kuvat tai kategoriat" : string.Join("; ", changes);
     }
 
     /// <summary>
@@ -239,6 +349,8 @@ public sealed class CatalogRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var transaction = connection.BeginTransaction();
+
+        var before = ReadAuditSnapshot(connection, transaction, id);
 
         using (var command = connection.CreateCommand())
         {
@@ -266,6 +378,10 @@ public sealed class CatalogRepository(Database database)
         WriteCategories(connection, transaction, id, draft.CategoryIds);
         WriteImages(connection, transaction, id, draft.Images);
 
+        var after = ReadAuditSnapshot(connection, transaction, id);
+        database.Audit.Record(connection, transaction, AuditActions.ProductUpdated,
+            $"{before.Title} ({id}): {DescribeChanges(before, after)}");
+
         transaction.Commit();
     }
 
@@ -278,10 +394,22 @@ public sealed class CatalogRepository(Database database)
     public void DeleteProduct(int id)
     {
         using var connection = database.OpenConnection();
-        using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Products WHERE Id = @id;";
-        Database.AddParameter(command, "@id", id);
-        command.ExecuteNonQuery();
+        using var transaction = connection.BeginTransaction();
+
+        var before = ReadAuditSnapshot(connection, transaction, id);
+
+        using (var command = connection.CreateCommand())
+        {
+            command.Transaction = transaction;
+            command.CommandText = "DELETE FROM Products WHERE Id = @id;";
+            Database.AddParameter(command, "@id", id);
+            command.ExecuteNonQuery();
+        }
+
+        database.Audit.Record(connection, transaction, AuditActions.ProductDeleted,
+            $"{before.Title} ({id}), {AuditLog.Money(before.Price)}");
+
+        transaction.Commit();
     }
 
     // ---------- Categories ----------
@@ -475,7 +603,7 @@ public sealed class CatalogRepository(Database database)
     /// <summary>
     /// Totals from the receipt lines. These read SaleItems, which keeps its own
     /// copy of the price, so the figures stay what was actually charged even
-    /// after the catalogue price changes.
+    /// after the catalogue price changes. Voided sales are not counted.
     /// </summary>
     public SalesSummary GetSalesSummary(int productId)
     {
@@ -484,9 +612,10 @@ public sealed class CatalogRepository(Database database)
         command.CommandText =
             """
             SELECT CAST(COUNT(*) AS INT),
-                   CAST(COALESCE(SUM(Quantity), 0) AS INT),
-                   CAST(COALESCE(SUM(UnitPriceCents * Quantity), 0) AS BIGINT)
-            FROM SaleItems WHERE ProductId = @id;
+                   CAST(COALESCE(SUM(i.Quantity), 0) AS INT),
+                   CAST(COALESCE(SUM(i.UnitPriceCents * i.Quantity), 0) AS BIGINT)
+            FROM SaleItems i JOIN Sales s ON s.Id = i.SaleId
+            WHERE i.ProductId = @id AND s.VoidedAt IS NULL;
             """;
         Database.AddParameter(command, "@id", productId);
 

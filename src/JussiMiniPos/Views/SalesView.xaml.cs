@@ -12,20 +12,27 @@ using JussiMiniPos.Services;
 namespace JussiMiniPos.Views;
 
 /// <summary>
-/// Past sales as a paged list, newest first, with a details window and delete
-/// per row.
+/// Past sales as a paged list, newest first, with a details window and void
+/// per row. Voided sales stay listed, marked, but no longer count.
 /// </summary>
 public partial class SalesView : UserControl, INotifyPropertyChanged
 {
     private readonly SalesRepository _sales;
 
+    /// <summary>
+    /// Returns the signed-in user, asking for a sign-in first when nobody is,
+    /// so voiding does not send the user back to the start screen to log in.
+    /// </summary>
+    private readonly Func<string, User?> _signIn;
+
     private IReadOnlyList<Sale> _all = [];
 
-    public SalesView(SalesRepository sales)
+    public SalesView(SalesRepository sales, Func<string, User?> signIn)
     {
         InitializeComponent();
 
         _sales = sales;
+        _signIn = signIn;
         Pager.Changed += ShowPage;
 
         Reload();
@@ -41,13 +48,14 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
     /// <summary>The rows currently on screen.</summary>
     public ObservableCollection<Sale> PageSales { get; } = [];
 
-    public int SaleCount => _all.Count;
+    /// <summary>Sales that count: voided ones are listed but left out of every total.</summary>
+    public int SaleCount => _all.Count(sale => !sale.IsVoided);
 
-    /// <summary>Items sold across every sale, not just this page.</summary>
-    public int TotalItems => _all.Sum(sale => sale.ItemCount);
+    /// <summary>Items sold across every sale that counts, not just this page.</summary>
+    public int TotalItems => _all.Where(sale => !sale.IsVoided).Sum(sale => sale.ItemCount);
 
-    /// <summary>Takings across every sale.</summary>
-    public decimal GrandTotal => _all.Sum(sale => sale.Total);
+    /// <summary>Takings across every sale that counts.</summary>
+    public decimal GrandTotal => _all.Where(sale => !sale.IsVoided).Sum(sale => sale.Total);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -83,27 +91,41 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
         new SaleDetailsWindow(sale) { Owner = Window.GetWindow(this) }.ShowDialog();
     }
 
-    private void Delete_Click(object sender, RoutedEventArgs e)
+    /// <summary>
+    /// Voids a sale after a sign-in check and a reason. The rule for who may
+    /// is <see cref="User.CanVoidSales"/>; the button being there is not it.
+    /// </summary>
+    private void Void_Click(object sender, RoutedEventArgs e)
     {
-        if (((FrameworkElement)sender).DataContext is not Sale sale)
+        if (((FrameworkElement)sender).DataContext is not Sale { CanBeVoided: true } sale)
         {
             return;
         }
 
-        var answer = MessageBox.Show(
-            Window.GetWindow(this),
-            $"Poistetaanko myynti #{sale.Id} ({sale.SoldAt:dd.MM.yyyy HH:mm}, {sale.Total:N2} €)?\n\n" +
-            "Myynti ja sen rivit poistetaan lopullisesti, eivätkä ne näy enää raporteissa.",
-            "Poista myynti",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Warning);
-
-        if (answer != MessageBoxResult.Yes)
+        var user = _signIn("Myynnin mitätöinti on esimiehille ja ylläpitäjille. Kirjaudu jatkaaksesi.");
+        if (user is null)
         {
             return;
         }
 
-        if (ViewErrors.Try(this, "Myyntiä ei voitu poistaa.", () => _sales.DeleteSale(sale.Id)))
+        if (!user.CanVoidSales)
+        {
+            MessageBox.Show(
+                Window.GetWindow(this),
+                $"Myynnin voi mitätöidä vain esimies tai ylläpitäjä.\n\nOlet kirjautunut käyttäjänä {user.Display}.",
+                "JussiMiniPos",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var dialog = new VoidSaleWindow(sale, user) { Owner = Window.GetWindow(this) };
+        if (dialog.ShowDialog() != true)
+        {
+            return;
+        }
+
+        if (ViewErrors.Try(this, "Myyntiä ei voitu mitätöidä.", () => _sales.VoidSale(sale.Id, user.Username, dialog.Reason)))
         {
             Reload();
         }

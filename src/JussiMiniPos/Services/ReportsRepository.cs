@@ -17,7 +17,12 @@ public sealed class ReportsRepository(Database database)
     /// <summary>The sale's local calendar date, in whichever engine is configured.</summary>
     private string ReportDate => database.Dialect.ReportDate("s.\"DateTime\"");
 
-    private string DateFilter => $"{ReportDate} BETWEEN @from AND @through";
+    /// <summary>
+    /// Sales in the range that still count. Voided sales are left out of
+    /// every figure and of the day listing; they stay visible, marked, in
+    /// Myynti.
+    /// </summary>
+    private string DateFilter => $"{ReportDate} BETWEEN @from AND @through AND s.VoidedAt IS NULL";
 
     public SalesReport GetReport(DateOnly from, DateOnly through)
     {

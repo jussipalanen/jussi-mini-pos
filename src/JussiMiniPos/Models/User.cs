@@ -29,6 +29,12 @@ public sealed record User(
     public bool CanOpenReports => Role is UserRole.Admin or UserRole.Manager;
 
     /// <summary>
+    /// Voiding takes a sale out of the takings, so it is limited to the
+    /// people who answer for them: administrators and managers.
+    /// </summary>
+    public bool CanVoidSales => Role is UserRole.Admin or UserRole.Manager;
+
+    /// <summary>
     /// "Matti Meikäläinen", or as much of it as has been filled in. Empty when
     /// neither name is set — <see cref="Name"/> is what callers want.
     /// </summary>

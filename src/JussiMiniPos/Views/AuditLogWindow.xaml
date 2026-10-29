@@ -1,0 +1,44 @@
+<Window x:Class="JussiMiniPos.Views.AuditLogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Tapahtumaloki"
+        Width="980" Height="640"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="22,20,22,12">
+                <TextBlock Text="Tapahtumaloki" Style="{StaticResource Text.SectionHeader}" />
+                <TextBlock Text="{Binding SummaryText}" Style="{StaticResource Text.Muted}" Margin="0,6,0,0" TextWrapping="Wrap" />
+            </StackPanel>
+
+            <DataGrid Grid.Row="1" Margin="22,0,22,0" Style="{StaticResource Table.ReadOnly}"
+                      ItemsSource="{Binding Entries}" AutomationProperties.Name="Tapahtumaloki">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Aika" Binding="{Binding At, StringFormat=dd.MM.yyyy HH:mm:ss}" Width="150" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Käyttäjä" Binding="{Binding ActorText}" Width="160" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Tapahtuma" Binding="{Binding ActionText}" Width="190" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Tiedot" Binding="{Binding Details}" Width="*" ElementStyle="{StaticResource Table.Text}" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <StackPanel Grid.Row="2" Margin="22,14,22,20" Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                        Content="Päivitä" AutomationProperties.Name="Päivitä tapahtumaloki"
+                        Click="Refresh_Click" />
+                <Button Style="{StaticResource Button.Primary}" Width="140" Margin="10,0,0,0"
+                        Content="Sulje" IsCancel="True" IsDefault="True"
+                        AutomationProperties.Name="Sulje"
+                        Click="Close_Click" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>
