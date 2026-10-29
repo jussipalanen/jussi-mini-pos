@@ -1,0 +1,88 @@
+name: Release installer
+
+# Runs when a GitHub release is published, builds the installer from that
+# release's tag, and attaches it as JussiMiniPos-setup.exe. The asset name has
+# no version in it on purpose: the README links to
+# releases/latest/download/JussiMiniPos-setup.exe, which only resolves when
+# every release uses the same name.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and attach the installer for, such as v1.0.0-beta.4
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.tag || github.event.release.tag_name }}
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  installer:
+    name: Build and attach the installer
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      # Passed through the environment rather than expanded into scripts, so a
+      # tag name can never be interpreted as PowerShell.
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+
+    steps:
+      - name: Check out the release tag
+        uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ env.RELEASE_TAG }}
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          if (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe") {
+              Write-Host 'Inno Setup is already installed on the runner.'
+              exit 0
+          }
+          choco install innosetup --yes --no-progress
+
+      - name: Build the installer
+        shell: pwsh
+        run: ./installer/build.ps1
+
+      # A release must carry the installer of its own version. This stops a tag
+      # whose <Version> was not bumped from shipping the previous number.
+      - name: Check the version matches the tag
+        shell: pwsh
+        run: |
+          $exe = 'bin\Release\net10.0-windows\win-x64\publish\JussiMiniPos.exe'
+          $version = (Get-Item $exe).VersionInfo.ProductVersion.Split('+')[0]
+          $expected = $env:RELEASE_TAG.TrimStart('v')
+          if ($version -ne $expected) {
+              throw "The executable is version $version but the tag is $env:RELEASE_TAG. Update <Version> in JussiMiniPos.csproj."
+          }
+          Write-Host "Version $version matches $env:RELEASE_TAG."
+
+      - name: Attach the installer to the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $setup = Get-ChildItem installer/Output -Filter '*-setup.exe' |
+              Sort-Object LastWriteTime -Descending |
+              Select-Object -First 1
+          $asset = Join-Path $env:RUNNER_TEMP 'JussiMiniPos-setup.exe'
+          Copy-Item $setup.FullName $asset
+          gh release upload $env:RELEASE_TAG $asset --clobber
+          if ($LASTEXITCODE -ne 0) { throw "Uploading the installer failed with exit code $LASTEXITCODE." }

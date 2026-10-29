@@ -12,6 +12,18 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 > Data is stored in SQLite by default, or in PostgreSQL when several tills
 > share one catalogue and one sales history.
 
+## Download
+
+<a href="https://github.com/jussipalanen/jussi-mini-pos/releases/latest/download/JussiMiniPos-setup.exe"><img src="Assets/Icons/icon/android-chrome-192x192.png" width="32" height="32" alt=""> <b>Download the latest Windows installer (JussiMiniPos-setup.exe)</b></a>
+
+Run the downloaded file and follow the setup wizard. It needs Windows 10 or
+newer (64-bit) and nothing else — the .NET runtime is included. Older versions
+and release notes are on the
+[Releases page](https://github.com/jussipalanen/jussi-mini-pos/releases).
+
+The installer is not code-signed yet, so Windows may show *"Windows protected
+your PC"*. Choose **More info → Run anyway** to continue.
+
 ## Requirements
 
 - **Windows** (WPF does not run on Linux or macOS)
@@ -79,6 +91,72 @@ dotnet publish -c Release -r win-x64 --self-contained false
 
 The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 
+That build is small — under 3 MB — but it needs the **.NET 10 Desktop
+Runtime** on the machine that runs it. Not the plain runtime: WPF needs the
+Desktop one. To hand the application to a machine that has nothing installed,
+publish it self-contained instead:
+
+```powershell
+dotnet publish -c Release -r win-x64 --self-contained true `
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+That produces one `JussiMiniPos.exe` of about 136 MB, nearly all of it the
+runtime, which needs no prerequisites at all. Copy the `.exe` and leave the
+`.pdb` behind — it is debug symbols.
+
+Do **not** add `PublishTrimmed`. It is the obvious way to shrink 136 MB, but
+WPF resolves XAML types by reflection and trimming removes them silently: the
+publish succeeds and the first window throws.
+
+### Installer
+
+`installer\build.ps1` publishes the self-contained build and compiles a
+Windows installer from `installer\JussiMiniPos.iss`:
+
+```powershell
+winget install --id JRSoftware.InnoSetup   # once; free, ~5 MB
+.\installer\build.ps1
+```
+
+The result is `installer\Output\JussiMiniPos-<version>-setup.exe`, roughly
+45 MB. It installs per-machine under `Program Files`, adds a Start Menu
+shortcut and an optional desktop one, and registers a proper uninstaller.
+
+Publishing a GitHub release does this automatically:
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds the
+installer from the release's tag and attaches it as `JussiMiniPos-setup.exe`,
+which is what the [download link](#download) at the top points to. The workflow
+fails if the tag and `<Version>` in `JussiMiniPos.csproj` disagree, so bump the
+version before tagging. `releases/latest` skips drafts and pre-releases, so the
+link keeps pointing at the previous release until a new one is published as
+neither. To rebuild the installer for a release that already exists, run the
+workflow by hand from the Actions tab with that release's tag.
+
+The version is read out of the published executable's `ProductVersion` rather
+than written in the script, with the `+<commit>` suffix trimmed the same way
+`Services/AppInfo.cs` trims it — so the installer, Add/Remove Programs and the
+start screen cannot disagree about which build this is.
+
+**Uninstalling leaves your data alone.** `%LOCALAPPDATA%\JussiMiniPos` holds
+the sales history, the catalogue and the product images, so the uninstaller
+asks before touching it and defaults to keeping it.
+
+Two things worth knowing before handing the installer to anyone:
+
+- **The Gemini API key does not travel.** It is encrypted with DPAPI against
+  one Windows account, so a copied `gemini.key` cannot be decrypted elsewhere.
+  It fails closed — the assistant falls back to plain search — and the key has
+  to be entered again in Admin on the new machine.
+- **Each Windows account gets its own database**, because the data lives under
+  `%LOCALAPPDATA%`. Two people sharing a till under separate Windows logins
+  would keep separate catalogues and separate sales. Giving a till one shared
+  dataset would mean moving the database to `ProgramData`, which is a code
+  change rather than an installer setting.
+
+Unsigned installers trip SmartScreen ("Windows protected your PC" → *More
+info* → *Run anyway*). A code-signing certificate is the only real fix.
+
 ### Troubleshooting
 
 | Problem | Fix |
@@ -102,6 +180,7 @@ The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` / `--ask` / `--user-*` / `--version` handling |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml`, the Lucide `.svg` sources and `jussi-mini-pos-logo.svg` |
 | `Assets/Icons/icon/`   | Application icon; `favicon.ico` is embedded in the exe  |
+| `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
 
 Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
