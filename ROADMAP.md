@@ -53,14 +53,15 @@ docker-compose.yml
 The data layer was ported to PostgreSQL without tests. Pin its behaviour before
 the schema changes in Phase 2.
 
-- [ ] Add `tests/JussiMiniPos.Tests` (xUnit) to the solution and to CI.
-- [ ] Run every data test against **both** engines: SQLite in a unique temporary
-      directory, PostgreSQL in a throwaway container. Never the user's profile.
-- [ ] Cover first: report totals and Finnish date boundaries (including the
+- [x] Add `tests/JussiMiniPos.Tests` (xUnit) to the solution and to CI.
+- [x] Run every data test against **both** engines: SQLite in a unique temporary
+      directory, PostgreSQL in a throwaway database. Never the user's profile.
+- [x] Cover first: report totals and Finnish date boundaries (including the
       daylight-saving change), product search ranking and Unicode folding,
       schema creation and every `ApplyMigrations` step, sale write atomicity,
-      password hashing, and the last-administrator rule.
-- [ ] Done when the suite runs in CI on every pull request.
+      and password hashing. The last-administrator rule moved to 2.3: it lives
+      only in the command line today, where no test can reach it.
+- [x] Done when the suite runs in CI on every pull request.
 
 ---
 
@@ -88,6 +89,8 @@ is real sales data than after.
 
 ### 2.3 Users and roles
 
+- [ ] Move the last-administrator rule out of `CommandLine` into the domain, so
+      the command line and the Admin view share it, and test it.
 - [ ] Add, edit, change the role of and remove users in the Admin view, not only
       from the command line. The last-administrator rule still applies.
 - [ ] Account lockout after repeated failed sign-ins, and an inactivity timeout.
