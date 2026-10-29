@@ -7,7 +7,53 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A choice of database driver: SQLite or PostgreSQL.** SQLite stays the
+  default and still needs no configuration, no server and no setup; PostgreSQL
+  is there for when one catalogue and one sales history have to be shared by
+  more than one till.
+  - Configured in a **`database.env` file** beside the executable or in
+    `%LOCALAPPDATA%\JussiMiniPos`, with an environment variable of the same
+    name as the fallback for each setting. Deliberately not in the `Options`
+    table: that table is inside the database, and reading it needs a
+    connection, so it cannot be the thing that says how to connect. The file
+    wins over the environment, so a stray variable in a shell cannot quietly
+    point a till at the wrong database.
+  - The PostgreSQL password can be stored `DPAPI:`-encrypted under the current
+    Windows account, the same way the Gemini API key already is. A value
+    without the marker is a plain password, so a file written by hand keeps
+    working. `database.env` is gitignored;
+    [`database.env.example`](database.env.example) is the tracked template.
+  - `--dump` and the start-up line print which database was opened with the
+    password stripped out, so they double as a connection test.
+  - A `docker-compose.yml` for a local PostgreSQL to develop against. It is a
+    development convenience, not how the till is deployed.
+  - Everything that genuinely differs between the two engines is in
+    `Services/SqlDialect.cs`: the schema, case-insensitive names, the
+    Unicode-aware folding the search needs, the local-date conversion the
+    reports need, and `LEAST`/`string_agg` against `MIN`/`GROUP_CONCAT`. The
+    repositories are written once, against `DbConnection`.
+
+### Changed
+
+- **`ProductCategories` records its link order in a `SortOrder` column**
+  instead of leaning on SQLite's implicit `rowid`, which PostgreSQL has nothing
+  to match. This is what keeps the first category a product was given as its
+  primary one. An existing SQLite database is backfilled from that very
+  `rowid`, so the order it already had is the order it keeps.
+- Parameters are written `@name` rather than `$name` throughout — both drivers
+  accept it, so there is no per-engine parameter handling.
+- Aggregates read back into `long` are wrapped in `CAST(... AS BIGINT)`.
+  SQLite hands back whatever the sum fits in; PostgreSQL widens `SUM` over a
+  `bigint` to `numeric`, which `GetInt64` refuses.
+- Image and API-key storage keys off a data directory of its own rather than
+  the folder holding the database file, since under PostgreSQL there is no such
+  file. Under SQLite it still resolves to the same place; PostgreSQL defaults
+  to a `postgresql` subfolder, deliberately **not** the SQLite one. Images are
+  files that only the database knows the names of, and deleting rows sweeps
+  away the ones nothing points at — so two databases sharing one image folder
+  would have each one's sweep delete the other's pictures.
 
 ## [1.0.0-beta.3] - 2026-09-11
 

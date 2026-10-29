@@ -9,12 +9,18 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 > products out of the catalogue, an Admin view for its settings, users with
 > roles, and a profile view. Raportit provides date-filtered sales summaries
 > and daily, product and category breakdowns for administrators and managers.
+> Data is stored in SQLite by default, or in PostgreSQL when several tills
+> share one catalogue and one sales history.
 
 ## Requirements
 
 - **Windows** (WPF does not run on Linux or macOS)
 - **.NET SDK 10.0** or newer — <https://dotnet.microsoft.com/download>
 - Optional: Visual Studio 2026 or JetBrains Rider for XAML designer support
+- Optional: **PostgreSQL 13 or newer**, only if you want to run against
+  PostgreSQL rather than the default SQLite — see
+  [Choosing the database driver](#choosing-the-database-driver). A
+  `docker-compose.yml` is included for a local one.
 
 Verify the SDK is installed and on your `PATH`:
 
@@ -128,20 +134,168 @@ Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
 
 ## Database
 
-Completed sales are stored in SQLite at:
+JussiMiniPos runs on **SQLite** or **PostgreSQL**. SQLite is the default and
+needs no configuration, no server and no setup — a first run creates the file
+and everything in it. PostgreSQL is there for when one catalogue and one sales
+history have to be shared by more than one till.
+
+By default, completed sales are stored in SQLite at:
 
 ```
 %LOCALAPPDATA%\JussiMiniPos\jussiminipos.db
 ```
 
-The file and its schema are created on first run by `Database.EnsureCreated()`;
-delete the file to start over. Every statement is `IF NOT EXISTS`, so adding
-tables to an existing database is safe.
+The schema is created on first run by `Database.EnsureCreated()`. Every
+statement is `IF NOT EXISTS`, so adding tables to an existing database is safe,
+and the same call brings an older database up to date — see
+[Schema changes](#schema-changes).
 
 On a **brand new database** the app seeds the catalogue, so a fresh install has
-something to look at. It keys off the file being new rather than the tables
-being empty — otherwise `--clear`, or deleting the last product by hand, would
-be undone by the next restart. Delete the database file to start over.
+something to look at. Under SQLite it keys off the file being new rather than
+the tables being empty — otherwise `--clear`, or deleting the last product by
+hand, would be undone by the next restart. Delete the database file to start
+over. Under PostgreSQL there is no file to test, so it asks the schema instead:
+new means the tables were not there yet.
+
+### Choosing the database driver
+
+The driver is configured in a **`database.env` file**, not in the application's
+own settings. Everything in Admin lives in the `Options` table — but that table
+is *inside* the database, and reading it needs a connection, so it cannot be
+the thing that says how to connect. The configuration has to come from outside
+the database, which leaves a file and the environment.
+
+`database.env` is looked for in two places, in order:
+
+1. Beside `JussiMiniPos.exe` — what a deployment ships, and what a developer
+   drops into the working copy.
+2. `%LOCALAPPDATA%\JussiMiniPos\` — reachable without administrator rights on a
+   machine where the install folder is read-only.
+
+Every setting can also be given as an **environment variable of the same
+name**. Where both exist the file wins: the file is what an administrator edits
+on purpose, so a stray variable in a shell cannot quietly point a till at the
+wrong database.
+
+Copy [`database.env.example`](database.env.example) to `database.env` to start.
+The real file is gitignored, because it holds a password.
+
+| Setting | Meaning |
+| --- | --- |
+| `JUSSIMINIPOS_DB_PROVIDER` | `sqlite` (default) or `postgresql` |
+| `JUSSIMINIPOS_DB_PATH` | SQLite file location |
+| `JUSSIMINIPOS_DB_HOST` / `_PORT` / `_NAME` / `_USER` / `_PASSWORD` | PostgreSQL connection |
+| `JUSSIMINIPOS_DB_CONNECTION` | A complete connection string, used verbatim; wins over the fields above |
+| `JUSSIMINIPOS_DATA_DIR` | Where images and the Gemini key live |
+
+> **Images do not follow the database.** Product pictures are files on disk that
+> only the database knows the names of, and deleting rows sweeps away the ones
+> nothing points at any more. Two databases sharing one image folder would
+> therefore have each one's sweep delete the other's pictures — running
+> `--seed` against a fresh PostgreSQL database would wipe the SQLite
+> database's images. The defaults are separate folders for exactly that reason:
+> `%LOCALAPPDATA%\JussiMiniPos` for SQLite and
+> `%LOCALAPPDATA%\JussiMiniPos\postgresql` for PostgreSQL. Point both at one
+> place with `JUSSIMINIPOS_DATA_DIR` only if that is genuinely what you want.
+
+#### SQLite (the default)
+
+Nothing to do. Leaving `database.env` out entirely is the same as:
+
+```ini
+JUSSIMINIPOS_DB_PROVIDER=sqlite
+```
+
+Point it somewhere else — a shared folder, a different drive — with
+`JUSSIMINIPOS_DB_PATH`.
+
+#### PostgreSQL, locally
+
+A [`docker-compose.yml`](docker-compose.yml) is included for development. It is
+a convenience for working on the PostgreSQL driver, **not** how the till is
+deployed — nothing in the application knows it is talking to a container.
+
+```console
+docker compose up -d
+```
+
+Then write `database.env`:
+
+```ini
+JUSSIMINIPOS_DB_PROVIDER=postgresql
+JUSSIMINIPOS_DB_HOST=localhost
+JUSSIMINIPOS_DB_PORT=5432
+JUSSIMINIPOS_DB_NAME=jussiminipos
+JUSSIMINIPOS_DB_USER=jussipos
+JUSSIMINIPOS_DB_PASSWORD=jussipos
+```
+
+Create the schema and demo catalogue without starting the UI:
+
+```console
+JussiMiniPos.exe --seed
+JussiMiniPos.exe --dump
+```
+
+`--dump` prints which database it opened, with the password stripped out, so it
+doubles as a connection test.
+
+#### PostgreSQL, remote or production
+
+Point the same settings at the server. The database itself has to exist and the
+user has to own it — the application creates its own tables, but not the
+database that holds them:
+
+```console
+createdb -h db.example.com -U postgres -O jussipos jussiminipos
+```
+
+For anything the individual fields cannot express — TLS, pooling, a non-default
+schema — give the whole connection string instead:
+
+```ini
+JUSSIMINIPOS_DB_PROVIDER=postgresql
+JUSSIMINIPOS_DB_CONNECTION=Host=db.example.com;Port=5432;Database=jussiminipos;Username=jussipos;Password=secret;SSL Mode=Require
+```
+
+The user needs `CREATE` on the database for the first run, because that is when
+the schema is written. It also needs to be able to run
+`CREATE EXTENSION citext` once — that is what makes a username or an email
+match whatever the case, the way `COLLATE NOCASE` does under SQLite. On a
+managed server where creating extensions is restricted, have an administrator
+run `CREATE EXTENSION citext;` in the database first; the application's own
+statement is `IF NOT EXISTS` and will then do nothing.
+
+**Keeping the password out of plain text.** A password in `database.env` is
+readable by anyone who can read the file. It can instead be stored the way the
+Gemini API key is — encrypted with Windows DPAPI under the current user
+account, written as `DPAPI:` followed by base64:
+
+```ini
+JUSSIMINIPOS_DB_PASSWORD=DPAPI:AQAAANCMnd8BFdERjHoAwE/Cl+sBAAAA...
+```
+
+A value without the `DPAPI:` marker is treated as a plain password, so a file
+written by hand keeps working. As with the API key, this defends against
+another Windows account and against a copy taken to another machine — not
+against code running as the same user, which is the honest limit of storing a
+credential a program must read unattended.
+
+#### Switching drivers
+
+The two databases are separate stores, not two views of one. Changing the
+provider points the application at a different database; it does not move any
+data across. There is no migration tool — export and import with each engine's
+own tools if you need the rows to follow.
+
+#### What differs between the two
+
+Almost nothing, by design. Parameters are written `@name`, which both drivers
+accept, and every reader reads columns by position, so PostgreSQL folding
+unquoted column names to lower case changes nothing. What genuinely differs
+lives in `Services/SqlDialect.cs`: the schema, case-insensitive text, the
+Unicode-aware folding the search needs, the local-date conversion the reports
+need, and `LEAST`/`string_agg` against SQLite's `MIN`/`GROUP_CONCAT`.
 
 ### Product images
 
@@ -255,6 +409,17 @@ cannot do that. Columns added this way land at the end of the table, so column
 *order* differs between a fresh and an upgraded database; nothing selects `*`,
 so that only matters if you read the schema by eye.
 
+In practice these only ever fire against a SQLite file old enough to predate
+the column. A PostgreSQL database is always created from the current schema, so
+every column is there the first time and each check does nothing.
+
+One migration does more than add a column. `ProductCategories.SortOrder` records
+the order the links were written, so the first category a product was given
+stays its primary one. SQLite could lean on its implicit `rowid` for that;
+PostgreSQL has no such column, so the order is now stored outright. An existing
+SQLite file is backfilled from that very `rowid`, which keeps the ordering it
+already had.
+
 ### Sales
 
 ```
@@ -275,14 +440,23 @@ past receipts.
 
 ### Conventions
 
-- Column names are **PascalCase** throughout, matching the C# side.
-- Booleans are `INTEGER` `0`/`1` with a `CHECK`, since SQLite has no boolean.
-- Money is an **integer number of cents**, not `REAL`. SQLite has no decimal
-  type, and binary floating point cannot hold values like `0.10` exactly, so a
-  column of `REAL` totals drifts once you start summing it for reports.
-  `SalesRepository.FromCents` converts back for display.
-- Foreign keys are enforced: `Database.OpenConnection()` sets
-  `PRAGMA foreign_keys = ON`, which SQLite otherwise leaves off per connection.
+- Column names are **PascalCase** throughout, matching the C# side. PostgreSQL
+  folds unquoted names to lower case, which is invisible here because every
+  reader reads by position rather than by name.
+- Booleans are `0`/`1` with a `CHECK` rather than a boolean type, since SQLite
+  has none. PostgreSQL keeps the same shape on purpose, so the reading code
+  stays the same for both.
+- Money is an **integer number of cents**, not a floating point type. SQLite
+  has no decimal type, and binary floating point cannot hold values like `0.10`
+  exactly, so a column of `REAL` totals drifts once you start summing it for
+  reports. `SalesRepository.FromCents` converts back for display.
+- Aggregates are wrapped in `CAST(... AS BIGINT)`. SQLite hands back whatever
+  the sum fits in, but PostgreSQL widens `SUM` over a `bigint` to `numeric`,
+  which `GetInt64` refuses.
+- Foreign keys are enforced. Under SQLite `Database.OpenConnection()` sets
+  `PRAGMA foreign_keys = ON`, which it otherwise leaves off per connection;
+  PostgreSQL always enforces them and needs no equivalent.
+- Parameters are written `@name`, which both drivers accept.
 
 ## Sales reports (Raportit)
 

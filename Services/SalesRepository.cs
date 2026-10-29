@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using JussiMiniPos.Models;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Services;
 
@@ -30,14 +30,14 @@ public sealed class SalesRepository(Database database)
         insertSale.CommandText =
             """
             INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod)
-            VALUES ($dateTime, $totalCents, $paymentMethod);
-            SELECT last_insert_rowid();
+            VALUES (@dateTime, @totalCents, @paymentMethod)
+            RETURNING Id;
             """;
-        insertSale.Parameters.AddWithValue("$dateTime", sale.SoldAt.ToString("o", CultureInfo.InvariantCulture));
-        insertSale.Parameters.AddWithValue("$totalCents", ToCents(sale.Total));
-        insertSale.Parameters.AddWithValue("$paymentMethod", sale.PaymentMethod.ToString());
+        Database.AddParameter(insertSale, "@dateTime", sale.SoldAt.ToString("o", CultureInfo.InvariantCulture));
+        Database.AddParameter(insertSale, "@totalCents", ToCents(sale.Total));
+        Database.AddParameter(insertSale, "@paymentMethod", sale.PaymentMethod.ToString());
 
-        var saleId = (long)insertSale.ExecuteScalar()!;
+        var saleId = Convert.ToInt64(insertSale.ExecuteScalar(), CultureInfo.InvariantCulture);
 
         foreach (var item in sale.Items)
         {
@@ -46,14 +46,14 @@ public sealed class SalesRepository(Database database)
             insertItem.CommandText =
                 """
                 INSERT INTO SaleItems (SaleId, ProductId, Name, Category, UnitPriceCents, Quantity)
-                VALUES ($saleId, $productId, $name, $category, $unitPriceCents, $quantity);
+                VALUES (@saleId, @productId, @name, @category, @unitPriceCents, @quantity);
                 """;
-            insertItem.Parameters.AddWithValue("$saleId", saleId);
-            insertItem.Parameters.AddWithValue("$productId", item.ProductId);
-            insertItem.Parameters.AddWithValue("$name", item.Name);
-            insertItem.Parameters.AddWithValue("$category", item.Category);
-            insertItem.Parameters.AddWithValue("$unitPriceCents", ToCents(item.UnitPrice));
-            insertItem.Parameters.AddWithValue("$quantity", item.Quantity);
+            Database.AddParameter(insertItem, "@saleId", saleId);
+            Database.AddParameter(insertItem, "@productId", item.ProductId);
+            Database.AddParameter(insertItem, "@name", item.Name);
+            Database.AddParameter(insertItem, "@category", item.Category);
+            Database.AddParameter(insertItem, "@unitPriceCents", ToCents(item.UnitPrice));
+            Database.AddParameter(insertItem, "@quantity", item.Quantity);
             insertItem.ExecuteNonQuery();
         }
 
@@ -107,12 +107,12 @@ public sealed class SalesRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Sales WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "DELETE FROM Sales WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
         command.ExecuteNonQuery();
     }
 
-    private static Dictionary<long, List<SaleItem>> ReadSaleItems(SqliteConnection connection)
+    private static Dictionary<long, List<SaleItem>> ReadSaleItems(DbConnection connection)
     {
         using var command = connection.CreateCommand();
         command.CommandText =

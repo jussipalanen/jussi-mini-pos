@@ -1,6 +1,6 @@
 using System.Globalization;
 using JussiMiniPos.Models;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Services;
 
@@ -14,7 +14,10 @@ public sealed class ReportsRepository(Database database)
     public static DateOnly LocalDate(DateTimeOffset timestamp) =>
         DateOnly.FromDateTime(TimeZoneInfo.ConvertTime(timestamp, ReportTimeZone).DateTime);
 
-    private const string DateFilter = "report_date(s.\"DateTime\") BETWEEN $from AND $through";
+    /// <summary>The sale's local calendar date, in whichever engine is configured.</summary>
+    private string ReportDate => database.Dialect.ReportDate("s.\"DateTime\"");
+
+    private string DateFilter => $"{ReportDate} BETWEEN @from AND @through";
 
     public SalesReport GetReport(DateOnly from, DateOnly through)
     {
@@ -26,15 +29,15 @@ public sealed class ReportsRepository(Database database)
         using var connection = OpenConnection();
         // All sections must describe the same database snapshot, even if a sale
         // is added or deleted while the report is being read.
-        using var transaction = connection.BeginTransaction(deferred: true);
+        using var transaction = connection.BeginTransaction();
         using var daily = CreateCommand(connection, transaction, from, through,
             $"""
-            SELECT report_date(s."DateTime"), COUNT(*), SUM(s.TotalCents),
-                   SUM(COALESCE((SELECT SUM(i.Quantity) FROM SaleItems i WHERE i.SaleId = s.Id), 0))
+            SELECT {ReportDate}, COUNT(*), CAST(SUM(s.TotalCents) AS BIGINT),
+                   CAST(SUM(COALESCE((SELECT SUM(i.Quantity) FROM SaleItems i WHERE i.SaleId = s.Id), 0)) AS BIGINT)
             FROM Sales s
             WHERE {DateFilter}
-            GROUP BY report_date(s."DateTime")
-            ORDER BY report_date(s."DateTime");
+            GROUP BY {ReportDate}
+            ORDER BY {ReportDate};
             """);
         var days = new List<ReportDay>();
         using (var reader = daily.ExecuteReader())
@@ -49,7 +52,7 @@ public sealed class ReportsRepository(Database database)
 
         using var productsCommand = CreateCommand(connection, transaction, from, through,
             $"""
-            SELECT i.ProductId, i.Name, SUM(i.Quantity), SUM(i.UnitPriceCents * i.Quantity)
+            SELECT i.ProductId, i.Name, CAST(SUM(i.Quantity) AS BIGINT), CAST(SUM(i.UnitPriceCents * i.Quantity) AS BIGINT)
             FROM SaleItems i JOIN Sales s ON s.Id = i.SaleId
             WHERE {DateFilter}
             GROUP BY i.ProductId, i.Name
@@ -67,7 +70,7 @@ public sealed class ReportsRepository(Database database)
 
         using var categoriesCommand = CreateCommand(connection, transaction, from, through,
             $"""
-            SELECT i.Category, SUM(i.Quantity), SUM(i.UnitPriceCents * i.Quantity)
+            SELECT i.Category, CAST(SUM(i.Quantity) AS BIGINT), CAST(SUM(i.UnitPriceCents * i.Quantity) AS BIGINT)
             FROM SaleItems i JOIN Sales s ON s.Id = i.SaleId
             WHERE {DateFilter}
             GROUP BY i.Category
@@ -132,27 +135,26 @@ public sealed class ReportsRepository(Database database)
         return sales;
     }
 
-    private SqliteConnection OpenConnection()
+    private DbConnection OpenConnection()
     {
         var connection = database.OpenConnection();
+
         // ISO timestamps contain their original offset. Comparing their text or
         // applying a fixed +02 offset would misclassify midnight and summer time.
-        // Invalid legacy timestamps are excluded rather than assigned a false date.
-        connection.CreateFunction("report_date", (string value) =>
-            DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var timestamp)
-                ? LocalDate(timestamp).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-                : null, isDeterministic: true);
+        // SQLite needs a .NET callback to work that out and PostgreSQL does it
+        // in SQL, so which of the two happens is the dialect's business.
+        database.Dialect.PrepareReporting(connection);
         return connection;
     }
 
-    private static SqliteCommand CreateCommand(SqliteConnection connection, SqliteTransaction? transaction,
+    private static DbCommand CreateCommand(DbConnection connection, DbTransaction? transaction,
         DateOnly from, DateOnly through, string sql)
     {
         var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = sql;
-        command.Parameters.AddWithValue("$from", from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
-        command.Parameters.AddWithValue("$through", through.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        Database.AddParameter(command, "@from", from.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        Database.AddParameter(command, "@through", through.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
         return command;
     }
 }

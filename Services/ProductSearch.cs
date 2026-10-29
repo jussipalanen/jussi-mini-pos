@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using System.Linq;
 using System.Text;
@@ -184,26 +185,29 @@ public sealed class ProductSearch(Database database)
     private IReadOnlyList<int> Rank(Terms terms, int minScore)
     {
         using var connection = database.OpenConnection();
+        var dialect = database.Dialect;
 
-        // SQLite's own lower() and LIKE fold ASCII only, which would leave
-        // "Äyriäiset" unmatched by "äyri". .NET knows better, so the folding
-        // is handed to it.
-        connection.CreateFunction(
-            "fold",
-            (string? value) => value?.ToLowerInvariant(),
-            isDeterministic: true);
+        // Case folding has to understand "Äyriäiset" so that "äyri" matches
+        // it. SQLite's own lower() and LIKE fold ASCII only, so there the job
+        // goes to a .NET callback; PostgreSQL's lower() already knows. Which
+        // of the two happens is the dialect's business.
+        dialect.PrepareSearch(connection);
 
         using var command = connection.CreateCommand();
 
         var score = new StringBuilder("0");
         for (var i = 0; i < terms.Stems.Count; i++)
         {
-            score.Append($" + (CASE WHEN fold(Title) LIKE $stem{i} THEN 8 ELSE 0 END)");
-            score.Append($" + (CASE WHEN fold(CategoryTitles) LIKE $stem{i} THEN 4 ELSE 0 END)");
-            score.Append($" + (CASE WHEN fold(Description) LIKE $stem{i} THEN 2 ELSE 0 END)");
+            score.Append($" + (CASE WHEN {dialect.Fold("Title")} LIKE @stem{i} THEN 8 ELSE 0 END)");
+            score.Append($" + (CASE WHEN {dialect.Fold("CategoryTitles")} LIKE @stem{i} THEN 4 ELSE 0 END)");
+            score.Append($" + (CASE WHEN {dialect.Fold("Description")} LIKE @stem{i} THEN 2 ELSE 0 END)");
 
-            command.Parameters.AddWithValue($"$stem{i}", $"%{Escape(terms.Stems[i])}%");
+            Database.AddParameter(command, $"@stem{i}", $"%{Escape(terms.Stems[i])}%");
         }
+
+        // The price the till would actually charge, which is what a price
+        // ceiling in the question is about.
+        var effective = dialect.Least("PriceCents", "COALESCE(SalePriceCents, PriceCents)");
 
         // "Halpa" asks for the cheap end, so price leads the ordering and
         // relevance breaks its ties. It only reshuffles within a set that has
@@ -225,30 +229,32 @@ public sealed class ProductSearch(Database database)
             $"""
             SELECT Id FROM (
                 SELECT Id,
-                       MIN(PriceCents, COALESCE(SalePriceCents, PriceCents)) AS EffectiveCents,
+                       {effective} AS EffectiveCents,
                        {score} AS Score
                 FROM (
                     SELECT Id, Title, Description, PriceCents, SalePriceCents,
-                           (SELECT COALESCE(GROUP_CONCAT(c.Title, ' '), '')
+                           (SELECT COALESCE({dialect.GroupConcat("c.Title", "' '")}, '')
                               FROM ProductCategories pc
                               JOIN Categories c ON c.Id = pc.CategoryId
                              WHERE pc.ProductId = p.Id) AS CategoryTitles
                     FROM Products p
                     WHERE p.IsPublic = 1
-                )
-                WHERE $maxPriceCents IS NULL
-                   OR MIN(PriceCents, COALESCE(SalePriceCents, PriceCents)) <= $maxPriceCents
-            )
-            WHERE Score >= $minScore
+                ) AS expanded
+                WHERE @maxPriceCents IS NULL
+                   OR {effective} <= @maxPriceCents
+            ) AS ranked
+            WHERE Score >= @minScore
             ORDER BY {order}
-            LIMIT $limit;
+            LIMIT @limit;
             """;
 
-        command.Parameters.AddWithValue("$minScore", minScore);
-        command.Parameters.AddWithValue("$limit", MaxCandidates);
-        command.Parameters.AddWithValue(
-            "$maxPriceCents",
-            terms.MaxPrice is { } max ? SalesRepository.ToCents(max) : DBNull.Value);
+        Database.AddParameter(command, "@minScore", minScore);
+        Database.AddParameter(command, "@limit", MaxCandidates);
+        Database.AddParameter(
+            command,
+            "@maxPriceCents",
+            terms.MaxPrice is { } max ? SalesRepository.ToCents(max) : null,
+            DbType.Int64);
 
         using var reader = command.ExecuteReader();
 

@@ -1,8 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using JussiMiniPos.Models;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Services;
 
@@ -76,12 +77,12 @@ public sealed class CatalogRepository(Database database)
         if (ids is not null)
         {
             // Ids cannot be parameterised as a list, so one parameter per id.
-            var placeholders = ids.Select((_, i) => $"$id{i}").ToList();
+            var placeholders = ids.Select((_, i) => $"@id{i}").ToList();
             conditions.Add($"Id IN ({string.Join(", ", placeholders)})");
 
             foreach (var (id, placeholder) in ids.Zip(placeholders))
             {
-                command.Parameters.AddWithValue(placeholder, id);
+                Database.AddParameter(command, placeholder, id);
             }
         }
 
@@ -139,12 +140,12 @@ public sealed class CatalogRepository(Database database)
         insert.CommandText =
             """
             INSERT INTO Products (Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic)
-            VALUES ($title, $description, $priceCents, $salePriceCents, $featureImage, $isPublic);
-            SELECT last_insert_rowid();
+            VALUES (@title, @description, @priceCents, @salePriceCents, @featureImage, @isPublic)
+            RETURNING Id;
             """;
         AddProductParameters(insert, draft);
 
-        var id = (int)(long)insert.ExecuteScalar()!;
+        var id = Convert.ToInt32(insert.ExecuteScalar(), CultureInfo.InvariantCulture);
 
         WriteCategories(connection, transaction, id, draft.CategoryIds);
         WriteImages(connection, transaction, id, draft.Images);
@@ -169,21 +170,21 @@ public sealed class CatalogRepository(Database database)
             command.CommandText =
                 """
                 UPDATE Products
-                   SET Title = $title,
-                       Description = $description,
-                       PriceCents = $priceCents,
-                       SalePriceCents = $salePriceCents,
-                       FeatureImage = $featureImage,
-                       IsPublic = $isPublic
-                 WHERE Id = $id;
+                   SET Title = @title,
+                       Description = @description,
+                       PriceCents = @priceCents,
+                       SalePriceCents = @salePriceCents,
+                       FeatureImage = @featureImage,
+                       IsPublic = @isPublic
+                 WHERE Id = @id;
                 """;
-            command.Parameters.AddWithValue("$id", id);
+            Database.AddParameter(command, "@id", id);
             AddProductParameters(command, draft);
             command.ExecuteNonQuery();
         }
 
-        Execute(connection, transaction, "DELETE FROM ProductCategories WHERE ProductId = $id;", id);
-        Execute(connection, transaction, "DELETE FROM ProductImages WHERE ProductId = $id;", id);
+        Execute(connection, transaction, "DELETE FROM ProductCategories WHERE ProductId = @id;", id);
+        Execute(connection, transaction, "DELETE FROM ProductImages WHERE ProductId = @id;", id);
 
         WriteCategories(connection, transaction, id, draft.CategoryIds);
         WriteImages(connection, transaction, id, draft.Images);
@@ -201,8 +202,8 @@ public sealed class CatalogRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Products WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "DELETE FROM Products WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
         command.ExecuteNonQuery();
     }
 
@@ -215,13 +216,13 @@ public sealed class CatalogRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            INSERT INTO Categories (Title, ParentId, IsPublic) VALUES ($title, $parentId, $isPublic);
-            SELECT last_insert_rowid();
+            INSERT INTO Categories (Title, ParentId, IsPublic) VALUES (@title, @parentId, @isPublic)
+            RETURNING Id;
             """;
-        command.Parameters.AddWithValue("$title", title);
-        command.Parameters.AddWithValue("$parentId", (object?)parentId ?? DBNull.Value);
-        command.Parameters.AddWithValue("$isPublic", isPublic ? 1 : 0);
-        return (int)(long)command.ExecuteScalar()!;
+        Database.AddParameter(command, "@title", title);
+        Database.AddParameter(command, "@parentId", (object?)parentId ?? DBNull.Value);
+        Database.AddParameter(command, "@isPublic", isPublic ? 1 : 0);
+        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
     public void UpdateCategory(int id, string title, int? parentId, bool isPublic)
@@ -230,13 +231,13 @@ public sealed class CatalogRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            UPDATE Categories SET Title = $title, ParentId = $parentId, IsPublic = $isPublic
-             WHERE Id = $id;
+            UPDATE Categories SET Title = @title, ParentId = @parentId, IsPublic = @isPublic
+             WHERE Id = @id;
             """;
-        command.Parameters.AddWithValue("$id", id);
-        command.Parameters.AddWithValue("$title", title);
-        command.Parameters.AddWithValue("$parentId", (object?)parentId ?? DBNull.Value);
-        command.Parameters.AddWithValue("$isPublic", isPublic ? 1 : 0);
+        Database.AddParameter(command, "@id", id);
+        Database.AddParameter(command, "@title", title);
+        Database.AddParameter(command, "@parentId", (object?)parentId ?? DBNull.Value);
+        Database.AddParameter(command, "@isPublic", isPublic ? 1 : 0);
         command.ExecuteNonQuery();
     }
 
@@ -249,21 +250,21 @@ public sealed class CatalogRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Categories WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "DELETE FROM Categories WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
         command.ExecuteNonQuery();
     }
 
     /// <summary>Direct children of a category, for the delete guard.</summary>
     public int CountChildCategories(int id) =>
-        Count("SELECT COUNT(*) FROM Categories WHERE ParentId = $id;", id);
+        Count("SELECT COUNT(*) FROM Categories WHERE ParentId = @id;", id);
 
     /// <summary>Products linked to a category, for the delete warning.</summary>
     public int CountProductsInCategory(int id) =>
-        Count("SELECT COUNT(*) FROM ProductCategories WHERE CategoryId = $id;", id);
+        Count("SELECT COUNT(*) FROM ProductCategories WHERE CategoryId = @id;", id);
 
     /// <summary>Gallery paths per product, in SortOrder.</summary>
-    private static Dictionary<int, List<string>> ReadProductImages(SqliteConnection connection)
+    private static Dictionary<int, List<string>> ReadProductImages(DbConnection connection)
     {
         using var command = connection.CreateCommand();
         command.CommandText =
@@ -289,39 +290,46 @@ public sealed class CatalogRepository(Database database)
 
     // ---------- Shared plumbing ----------
 
-    private static void AddProductParameters(SqliteCommand command, ProductDraft draft)
+    private static void AddProductParameters(DbCommand command, ProductDraft draft)
     {
-        command.Parameters.AddWithValue("$title", draft.Title);
-        command.Parameters.AddWithValue("$description", draft.Description);
-        command.Parameters.AddWithValue("$priceCents", SalesRepository.ToCents(draft.Price));
-        command.Parameters.AddWithValue(
-            "$salePriceCents",
+        Database.AddParameter(command, "@title", draft.Title);
+        Database.AddParameter(command, "@description", draft.Description);
+        Database.AddParameter(command, "@priceCents", SalesRepository.ToCents(draft.Price));
+        Database.AddParameter(command,
+            "@salePriceCents",
             draft.SalePrice is { } sale ? SalesRepository.ToCents(sale) : DBNull.Value);
-        command.Parameters.AddWithValue("$featureImage", (object?)draft.FeatureImage ?? DBNull.Value);
-        command.Parameters.AddWithValue("$isPublic", draft.IsPublic ? 1 : 0);
+        Database.AddParameter(command, "@featureImage", (object?)draft.FeatureImage ?? DBNull.Value);
+        Database.AddParameter(command, "@isPublic", draft.IsPublic ? 1 : 0);
     }
 
     private static void WriteCategories(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
+        DbConnection connection,
+        DbTransaction transaction,
         int productId,
         IReadOnlyList<int> categoryIds)
     {
+        // SortOrder keeps the order the caller gave, so the first category
+        // written stays the product's primary one.
+        var sortOrder = 0;
         foreach (var categoryId in categoryIds.Distinct())
         {
             using var insert = connection.CreateCommand();
             insert.Transaction = transaction;
             insert.CommandText =
-                "INSERT INTO ProductCategories (ProductId, CategoryId) VALUES ($id, $categoryId);";
-            insert.Parameters.AddWithValue("$id", productId);
-            insert.Parameters.AddWithValue("$categoryId", categoryId);
+                """
+                INSERT INTO ProductCategories (ProductId, CategoryId, SortOrder)
+                VALUES (@id, @categoryId, @sortOrder);
+                """;
+            Database.AddParameter(insert, "@id", productId);
+            Database.AddParameter(insert, "@categoryId", categoryId);
+            Database.AddParameter(insert, "@sortOrder", sortOrder++);
             insert.ExecuteNonQuery();
         }
     }
 
     private static void WriteImages(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
+        DbConnection connection,
+        DbTransaction transaction,
         int productId,
         IReadOnlyList<string> images)
     {
@@ -330,24 +338,24 @@ public sealed class CatalogRepository(Database database)
             using var insert = connection.CreateCommand();
             insert.Transaction = transaction;
             insert.CommandText =
-                "INSERT INTO ProductImages (ProductId, Path, SortOrder) VALUES ($id, $path, $sortOrder);";
-            insert.Parameters.AddWithValue("$id", productId);
-            insert.Parameters.AddWithValue("$path", images[i]);
-            insert.Parameters.AddWithValue("$sortOrder", i);
+                "INSERT INTO ProductImages (ProductId, Path, SortOrder) VALUES (@id, @path, @sortOrder);";
+            Database.AddParameter(insert, "@id", productId);
+            Database.AddParameter(insert, "@path", images[i]);
+            Database.AddParameter(insert, "@sortOrder", i);
             insert.ExecuteNonQuery();
         }
     }
 
     private static void Execute(
-        SqliteConnection connection,
-        SqliteTransaction transaction,
+        DbConnection connection,
+        DbTransaction transaction,
         string sql,
         int id)
     {
         using var command = connection.CreateCommand();
         command.Transaction = transaction;
         command.CommandText = sql;
-        command.Parameters.AddWithValue("$id", id);
+        Database.AddParameter(command, "@id", id);
         command.ExecuteNonQuery();
     }
 
@@ -356,7 +364,7 @@ public sealed class CatalogRepository(Database database)
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText = sql;
-        command.Parameters.AddWithValue("$id", id);
+        Database.AddParameter(command, "@id", id);
         return Convert.ToInt32(command.ExecuteScalar());
     }
 
@@ -397,10 +405,12 @@ public sealed class CatalogRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT COUNT(*), COALESCE(SUM(Quantity), 0), COALESCE(SUM(UnitPriceCents * Quantity), 0)
-            FROM SaleItems WHERE ProductId = $id;
+            SELECT CAST(COUNT(*) AS INT),
+                   CAST(COALESCE(SUM(Quantity), 0) AS INT),
+                   CAST(COALESCE(SUM(UnitPriceCents * Quantity), 0) AS BIGINT)
+            FROM SaleItems WHERE ProductId = @id;
             """;
-        command.Parameters.AddWithValue("$id", productId);
+        Database.AddParameter(command, "@id", productId);
 
         using var reader = command.ExecuteReader();
         if (!reader.Read())
@@ -419,18 +429,18 @@ public sealed class CatalogRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM SaleItems WHERE ProductId = $id;";
-        command.Parameters.AddWithValue("$id", productId);
+        command.CommandText = "SELECT COUNT(*) FROM SaleItems WHERE ProductId = @id;";
+        Database.AddParameter(command, "@id", productId);
         return Convert.ToInt32(command.ExecuteScalar());
     }
 
     /// <summary>
     /// Every product's categories, keyed by product id. Ordered by the link
-    /// table's rowid, which is insert order, so the main category the seeder
-    /// wrote first stays first.
+    /// table's SortOrder, which is insert order, so the main category the
+    /// seeder wrote first stays first.
     /// </summary>
     private static Dictionary<int, List<Category>> ReadProductCategories(
-        SqliteConnection connection,
+        DbConnection connection,
         bool publicOnly)
     {
         using var command = connection.CreateCommand();
@@ -440,7 +450,7 @@ public sealed class CatalogRepository(Database database)
             FROM ProductCategories pc
             JOIN Categories c ON c.Id = pc.CategoryId
             {(publicOnly ? "WHERE c.IsPublic = 1" : string.Empty)}
-            ORDER BY pc.ProductId, pc.rowid;
+            ORDER BY pc.ProductId, pc.SortOrder;
             """;
 
         using var reader = command.ExecuteReader();
