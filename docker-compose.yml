@@ -1,16 +1,20 @@
-# A PostgreSQL server for developing and testing the PostgreSQL driver.
+# A PostgreSQL server for developing and testing the PostgreSQL driver, and
+# pgAdmin to look inside it from a browser.
 #
 # This is a development convenience, not how the till is deployed. A real
 # installation points at a PostgreSQL server that is already running
 # somewhere; nothing in the application knows or cares that this one is a
 # container.
 #
-#   docker compose up -d          start it
-#   docker compose down           stop it, keeping the data
-#   docker compose down -v        stop it and throw the data away
+#   ./dev up                      start both (or: docker compose up -d)
+#   ./dev down                    stop them, keeping the data
+#   ./dev restart                 recreate the containers, keeping the data
+#   ./dev reset                   stop them and throw the data away
 #
-# The credentials here are deliberately trivial: this server listens on
-# localhost only and holds nothing but demo data. Do not reuse them anywhere
+# pgAdmin is at http://localhost:5050, already connected to the server.
+#
+# The credentials here are deliberately trivial: both services listen on
+# localhost only and hold nothing but demo data. Do not reuse them anywhere
 # that matters.
 
 services:
@@ -36,5 +40,42 @@ services:
       timeout: 5s
       retries: 10
 
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: jussipos-pgadmin
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Desktop mode: a single local user and no pgAdmin login screen. Fine on
+      # a port published to localhost only; never expose it like this.
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      # Required by the image even in desktop mode, never used to sign in.
+      PGADMIN_DEFAULT_EMAIL: dev@example.com
+      PGADMIN_DEFAULT_PASSWORD: jussipos
+      # Registers the server above on every start, and hands pgAdmin its
+      # password through a pgpass file the image copies into place with the
+      # 0600 permissions libpq insists on (a file mounted from Windows has
+      # none it would accept).
+      PGADMIN_REPLACE_SERVERS_ON_STARTUP: "True"
+      PGPASS_FILE: /pgpass
+    ports:
+      - "127.0.0.1:5050:80"
+    healthcheck:
+      # Ready once the web UI answers, so `./dev up` does not return while
+      # pgAdmin is still setting itself up.
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:80/misc/ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./docker/pgadmin/servers.json:/pgadmin4/servers.json:ro
+      - ./docker/pgadmin/pgpass:/pgpass:ro
+
 volumes:
   postgres-data:
+  pgadmin-data:

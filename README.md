@@ -217,7 +217,10 @@ The repository root holds the solution, documentation and tooling:
 | `src/JussiMiniPos/`    | The WPF application (table below)                      |
 | `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
 | `.github/`             | CI, CodeQL, dependency review, the release workflow and Dependabot |
-| `docker-compose.yml`   | A local PostgreSQL for development                     |
+| `docker-compose.yml`   | A local PostgreSQL and pgAdmin for development        |
+| `dev`                  | `./dev up`, `down`, `restart` … for those containers (bash) |
+| `docker/pgadmin/`      | pgAdmin's server registration and password file        |
+| `.gitattributes`       | Keeps `dev` and `docker/` files LF on Windows checkouts |
 | `database.env.example` | Template for choosing and configuring the database     |
 | `CHANGELOG.md`, `ROADMAP.md` | What changed in each release, and what comes next |
 
@@ -353,13 +356,37 @@ Point it somewhere else — a shared folder, a different drive — with
 
 #### PostgreSQL, locally
 
-A [`docker-compose.yml`](docker-compose.yml) is included for development. It is
-a convenience for working on the PostgreSQL driver, **not** how the till is
-deployed — nothing in the application knows it is talking to a container.
+A [`docker-compose.yml`](docker-compose.yml) is included for development: a
+PostgreSQL server and **pgAdmin**, a web UI for looking inside it, much like
+phpMyAdmin is for MySQL. It is a convenience for working on the PostgreSQL
+driver and for the tests, **not** how the till is deployed — nothing in the
+application knows it is talking to a container.
 
-```console
-docker compose up -d
+The [`dev`](dev) script at the repository root wraps it. It is a bash script,
+so run it from **Git Bash** (or WSL, macOS, Linux); it works from any folder:
+
+```bash
+./dev up         # start PostgreSQL and pgAdmin, and wait until both are ready
+./dev down       # stop them; the data is kept
+./dev restart    # recreate both containers (force), keeping the data
+./dev status     # the containers and their health
+./dev logs       # follow the logs; ./dev logs pgadmin for one service
+./dev reset      # delete the development data, after asking
 ```
+
+From PowerShell, `docker compose up -d` and `docker compose down` do the same
+as `up` and `down`.
+
+| Service    | Where                   | Sign in |
+| ---------- | ----------------------- | ------- |
+| PostgreSQL | `localhost:5432`        | database `jussiminipos`, user `jussipos`, password `jussipos` |
+| pgAdmin    | <http://localhost:5050> | none — opens straight in, with the server already connected |
+
+Both listen on localhost only, and the credentials are deliberately trivial:
+this is demo data on a developer's machine. pgAdmin runs in its single-user
+desktop mode and gets the database password from
+[`docker/pgadmin/pgpass`](docker/pgadmin/pgpass); never expose either service
+on a network like this.
 
 Then write `database.env`:
 

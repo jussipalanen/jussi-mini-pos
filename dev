@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+#
+# Short commands for the development containers: PostgreSQL and pgAdmin.
+#
+#   ./dev up              start PostgreSQL and pgAdmin, and wait until both are ready
+#   ./dev down            stop them; the data is kept
+#   ./dev restart         recreate both containers (force), keeping the data
+#   ./dev status          show the containers and their health
+#   ./dev logs [service]  follow the logs (Ctrl+C to stop), e.g. ./dev logs pgadmin
+#   ./dev reset [--force] stop them and DELETE the data volumes, after asking
+#
+# Runs in Git Bash on Windows, and in WSL, macOS or Linux, from any folder.
+# These containers are for development and the tests only; a till in a shop
+# points at its own PostgreSQL server through database.env.
+
+set -euo pipefail
+
+# docker compose finds docker-compose.yml, and resolves its relative paths,
+# from the repository root.
+cd "$(dirname "${BASH_SOURCE[0]}")"
+
+usage() {
+    sed -n '3,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+}
+
+endpoints() {
+    echo
+    echo "PostgreSQL  localhost:5432   database jussiminipos, user jussipos, password jussipos"
+    echo "pgAdmin     http://localhost:5050"
+}
+
+if ! command -v docker > /dev/null 2>&1; then
+    echo "Docker was not found. Install Docker Desktop and start it, then run this again." >&2
+    exit 1
+fi
+
+command="${1:-help}"
+shift || true
+
+case "$command" in
+    up)
+        # --wait returns once the health checks pass, so the database accepts
+        # connections and pgAdmin answers when this finishes.
+        docker compose up --detach --wait
+        endpoints
+        ;;
+    down)
+        docker compose down
+        ;;
+    restart)
+        docker compose up --detach --force-recreate --wait
+        endpoints
+        ;;
+    status)
+        docker compose ps
+        ;;
+    logs)
+        docker compose logs --follow --tail 100 "$@"
+        ;;
+    reset)
+        if [[ "${1:-}" != "--force" ]]; then
+            read -r -p "Delete the development PostgreSQL and pgAdmin data? Type yes to continue: " answer
+            if [[ "$answer" != "yes" ]]; then
+                echo "Nothing was deleted."
+                exit 0
+            fi
+        fi
+        docker compose down --volumes
+        echo "Development data deleted. Run ./dev up to start again with an empty database."
+        ;;
+    help | -h | --help)
+        usage
+        ;;
+    *)
+        echo "Unknown command: $command" >&2
+        echo >&2
+        usage >&2
+        exit 2
+        ;;
+esac
