@@ -300,14 +300,19 @@ docker compose --profile demo up
 
 ## Phase 5 — Tills on the API
 
-- [ ] A third connection mode for the WPF application: **local** (SQLite,
-      direct, as today), **server** (through the API), alongside a direct
-      PostgreSQL mode kept for one transition release.
+- [ ] A third connection mode for the WPF application, chosen in
+      `database.env` like the other two: **local** (SQLite, direct, as today),
+      **direct** (PostgreSQL, as today) and **server** (through the API).
 - [ ] Offline sales: a completed sale is written to a local queue first and sent
       when the connection returns, using the idempotency key, so the till keeps
       selling through a network outage.
 - [ ] The catalogue is cached locally so search keeps working offline.
-- [ ] Retire the direct PostgreSQL mode once tills run through the API.
+
+The direct PostgreSQL mode **stays** as a supported option for internal use —
+a shop whose tills sit on its own trusted network can keep connecting straight
+to the database. The API is the choice when tills must not hold database
+credentials, or reach the server over an untrusted network. Both modes run the
+same domain rules from `JussiMiniPos.Core`.
 
 ---
 
@@ -398,6 +403,7 @@ of voiding, refunds, the audit log and the end-of-day report.
 | C# on ASP.NET Core minimal APIs, .NET 10 | Same language and runtime as the tills; the smallest addition to the codebase. |
 | No EF Core | The hand-written SQL already runs on both engines through `SqlDialect`. |
 | SQLite mode keeps working without a server | A single till should never need one. |
+| Direct PostgreSQL mode stays alongside the API | Internal setups on a trusted network keep the simplest path; the API is for when tills must not hold database credentials. |
 | VAT before the API | VAT changes the shape of products and sales, which are the core of the API. |
 | Integrations use API keys; staff use sign-in | A key identifies a system, a sign-in identifies a person. |
 | Demo mode is a demo identity, not disabled authorization | Turning it off cannot leave an endpoint open. |
