@@ -17,6 +17,14 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   `dotnet run --project src/JussiMiniPos`. CI, CodeQL, the release workflow,
   the installer script and Dependabot follow the new paths.
 
+### Fixed
+
+- **Command-line runs no longer crash or leave a window open.** `--version`,
+  `--seed`, `--dump` and the other commands could throw *The Application object
+  is being shut down*, or leave the main window open, because WPF still built
+  the window from `StartupUri` after a command had asked the application to
+  shut down. The main window is now created only when no command ran.
+
 ## [1.0.0-beta.4] - 2026-10-29
 
 ### Added

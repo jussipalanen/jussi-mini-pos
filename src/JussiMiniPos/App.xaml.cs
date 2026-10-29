@@ -31,7 +31,11 @@ public partial class App : Application
             typeof(FrameworkElement),
             new FrameworkPropertyMetadata(XmlLanguage.GetLanguage(AppCulture.IetfLanguageTag)));
 
-        // --seed, --dump and friends run without ever showing a window.
+        // --seed, --dump and friends run without ever showing a window. The
+        // main window is created here rather than through StartupUri: WPF loads
+        // a StartupUri after OnStartup returns even when Shutdown has been
+        // called, so a command run would build MainWindow while the application
+        // was shutting down, and either crash or leave the window open.
         if (CommandLine.TryRun(e.Args) is { } exitCode)
         {
             Shutdown(exitCode);
@@ -39,5 +43,6 @@ public partial class App : Application
         }
 
         base.OnStartup(e);
+        new MainWindow().Show();
     }
 }
