@@ -218,7 +218,7 @@ The repository root holds the solution, documentation and tooling:
 | `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
 | `.github/`             | CI, CodeQL, dependency review, the release workflow and Dependabot |
 | `docker-compose.yml`   | A local PostgreSQL and pgAdmin for development        |
-| `dev`                  | `./dev up`, `down`, `restart` … for those containers (bash) |
+| `dev`, `dev.ps1`       | `./dev up`, `down`, `restart` … for those containers; `dev.ps1` runs `dev` from PowerShell |
 | `docker/pgadmin/`      | pgAdmin's server registration and password file        |
 | `.gitattributes`       | Keeps `dev` and `docker/` files LF on Windows checkouts |
 | `database.env.example` | Template for choosing and configuring the database     |
@@ -362,8 +362,10 @@ phpMyAdmin is for MySQL. It is a convenience for working on the PostgreSQL
 driver and for the tests, **not** how the till is deployed — nothing in the
 application knows it is talking to a container.
 
-The [`dev`](dev) script at the repository root wraps it. It is a bash script,
-so run it from **Git Bash** (or WSL, macOS, Linux); it works from any folder:
+The [`dev`](dev) script at the repository root wraps it, and works from any
+folder in **PowerShell** as well as Git Bash, WSL, macOS and Linux. `dev` is a
+bash script; in PowerShell, `./dev` picks [`dev.ps1`](dev.ps1) instead, which
+runs `dev` through Git Bash — so Git for Windows has to be installed.
 
 ```bash
 ./dev up         # start PostgreSQL and pgAdmin, and wait until both are ready
@@ -373,9 +375,6 @@ so run it from **Git Bash** (or WSL, macOS, Linux); it works from any folder:
 ./dev logs       # follow the logs; ./dev logs pgadmin for one service
 ./dev reset      # delete the development data, after asking
 ```
-
-From PowerShell, `docker compose up -d` and `docker compose down` do the same
-as `up` and `down`.
 
 | Service    | Where                   | Sign in |
 | ---------- | ----------------------- | ------- |
