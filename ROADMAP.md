@@ -18,8 +18,9 @@ REST API exposes, and the API is designed once rather than twice.
 | 5 | Tills on the API, with offline sales | 1.2.0 |
 | — | [Missing features](#missing-features): barcodes, cash, refunds, receipts, closing the day, stock and more | By priority |
 
-**Current release:** 1.0.0-beta.4 — SQLite or PostgreSQL, Raportit, the AI
-assistant, and a Windows installer published with every GitHub release.
+**Current release:** 1.0.0-beta.5 — VAT on products and receipts, voided sales,
+an audit log, user management and role enforcement, with tests on both SQLite
+and PostgreSQL and a Windows installer published with every GitHub release.
 
 ---
 

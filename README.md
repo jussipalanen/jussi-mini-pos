@@ -38,15 +38,8 @@
 > Data is stored in SQLite by default, or in PostgreSQL when several tills
 > share one catalogue and one sales history.
 
-<p align="center">
-  <img src="docs/images/start-screen.jpg" width="1000" alt="Jussi mini-POS start screen with checkout, products, sales and reports navigation">
-  <br><em>Start screen</em>
-</p>
-
-<p align="center">
-  <img src="docs/images/products-view.jpg" width="1000" alt="Jussi mini-POS product catalogue with demo products">
-  <br><em>Product catalogue with demo data</em>
-</p>
+Screenshots: [Start screen](docs/images/start-screen.jpg) ·
+[Product catalogue with demo data](docs/images/products-view.jpg).
 
 ## 📥 Download
 

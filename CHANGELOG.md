@@ -7,6 +7,8 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0-beta.5] - 2026-10-29
+
 ### Added
 
 - **Automated tests**, in `tests/JussiMiniPos.Tests` (xUnit v3), run against
