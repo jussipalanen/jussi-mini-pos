@@ -60,6 +60,12 @@ public sealed record Sale(
 
     public bool IsVoided => Void is not null;
 
+    /// <summary>
+    /// The username of the seller who rang it up, copied so it survives the
+    /// account. Null for sales made before sign-in was required at the till.
+    /// </summary>
+    public string? SoldBy { get; init; }
+
     /// <summary>For the void button: a sale is voided once, not twice.</summary>
     public bool CanBeVoided => Void is null;
 

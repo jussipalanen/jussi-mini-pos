@@ -692,7 +692,8 @@ made from the command line are recorded as `komentorivi (<Windows account>)`.
 
 Open **Raportit** from the start screen and sign in as an administrator or
 manager. Sellers cannot open reports; this is checked by the navigation shell
-using `User.CanOpenReports`, not just by the button's visibility.
+using `User.CanOpenReports`, not just by the button's visibility. Voided sales
+are left out of every figure.
 
 The initial report covers the current month through today. Choose **Tänään**,
 **Tämä viikko** (Monday through today), **Tämä kuukausi**, or enter inclusive
@@ -882,11 +883,35 @@ signed in, who that is and **Kirjaudu ulos**. Admin holds the application's own
 settings, as opposed to its data — today the AI assistant: on/off, the API key
 and the model, all described above.
 
-**Only the `admin` role can open Admin.** Opening it while signed out shows the
-login prompt with a line saying why, rather than simply refusing; signed in as
-another role, it says so and stays put. The session lasts as long as the
-process — restarting signs everybody out, which for a till on a shared counter
-is the safer default.
+**Every view needs a signed-in user**, and the role decides which:
+
+| View | Myyjä (`seller`) | Esimies (`manager`) | Ylläpitäjä (`admin`) |
+| ---- | :--------------: | :-----------------: | :------------------: |
+| Kassa | ✓ | ✓ | ✓ |
+| Tuotteet, kategoriat, ALV-kannat | | ✓ | ✓ |
+| Myynti, mitätöinti | | ✓ | ✓ |
+| Raportit | | ✓ | ✓ |
+| Admin, Käyttäjät, Tapahtumaloki | | | ✓ |
+
+Opening a view while signed out shows the login prompt with a line saying why,
+rather than simply refusing; signed in as a role that may not, it says so and
+returns to the start screen. Each check is a `User` rule —
+`CanUseCheckout`, `CanManageCatalogue`, `CanOpenSales`, `CanOpenReports`,
+`CanOpenAdmin`, `CanManageUsers`, `CanVoidSales` — applied by the navigation
+shell, never just a button's visibility. Every sale records the seller who rang
+it up (`Sales.SoldBy`), shown on its receipt.
+
+The session lasts until **Kirjaudu ulos**, a restart, or **15 minutes without
+any keyboard, mouse or touch input**, after which the till signs out on its own
+so a till left signed in on a shared counter is not usable by whoever walks up.
+It never signs out in the middle of a card payment or behind an open dialog;
+it waits until those are over.
+
+**Five wrong passwords in a row lock the account for 5 minutes.** A locked
+account refuses even the right password until then, and says so at the prompt.
+An administrator can unlock it at once in **Admin → Käyttäjät**, and setting a
+new password unlocks it too. Every attempt still costs a full password check,
+so the reply time gives nothing away.
 
 Settings live in the `Options` table, one row per name, so they survive a
 restart. `--dump` prints them. A name with no row means "use the default", so a
@@ -902,7 +927,9 @@ Users
 ├── FirstName     (empty when not given)
 ├── LastName      (empty when not given)
 ├── PasswordHash
-└── Role          (CHECK: 'admin' | 'manager' | 'seller')
+├── Role          (CHECK: 'admin' | 'manager' | 'seller')
+├── FailedSignIns (wrong passwords in a row)
+└── LockedUntil   (NULL unless locked)
 ```
 
 `FirstName` and `LastName` were added after the table existed, so they arrive
@@ -914,9 +941,11 @@ Either the username or the email works at the prompt, matched
 case-insensitively — `COLLATE NOCASE` on the column, so the match is
 case-insensitive without `lower()` defeating the unique index.
 
-`manager` can open Raportit alongside `admin`; `seller` cannot. Admin settings
-remain restricted to administrators. `User.CanOpenAdmin`
-is the single place that decides.
+Administrators manage accounts in **Admin → Käyttäjät**: add a user with a
+typed or generated password (shown, so it can be handed over; the user changes
+it in *Oma profiili*), change a user's name, email, role or password in one
+step, unlock a locked account, or remove one. An administrator cannot change
+their own role or remove their own account there.
 
 ### First run: signing in for the first time
 
@@ -1038,8 +1067,10 @@ trusted because reaching it already means having the machine.
 
 **The last administrator cannot be deleted or demoted.** Either would leave
 Admin unreachable with no way back short of editing the database by hand, so
-both are refused until another administrator exists. If the table does end up
-empty, the next start seeds `admin` again.
+both are refused until another administrator exists. The rule is enforced in
+`UserRepository`, inside the write's own transaction, so the command line and
+Admin → Käyttäjät apply exactly the same check. If the table does end up empty,
+the next start seeds `admin` again.
 
 Every command reports what it did and exits `0`, or explains what stopped it
 and exits `1`.

@@ -387,14 +387,8 @@ public static class CommandLine
                 "--role, --password or --generate-password.");
         }
 
-        // Losing the last administrator would leave Admin unreachable with no
-        // way back short of editing the database by hand.
-        if (user.Role == UserRole.Admin && role != UserRole.Admin && users.CountAdmins() <= 1)
-        {
-            throw new InvalidOperationException(
-                $"{user.Username} is the only administrator. Promote another user first.");
-        }
-
+        // The last-administrator rule lives in UserRepository.UpdateUser, so
+        // this and the Admin view cannot disagree about it.
         if (!string.Equals(username, user.Username, StringComparison.OrdinalIgnoreCase)
             && users.FindUser(username) is { } byName)
         {
@@ -457,12 +451,7 @@ public static class CommandLine
         var user = users.FindUser(selector)
             ?? throw new InvalidOperationException($"No user matched \"{selector}\".");
 
-        if (user.Role == UserRole.Admin && users.CountAdmins() <= 1)
-        {
-            throw new InvalidOperationException(
-                $"{user.Username} is the only administrator. Add another one first.");
-        }
-
+        // Refused by UserRepository.DeleteUser when this is the last administrator.
         users.DeleteUser(user.Id);
         Write($"Deleted user #{user.Id}  {user.Username} <{user.Email}>");
 

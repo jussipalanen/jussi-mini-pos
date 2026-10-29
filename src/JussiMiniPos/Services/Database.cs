@@ -148,6 +148,11 @@ public sealed class Database
             backfill.ExecuteNonQuery();
         }
 
+        // Added with account lockout, and with every sale recording who sold it.
+        AddColumnIfMissing(connection, "Users", "FailedSignIns", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Users", "LockedUntil", "TEXT NULL");
+        AddColumnIfMissing(connection, "Sales", "SoldBy", "TEXT NULL");
+
         // Added when deleting a sale became voiding it.
         AddColumnIfMissing(connection, "Sales", "VoidedAt", "TEXT NULL");
         AddColumnIfMissing(connection, "Sales", "VoidedBy", "TEXT NULL");

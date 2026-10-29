@@ -217,9 +217,17 @@ metadata, local databases, image stores, key files, or `.env` files.
   Preserve random salts, fixed-time verification, malformed-hash failure, and
   equivalent work for unknown usernames. Do not weaken iteration counts or the
   minimum-password rules.
-- Preserve the rule that the last administrator cannot be deleted or demoted.
-  Authorization for Admin belongs in the domain rule (`CanOpenAdmin`), not only
-  in button visibility.
+- Preserve the rule that the last administrator cannot be deleted or demoted;
+  it is enforced in `UserRepository.UpdateAccount`/`DeleteUser` inside the
+  write's transaction, so every caller shares it. Do not re-check it elsewhere.
+- Every view needs a signed-in user. Authorization belongs in the `User`
+  domain rules (`CanUseCheckout`, `CanManageCatalogue`, `CanOpenSales`,
+  `CanOpenReports`, `CanOpenAdmin`, `CanManageUsers`, `CanVoidSales`), applied
+  by `MainWindow.Authorize`, not only in button visibility. A seller may use
+  Kassa only.
+- Preserve the lockout (`MaxFailedSignIns`, `LockoutDuration`) and the idle
+  sign-out (`IdleSession`); a locked account must refuse even the right
+  password and still cost a full verify.
 - The Gemini key is stored separately from SQLite and protected with Windows
   DPAPI when available. A stored key takes precedence over `GEMINI_API_KEY`;
   stored model settings take precedence over `GEMINI_MODEL`.
