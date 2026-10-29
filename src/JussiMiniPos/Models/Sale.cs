@@ -31,6 +31,16 @@ public sealed record SaleItem(
             Vat.Included(unitPrice * quantity, basisPoints));
 }
 
+/// <summary>Who voided a sale, when, and why.</summary>
+/// <param name="At">When it was voided.</param>
+/// <param name="By">The username of whoever voided it, copied so it survives the account.</param>
+/// <param name="Reason">Why, as typed when voiding. Never empty.</param>
+public sealed record SaleVoid(DateTimeOffset At, string By, string Reason)
+{
+    /// <summary>"Mitätöity 04.05.2026 14.30 (matti): Väärä tuote", for the receipt.</summary>
+    public string Display => $"Mitätöity {At:dd.MM.yyyy HH:mm} ({By}): {Reason}";
+}
+
 /// <summary>A completed, paid checkout.</summary>
 public sealed record Sale(
     DateTimeOffset SoldAt,
@@ -40,6 +50,18 @@ public sealed record Sale(
 {
     /// <summary>Database row id, assigned when the sale is saved.</summary>
     public long Id { get; init; }
+
+    /// <summary>
+    /// Set once the sale has been voided. A voided sale stays in the database
+    /// with its lines, so the record of what happened is never lost; it is
+    /// only left out of totals and reports.
+    /// </summary>
+    public SaleVoid? Void { get; init; }
+
+    public bool IsVoided => Void is not null;
+
+    /// <summary>For the void button: a sale is voided once, not twice.</summary>
+    public bool CanBeVoided => Void is null;
 
     /// <summary>Number of individual items across all lines.</summary>
     public int ItemCount => Items.Sum(item => item.Quantity);

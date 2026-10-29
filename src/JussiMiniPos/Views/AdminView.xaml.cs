@@ -79,6 +79,11 @@ public partial class AdminView : UserControl, INotifyPropertyChanged
     /// <summary>Raised when the user wants to leave the admin view.</summary>
     public event Action? Back;
 
+    /// <summary>Raised when the administrator opens the audit log.</summary>
+    public event Action? AuditLogRequested;
+
+    private void AuditLog_Click(object sender, RoutedEventArgs e) => AuditLogRequested?.Invoke();
+
     public IReadOnlyList<AiSettings.ModelChoice> Models => AiSettings.Models;
 
     /// <summary>

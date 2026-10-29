@@ -109,8 +109,13 @@ public partial class MainWindow : Window
         }
 
         _currentUser = window.SignedInUser;
+        _database.Audit.Actor = _currentUser.Username;
         return true;
     }
+
+    /// <summary>The signed-in user, prompting for a sign-in first when nobody is.</summary>
+    private User? RequireUser(string purpose) =>
+        _currentUser is not null || SignIn(purpose) ? _currentUser : null;
 
     private void OnLoginRequested()
     {
@@ -123,7 +128,14 @@ public partial class MainWindow : Window
 
     private void OnLogoutRequested()
     {
+        if (_currentUser is { } user)
+        {
+            ViewErrors.Try(this, "Uloskirjautumista ei voitu kirjata.",
+                () => _database.Audit.Record(AuditActions.SignOut, user.Display));
+        }
+
         _currentUser = null;
+        _database.Audit.Actor = null;
         ShowStartView();
     }
 
@@ -159,7 +171,7 @@ public partial class MainWindow : Window
 
     private void ShowSalesView()
     {
-        var view = new SalesView(_salesRepository);
+        var view = new SalesView(_salesRepository, RequireUser);
         view.Back += ShowStartView;
         ViewHost.Content = view;
     }
@@ -226,6 +238,7 @@ public partial class MainWindow : Window
 
         var view = new AdminView(_options, _database.DataDirectory, _currentUser);
         view.Back += ShowStartView;
+        view.AuditLogRequested += () => new AuditLogWindow(_database.Audit) { Owner = this }.ShowDialog();
         ViewHost.Content = view;
     }
 

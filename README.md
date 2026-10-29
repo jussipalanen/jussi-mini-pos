@@ -494,6 +494,7 @@ JussiMiniPos.exe --dump           # print the catalogue tables
 JussiMiniPos.exe --clear          # delete the catalogue rows (sales are kept)
 JussiMiniPos.exe --ask "Mitä sopii kahvin kanssa?"   # one AI assistant question
 JussiMiniPos.exe --users          # list the users
+JussiMiniPos.exe --audit          # the newest 100 audit log entries
 JussiMiniPos.exe --version        # print the version and exit
 JussiMiniPos.exe --user-add / --user-update / --user-delete   # see "Users" below
 JussiMiniPos.exe --help
@@ -637,6 +638,31 @@ VAT-inclusive total and rounded to the cent; the receipt and Raportit's
 recorded keep `NULL` and are listed as *ALV ei tiedossa* rather than given an
 invented figure.
 
+#### Voiding a sale
+
+A sale is never deleted. **Myynti → Mitätöi** marks it voided instead —
+`Sales.VoidedAt`, `VoidedBy` and `VoidReason` say when, by whom and why — and
+keeps the sale and its lines. A voided sale stays in the Myynti list, dimmed
+with a *Mitätöity* badge, and its receipt shows who voided it and why; it is
+left out of Myynti's totals, every Raportit figure and a product's sales
+summary. Voiding needs a signed-in **manager or administrator**
+(`User.CanVoidSales`) and a reason, and cannot be undone or repeated.
+
+#### Audit log
+
+`AuditLog` records sign-ins (and failed ones), sign-outs, voids, product
+creation, edits and deletion with the before and after of price, offer price,
+VAT and visibility, VAT rate changes, and user account changes — who, when
+and what. Each change writes its entry in its own transaction, so a change
+cannot be stored without its entry. The log is append-only: nothing in the
+application updates or deletes it. Administrators read it in **Admin →
+Tapahtumaloki**; `--audit` prints it in a terminal.
+
+Entries never contain passwords, hashes or keys. A failed sign-in names the
+account only when the username exists — what was typed for an unknown one is
+not repeated, since it may be a password typed into the wrong field. Changes
+made from the command line are recorded as `komentorivi (<Windows account>)`.
+
 ### Conventions
 
 - Column names are **PascalCase** throughout, matching the C# side. PostgreSQL
@@ -688,7 +714,7 @@ saving changes, regardless of the offset originally stored with the sale.
 
 Reports read the existing `Sales` and `SaleItems` snapshots; no schema change,
 remote service or new package is needed. Catalogue edits and product deletion
-do not alter historical results. Deleting a sale removes it from reports.
+do not alter historical results. A voided sale is left out of every figure.
 SQL aggregates integer cents and reads all report sections in one transaction.
 Queries run off the UI thread and returning to the start screen prevents a late
 result from reopening a view. Date conversion happens during queries; the

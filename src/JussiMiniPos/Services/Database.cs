@@ -30,6 +30,7 @@ public sealed class Database
     {
         _settings = settings;
         Dialect = SqlDialect.For(settings.Provider);
+        Audit = new AuditLog(this);
 
         Directory.CreateDirectory(settings.DataDirectory);
 
@@ -48,6 +49,12 @@ public sealed class Database
 
     /// <summary>Which engine this is, and the SQL that differs because of it.</summary>
     public SqlDialect Dialect { get; }
+
+    /// <summary>
+    /// The audit log, here so every repository can write an entry inside its
+    /// own transaction without each one being handed the log separately.
+    /// </summary>
+    public AuditLog Audit { get; }
 
     /// <summary>The configuration this was opened with.</summary>
     public DatabaseSettings Settings => _settings;
@@ -140,6 +147,11 @@ public sealed class Database
             backfill.CommandText = "UPDATE ProductCategories SET SortOrder = rowid;";
             backfill.ExecuteNonQuery();
         }
+
+        // Added when deleting a sale became voiding it.
+        AddColumnIfMissing(connection, "Sales", "VoidedAt", "TEXT NULL");
+        AddColumnIfMissing(connection, "Sales", "VoidedBy", "TEXT NULL");
+        AddColumnIfMissing(connection, "Sales", "VoidReason", "TEXT NULL");
 
         // Added with VAT. Sale lines from before keep NULL: their VAT was
         // never recorded, and inventing it now would rewrite history.

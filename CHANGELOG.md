@@ -33,9 +33,23 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   - Upgrading puts existing products on the **25,5 %** general rate, which
     never under-reports VAT; set food and drink to 13,5 % in Tuotteet. The demo
     catalogue is seeded at 13,5 %.
+- **An audit log** of who did what: sign-ins and failed sign-ins, sign-outs,
+  voided sales, product changes with the price, offer price, VAT and
+  visibility before and after, VAT rate changes, and user account changes.
+  Each entry is written in the same transaction as the change, and the log is
+  append-only. Administrators read it in **Admin → Tapahtumaloki**, and
+  `--audit` prints it. Entries never contain passwords or hashes, and a failed
+  sign-in with an unknown username does not repeat what was typed.
 
 ### Changed
 
+- **Sales are voided instead of deleted.** Myynti's delete button is now
+  **Mitätöi**: it needs a signed-in manager or administrator and a reason, and
+  keeps the sale and its lines, marked with when, by whom and why. A voided
+  sale stays in the list, dimmed with a *Mitätöity* badge, and its receipt
+  says who voided it; it no longer counts in Myynti's totals, in Raportit or in
+  a product's sales summary. A sale cannot be voided twice, and there is no
+  longer any way to delete one.
 - **The application moved to `src/JussiMiniPos/`**, with a `JussiMiniPos.slnx`
   solution at the repository root. This makes room for the test project and the
   REST API on the roadmap: a project file at the root compiles every `.cs` file

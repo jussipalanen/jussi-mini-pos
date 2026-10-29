@@ -81,7 +81,7 @@ public sealed class SalesRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT Id, "DateTime", TotalCents, PaymentMethod
+            SELECT Id, "DateTime", TotalCents, PaymentMethod, VoidedAt, VoidedBy, VoidReason
             FROM Sales
             ORDER BY Id DESC;
             """;
@@ -100,6 +100,7 @@ public sealed class SalesRepository(Database database)
                 itemsBySale.TryGetValue(id, out var items) ? items : [])
             {
                 Id = id,
+                Void = ReadVoid(reader, 4),
             });
         }
 
@@ -107,16 +108,58 @@ public sealed class SalesRepository(Database database)
     }
 
     /// <summary>
-    /// Removes a sale. Its lines go with it through ON DELETE CASCADE.
+    /// Voids a sale: it stays in the database with its lines, marked with
+    /// when, by whom and why, and drops out of totals and reports. The audit
+    /// entry is written in the same transaction, so a void cannot happen
+    /// without its trace. There is deliberately no way to delete a sale.
     /// </summary>
-    public void DeleteSale(long id)
+    /// <exception cref="InvalidOperationException">
+    /// The sale does not exist or has been voided already, so voiding twice
+    /// cannot overwrite who did it first.
+    /// </exception>
+    public void VoidSale(long id, string voidedBy, string reason)
     {
+        reason = reason.Trim();
+        if (reason.Length == 0)
+        {
+            throw new ArgumentException("Mitätöinnille on annettava syy.", nameof(reason));
+        }
+
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
         using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Sales WHERE Id = @id;";
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            UPDATE Sales SET VoidedAt = @voidedAt, VoidedBy = @voidedBy, VoidReason = @reason
+             WHERE Id = @id AND VoidedAt IS NULL
+            RETURNING TotalCents;
+            """;
         Database.AddParameter(command, "@id", id);
-        command.ExecuteNonQuery();
+        Database.AddParameter(command, "@voidedAt", DateTimeOffset.Now.ToString("o", CultureInfo.InvariantCulture));
+        Database.AddParameter(command, "@voidedBy", voidedBy);
+        Database.AddParameter(command, "@reason", reason);
+
+        if (command.ExecuteScalar() is not { } total)
+        {
+            throw new InvalidOperationException($"Myyntiä #{id} ei löydy tai se on jo mitätöity.");
+        }
+
+        database.Audit.Record(connection, transaction, AuditActions.SaleVoided,
+            $"Myynti #{id} ({AuditLog.Money(FromCents(Convert.ToInt64(total, CultureInfo.InvariantCulture)))}). Syy: {reason}");
+
+        transaction.Commit();
     }
+
+    /// <summary>The void columns VoidedAt, VoidedBy and VoidReason, starting at <paramref name="first"/>.</summary>
+    internal static SaleVoid? ReadVoid(DbDataReader reader, int first) =>
+        reader.IsDBNull(first)
+            ? null
+            : new SaleVoid(
+                ParseTimestamp(reader.GetString(first)),
+                reader.IsDBNull(first + 1) ? string.Empty : reader.GetString(first + 1),
+                reader.IsDBNull(first + 2) ? string.Empty : reader.GetString(first + 2));
 
     private static Dictionary<long, List<SaleItem>> ReadSaleItems(DbConnection connection)
     {

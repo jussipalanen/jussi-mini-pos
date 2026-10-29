@@ -83,9 +83,12 @@ is real sales data than after.
 
 ### 2.2 Void sales instead of deleting them
 
-- [ ] Replace deleting a sale with voiding it: who, when and why are recorded,
+- [x] Replace deleting a sale with voiding it: who, when and why are recorded,
       and the sale and its lines stay in the database.
-- [ ] Voided sales are excluded from report totals and shown as voided in Myynti.
+- [x] Voided sales are excluded from report totals and shown as voided in Myynti.
+- [x] The audit log from *Missing features*, built here because voiding is the
+      first thing that must record who did it: sign-ins, voids, price and VAT
+      changes, and user changes, each written in the same transaction.
 
 ### 2.3 Users and roles
 
@@ -110,8 +113,8 @@ is real sales data than after.
 
 The *High* items marked *1.0.0* under [Missing features](#missing-features):
 barcodes, cash payment, returns and refunds, receipt printing with shop details,
-an audit log, and backup and restore. Opening and closing the till and the
-end-of-day report follow cash payment.
+and backup and restore. Opening and closing the till and the end-of-day report
+follow cash payment. (The audit log shipped with 2.2.)
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 

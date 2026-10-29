@@ -94,6 +94,11 @@ public static class CommandLine
             return Run(ListUsers);
         }
 
+        if (flags.Contains("audit"))
+        {
+            return Run(ListAudit);
+        }
+
         if (flags.Contains("user-add"))
         {
             return Run(database => AddUser(new UserRepository(database), Options(args)));
@@ -133,6 +138,10 @@ public static class CommandLine
         try
         {
             var database = new Database();
+
+            // Changes made from a terminal are recorded in the audit log under
+            // the Windows account that ran them, since nobody is signed in.
+            database.Audit.Actor = AuditLog.CommandLineActor;
             database.EnsureCreated();
             Write($"Database: {database.Path}");
             Write(string.Empty);
@@ -297,6 +306,23 @@ public static class CommandLine
             FROM Users
             ORDER BY Id;
             """);
+    }
+
+    /// <summary>The newest audit log entries, for checking what happened from a terminal.</summary>
+    private static void ListAudit(Database database)
+    {
+        Write("AuditLog (newest first)");
+        var entries = database.Audit.GetEntries(limit: 100);
+        if (entries.Count == 0)
+        {
+            Write("  (empty)");
+            return;
+        }
+
+        foreach (var entry in entries)
+        {
+            Write($"  {entry.At.ToLocalTime():yyyy-MM-dd HH:mm:ss}  {entry.ActorText,-24}  {entry.Action,-18}  {entry.Details}");
+        }
     }
 
     private static void AddUser(UserRepository users, IReadOnlyDictionary<string, string> options)
@@ -634,7 +660,7 @@ public static class CommandLine
     {
         // Commands
         "help", "h", "?", "version", "v", "seed", "reset", "dump", "ask", "clear",
-        "users", "user-add", "user-update", "user-delete",
+        "users", "user-add", "user-update", "user-delete", "audit",
 
         // Values
         "user", "username", "email", "firstname", "lastname", "role",
@@ -767,6 +793,7 @@ public static class CommandLine
         Write("  JussiMiniPos.exe --clear         delete the catalogue rows (keeps sales)");
         Write($"""  JussiMiniPos.exe --ask "..."     ask the AI assistant one question""");
         Write("  JussiMiniPos.exe --users         list the users");
+        Write("  JussiMiniPos.exe --audit         the newest 100 audit log entries");
         Write("  JussiMiniPos.exe --version       print the version and exit");
         Write("  JussiMiniPos.exe --help          this text");
         Write(string.Empty);

@@ -47,11 +47,22 @@ public sealed class UserRepository(Database database)
         if (found is null)
         {
             PasswordHasher.Verify(password, DummyHash.Value);
+
+            // What was typed is not repeated: a password typed into the
+            // username field by mistake would otherwise land in the log.
+            database.Audit.Record(AuditActions.SignInFailed, "Tuntematon käyttäjätunnus tai sähköposti.");
             return null;
         }
 
         var (user, hash) = found.Value;
-        return PasswordHasher.Verify(password, hash) ? user : null;
+        if (!PasswordHasher.Verify(password, hash))
+        {
+            database.Audit.Record(AuditActions.SignInFailed, $"Väärä salasana käyttäjälle {user.Username}.");
+            return null;
+        }
+
+        database.Audit.Record(AuditActions.SignIn, user.Display, actor: user.Username);
+        return user;
     }
 
     /// <summary>Every user, for <c>--dump</c>. Hashes are not included.</summary>
@@ -90,8 +101,14 @@ public sealed class UserRepository(Database database)
         string firstName = "",
         string lastName = "")
     {
+        // Hashed before the transaction opens: the derivation is slow, and
+        // there is no reason to hold a write lock while it runs.
+        var hash = PasswordHasher.Hash(password);
+
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             """
             INSERT INTO Users (Username, Email, FirstName, LastName, PasswordHash, Role)
@@ -102,10 +119,16 @@ public sealed class UserRepository(Database database)
         Database.AddParameter(command, "@email", email);
         Database.AddParameter(command, "@firstName", firstName);
         Database.AddParameter(command, "@lastName", lastName);
-        Database.AddParameter(command, "@passwordHash", PasswordHasher.Hash(password));
+        Database.AddParameter(command, "@passwordHash", hash);
         Database.AddParameter(command, "@role", UserRoleNames.ToStorage(role));
 
-        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+        var id = Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+
+        database.Audit.Record(connection, transaction, AuditActions.UserCreated,
+            $"{username} ({UserRoleNames.Finnish(role)}), {email}");
+
+        transaction.Commit();
+        return id;
     }
 
     /// <summary>
@@ -123,7 +146,12 @@ public sealed class UserRepository(Database database)
     public void UpdateUser(int id, string username, string email, UserRole role)
     {
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        var before = ReadById(connection, transaction, id);
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             """
             UPDATE Users SET Username = @username, Email = @email, Role = @role
@@ -134,6 +162,30 @@ public sealed class UserRepository(Database database)
         Database.AddParameter(command, "@email", email);
         Database.AddParameter(command, "@role", UserRoleNames.ToStorage(role));
         command.ExecuteNonQuery();
+
+        if (before is not null)
+        {
+            var changes = new List<string>();
+            if (before.Username != username)
+            {
+                changes.Add($"tunnus {before.Username} → {username}");
+            }
+
+            if (!string.Equals(before.Email, email, StringComparison.OrdinalIgnoreCase))
+            {
+                changes.Add($"sähköposti {before.Email} → {email}");
+            }
+
+            if (before.Role != role)
+            {
+                changes.Add($"rooli {UserRoleNames.Finnish(before.Role)} → {UserRoleNames.Finnish(role)}");
+            }
+
+            database.Audit.Record(connection, transaction, AuditActions.UserUpdated,
+                $"{before.Username}: {(changes.Count == 0 ? "ei muutoksia" : string.Join("; ", changes))}");
+        }
+
+        transaction.Commit();
     }
 
     /// <summary>
@@ -145,7 +197,12 @@ public sealed class UserRepository(Database database)
     public void UpdateProfile(int id, string firstName, string lastName, string email)
     {
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        var before = ReadById(connection, transaction, id);
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             """
             UPDATE Users SET FirstName = @firstName, LastName = @lastName, Email = @email
@@ -156,19 +213,39 @@ public sealed class UserRepository(Database database)
         Database.AddParameter(command, "@lastName", lastName);
         Database.AddParameter(command, "@email", email);
         command.ExecuteNonQuery();
+
+        if (before is not null)
+        {
+            database.Audit.Record(connection, transaction, AuditActions.UserUpdated,
+                $"{before.Username}: nimi tai sähköposti");
+        }
+
+        transaction.Commit();
     }
 
     /// <summary>Sets a user's name, for the command line.</summary>
     public void SetName(int id, string firstName, string lastName)
     {
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        var before = ReadById(connection, transaction, id);
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText =
             "UPDATE Users SET FirstName = @firstName, LastName = @lastName WHERE Id = @id;";
         Database.AddParameter(command, "@id", id);
         Database.AddParameter(command, "@firstName", firstName);
         Database.AddParameter(command, "@lastName", lastName);
         command.ExecuteNonQuery();
+
+        if (before is not null)
+        {
+            database.Audit.Record(connection, transaction, AuditActions.UserUpdated, $"{before.Username}: nimi");
+        }
+
+        transaction.Commit();
     }
 
     /// <summary>
@@ -202,21 +279,61 @@ public sealed class UserRepository(Database database)
     /// <summary>Replaces a user's password with a fresh hash of a new one.</summary>
     public void SetPassword(int id, string password)
     {
+        var hash = PasswordHasher.Hash(password);
+
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        var before = ReadById(connection, transaction, id);
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = "UPDATE Users SET PasswordHash = @passwordHash WHERE Id = @id;";
         Database.AddParameter(command, "@id", id);
-        Database.AddParameter(command, "@passwordHash", PasswordHasher.Hash(password));
+        Database.AddParameter(command, "@passwordHash", hash);
         command.ExecuteNonQuery();
+
+        // Who and when only: neither the password nor its hash is recorded.
+        if (before is not null)
+        {
+            database.Audit.Record(connection, transaction, AuditActions.PasswordChanged, before.Username);
+        }
+
+        transaction.Commit();
     }
 
     public void DeleteUser(int id)
     {
         using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        var before = ReadById(connection, transaction, id);
+
         using var command = connection.CreateCommand();
+        command.Transaction = transaction;
         command.CommandText = "DELETE FROM Users WHERE Id = @id;";
         Database.AddParameter(command, "@id", id);
         command.ExecuteNonQuery();
+
+        if (before is not null)
+        {
+            database.Audit.Record(connection, transaction, AuditActions.UserDeleted, before.Display);
+        }
+
+        transaction.Commit();
+    }
+
+    /// <summary>One user inside a write's transaction, for the audit entry describing it.</summary>
+    private static User? ReadById(DbConnection connection, DbTransaction transaction, int id)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            "SELECT Id, Username, Email, FirstName, LastName, Role FROM Users WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
+
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? Read(reader) : null;
     }
 
     /// <summary>

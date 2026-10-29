@@ -180,6 +180,14 @@ metadata, local databases, image stores, key files, or `.env` files.
   key enforcement enabled on every connection.
 - Completed sales and their line snapshots are written in one transaction only
   after successful payment. Catalogue edits must never rewrite sale history.
+- Sales are never deleted. `SalesRepository.VoidSale` marks one voided (when,
+  by whom, why) and reports, totals and product summaries leave voided sales
+  out. Who may void is `User.CanVoidSales`, a domain rule, not button state.
+- Changes that matter to an audit — sign-ins, voids, product, price and VAT
+  changes, user changes — write an `AuditLog` entry through
+  `database.Audit.Record(connection, transaction, …)` inside their own
+  transaction. The log is append-only; never add an update or delete for it,
+  and never put passwords, hashes, keys or an unknown typed username in it.
 - A missing `SalePriceCents` means no discount. The till charges
   `Product.EffectivePrice`.
 - Prices include VAT. Every product has a `VatRate` from the managed
