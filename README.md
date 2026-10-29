@@ -152,7 +152,7 @@ Windows installer from `installer\JussiMiniPos.iss`:
 
 ```powershell
 winget install --id JRSoftware.InnoSetup   # once; free, ~5 MB
-.\installer\build.ps1
+.\installer\build.ps1                      # or: ./dev installer
 ```
 
 The result is `installer\Output\JussiMiniPos-<version>-setup.exe`, roughly
@@ -368,6 +368,8 @@ bash script; in PowerShell, `./dev` picks [`dev.ps1`](dev.ps1) instead, which
 runs `dev` through Git Bash — so Git for Windows has to be installed.
 
 ```bash
+./dev run        # clean, build and start the app (args go to dotnet run: ./dev run -- --version)
+./dev installer  # publish JussiMiniPos.exe and build the installer (needs Inno Setup)
 ./dev up         # start PostgreSQL and pgAdmin, and wait until both are ready
 ./dev down       # stop them; the data is kept
 ./dev restart    # recreate both containers (force), keeping the data

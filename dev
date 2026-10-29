@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 #
-# Short commands for the development containers: PostgreSQL and pgAdmin.
+# Short commands for developing JussiMiniPos: the app and the containers.
 #
+#   ./dev run [args]      clean, build and start the Windows app; args go to dotnet run
+#   ./dev installer       publish JussiMiniPos.exe and build the Windows installer
 #   ./dev up              start PostgreSQL and pgAdmin, and wait until both are ready
 #   ./dev down            stop them; the data is kept
 #   ./dev restart         recreate both containers (force), keeping the data
@@ -9,9 +11,10 @@
 #   ./dev logs [service]  follow the logs (Ctrl+C to stop), e.g. ./dev logs pgadmin
 #   ./dev reset [--force] stop them and DELETE the data volumes, after asking
 #
-# Runs in Git Bash on Windows, and in WSL, macOS or Linux, from any folder.
-# These containers are for development and the tests only; a till in a shop
-# points at its own PostgreSQL server through database.env.
+# Runs in Git Bash on Windows, and in WSL, macOS or Linux, from any folder;
+# `run` needs Windows, since the app is WPF. The containers are for
+# development and the tests only; a till in a shop points at its own
+# PostgreSQL server through database.env.
 
 set -euo pipefail
 
@@ -20,7 +23,14 @@ set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
 usage() {
-    sed -n '3,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '3,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+}
+
+require_dotnet() {
+    if ! command -v dotnet > /dev/null 2>&1; then
+        echo "dotnet was not found. Install the .NET 10 SDK, then run this again." >&2
+        exit 1
+    fi
 }
 
 endpoints() {
@@ -29,15 +39,42 @@ endpoints() {
     echo "pgAdmin     http://localhost:5050"
 }
 
-if ! command -v docker > /dev/null 2>&1; then
-    echo "Docker was not found. Install Docker Desktop and start it, then run this again." >&2
-    exit 1
-fi
-
 command="${1:-help}"
 shift || true
 
+# Only the container commands need Docker.
 case "$command" in
+    up | down | restart | status | logs | reset)
+        if ! command -v docker > /dev/null 2>&1; then
+            echo "Docker was not found. Install Docker Desktop and start it, then run this again." >&2
+            exit 1
+        fi
+        ;;
+esac
+
+case "$command" in
+    run)
+        require_dotnet
+        # A clean build every time, so a stale obj/ (such as WPF's generated
+        # files after a branch switch) can never be what is running.
+        dotnet clean src/JussiMiniPos --nologo --verbosity quiet
+        # Uses whatever database.env or JUSSIMINIPOS_DB_* points at, the same
+        # as any other start; for the dev PostgreSQL, run ./dev up first.
+        dotnet run --project src/JussiMiniPos "$@"
+        ;;
+    installer)
+        require_dotnet
+        # installer/build.ps1 publishes the self-contained single-file exe and
+        # compiles the Inno Setup installer over it; it is PowerShell, so it
+        # runs under Windows PowerShell rather than being duplicated here.
+        if ! command -v powershell.exe > /dev/null 2>&1; then
+            echo "Building the installer needs Windows (powershell.exe and Inno Setup)." >&2
+            exit 1
+        fi
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File installer/build.ps1
+        echo
+        echo "Application  src/JussiMiniPos/bin/Release/net10.0-windows/win-x64/publish/JussiMiniPos.exe"
+        ;;
     up)
         # --wait returns once the health checks pass, so the database accepts
         # connections and pgAdmin answers when this finishes.

@@ -15,7 +15,8 @@ repository.
 
 The repository root holds `JussiMiniPos.slnx`, documentation, `installer/`,
 `.github/`, `docker-compose.yml` (development PostgreSQL and pgAdmin) and the
-bash `dev` script that wraps it (`./dev up`, `down`, `restart`, `reset`; keep
+bash `dev` script that wraps it and the everyday commands (`./dev run` for a
+clean build and start, `./dev installer`, `./dev up`, `down`, `restart`, `reset`; keep
 `dev` and `docker/` LF-only, see `.gitattributes`). `dev.ps1` only forwards to
 `dev` through Git Bash so `./dev` also works in PowerShell; put new commands in
 `dev`, never in both. The WPF application lives in
