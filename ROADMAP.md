@@ -42,8 +42,8 @@ installer/
 docker-compose.yml
 ```
 
-- [ ] Move the WPF project to `src/JussiMiniPos/` and add `JussiMiniPos.slnx`.
-- [ ] Update paths in `ci.yml`, `codeql.yml`, `release.yml`, `installer/JussiMiniPos.iss`,
+- [x] Move the WPF project to `src/JussiMiniPos/` and add `JussiMiniPos.slnx`.
+- [x] Update paths in `ci.yml`, `codeql.yml`, `release.yml`, `installer/JussiMiniPos.iss`,
       `installer/build.ps1`, `README.md` and `AGENTS.md`.
 - [ ] Done when CI is green and the release workflow still produces a working
       `JussiMiniPos-setup.exe`.

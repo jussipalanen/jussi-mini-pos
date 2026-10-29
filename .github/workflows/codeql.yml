@@ -46,10 +46,10 @@ jobs:
           queries: security-extended
 
       - name: Restore dependencies
-        run: dotnet restore JussiMiniPos.csproj
+        run: dotnet restore JussiMiniPos.slnx
 
       - name: Build for analysis
-        run: dotnet build JussiMiniPos.csproj --configuration Release --no-restore --property:ContinuousIntegrationBuild=true
+        run: dotnet build JussiMiniPos.slnx --configuration Release --no-restore --property:ContinuousIntegrationBuild=true
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v4

@@ -66,11 +66,11 @@ jobs:
       - name: Check the version matches the tag
         shell: pwsh
         run: |
-          $exe = 'bin\Release\net10.0-windows\win-x64\publish\JussiMiniPos.exe'
+          $exe = 'src\JussiMiniPos\bin\Release\net10.0-windows\win-x64\publish\JussiMiniPos.exe'
           $version = (Get-Item $exe).VersionInfo.ProductVersion.Split('+')[0]
           $expected = $env:RELEASE_TAG.TrimStart('v')
           if ($version -ne $expected) {
-              throw "The executable is version $version but the tag is $env:RELEASE_TAG. Update <Version> in JussiMiniPos.csproj."
+              throw "The executable is version $version but the tag is $env:RELEASE_TAG. Update <Version> in src/JussiMiniPos/JussiMiniPos.csproj."
           }
           Write-Host "Version $version matches $env:RELEASE_TAG."
 

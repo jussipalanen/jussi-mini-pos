@@ -7,7 +7,15 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Changed
+
+- **The application moved to `src/JussiMiniPos/`**, with a `JussiMiniPos.slnx`
+  solution at the repository root. This makes room for the test project and the
+  REST API on the roadmap: a project file at the root compiles every `.cs` file
+  beneath it, so nothing could sit next to it. Behaviour is unchanged.
+  `dotnet build` at the root builds the solution; run the application with
+  `dotnet run --project src/JussiMiniPos`. CI, CodeQL, the release workflow,
+  the installer script and Dependabot follow the new paths.
 
 ## [1.0.0-beta.4] - 2026-10-29
 

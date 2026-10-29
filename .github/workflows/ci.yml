@@ -35,13 +35,13 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Restore dependencies
-        run: dotnet restore JussiMiniPos.csproj
+        run: dotnet restore JussiMiniPos.slnx
 
       - name: Verify formatting and code style
-        run: dotnet format JussiMiniPos.csproj --verify-no-changes --no-restore --verbosity minimal
+        run: dotnet format JussiMiniPos.slnx --verify-no-changes --no-restore --verbosity minimal
 
       - name: Build with warnings as errors
-        run: dotnet build JussiMiniPos.csproj --configuration Release --no-restore --property:ContinuousIntegrationBuild=true --warnaserror
+        run: dotnet build JussiMiniPos.slnx --configuration Release --no-restore --property:ContinuousIntegrationBuild=true --warnaserror
 
   nuget-audit:
     name: NuGet vulnerability audit
@@ -59,7 +59,7 @@ jobs:
 
       - name: Audit direct and transitive packages
         run: >-
-          dotnet restore JussiMiniPos.csproj
+          dotnet restore JussiMiniPos.slnx
           --property:NuGetAudit=true
           --property:NuGetAuditMode=all
           --property:NuGetAuditLevel=low
@@ -68,7 +68,7 @@ jobs:
       - name: Print vulnerability report
         run: >-
           dotnet package list
-          --project JussiMiniPos.csproj
+          --project JussiMiniPos.slnx
           --vulnerable
           --include-transitive
           --no-restore
