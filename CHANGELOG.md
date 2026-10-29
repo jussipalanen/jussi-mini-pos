@@ -7,6 +7,10 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [1.0.0-beta.4] - 2026-10-29
+
 ### Added
 
 - **A choice of database driver: SQLite or PostgreSQL.** SQLite stays the
