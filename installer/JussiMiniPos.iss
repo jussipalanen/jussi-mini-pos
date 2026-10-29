@@ -121,6 +121,7 @@ const
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   DataDir: String;
+  Question: String;
 begin
   if CurUninstallStep <> usPostUninstall then
     Exit;
@@ -134,11 +135,26 @@ begin
   if not DirExists(DataDir) then
     Exit;
 
+  // What the folder holds depends on the database in use, so the question
+  // lists what is actually there. With SQLite it is the database itself;
+  // with PostgreSQL the sales live on the server, and this folder only holds
+  // the connection settings and the images, which deleting it must not
+  // suggest otherwise.
+  Question := 'Poistetaanko myös sovelluksen tiedot tältä koneelta?' + #13#10#13#10 + DataDir + #13#10;
+
+  if FileExists(DataDir + '\jussiminipos.db') then
+    Question := Question + #13#10 + '- Paikallinen tietokanta: myynnit, tuotteet, käyttäjät ja tuotekuvat';
+
+  if FileExists(DataDir + '\database.env') then
+    Question := Question + #13#10 + '- Tietokanta-asetukset (database.env)';
+
+  if DirExists(DataDir + '\postgresql') then
+    Question := Question + #13#10 + '- PostgreSQL-käytön tuotekuvat ja asetukset.' + #13#10 +
+      '  PostgreSQL-palvelimella olevat myynnit ja tuotteet eivät poistu.';
+
+  Question := Question + #13#10#13#10 + 'Valitse Ei, jos haluat säilyttää ne.';
+
   // Defaults to No: an absent-minded Enter keeps the data.
-  if MsgBox(
-       'Poistetaanko myös myyntitiedot, tuotteet ja tuotekuvat?' + #13#10#13#10 +
-       DataDir + #13#10#13#10 +
-       'Valitse Ei, jos haluat säilyttää tietokannan.',
-       mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+  if MsgBox(Question, mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
     DelTree(DataDir, True, True, True);
 end;
