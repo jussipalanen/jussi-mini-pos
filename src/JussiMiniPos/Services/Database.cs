@@ -101,6 +101,7 @@ public sealed class Database
             command.ExecuteNonQuery();
         }
 
+        Dialect.SchemaApplied(connection);
         ApplyMigrations(connection);
     }
 
