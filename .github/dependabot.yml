@@ -2,10 +2,11 @@ version: 2
 
 updates:
   - package-ecosystem: nuget
-    # Every project under src/, so projects added next to the application are
-    # covered without editing this file.
+    # Every project under src/ and tests/, so projects added later are covered
+    # without editing this file.
     directories:
       - "/src/*"
+      - "/tests/*"
     schedule:
       interval: weekly
       day: monday

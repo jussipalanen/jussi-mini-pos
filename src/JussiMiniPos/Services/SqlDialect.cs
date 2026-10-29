@@ -83,6 +83,11 @@ public abstract class SqlDialect
     {
     }
 
+    /// <summary>Runs on the connection that has just applied <see cref="Schema"/>.</summary>
+    public virtual void SchemaApplied(DbConnection connection)
+    {
+    }
+
     /// <summary>The Finnish wall clock, which is what a Finnish till reports in.</summary>
     protected const string ReportZone = "Europe/Helsinki";
 }
@@ -277,6 +282,21 @@ public sealed class PostgreSqlDialect : SqlDialect
         // match — the SQLite one exists only because SQLite defaults them off.
         return connection;
     }
+
+    /// <summary>
+    /// Makes the driver learn citext when the schema has just created it.
+    /// </summary>
+    /// <remarks>
+    /// Npgsql reads the server's types once, when it first connects, and
+    /// keeps that list for every later connection to the same database. On a
+    /// new database that is before <c>CREATE EXTENSION citext</c> has run, so
+    /// the driver does not know the type and every read of a username or
+    /// email throws — the first sign-in after setting up a server would fail
+    /// until the application was restarted. Reloading after the schema costs
+    /// one round trip at start-up.
+    /// </remarks>
+    public override void SchemaApplied(DbConnection connection) =>
+        ((NpgsqlConnection)connection).ReloadTypes();
 
     /// <summary>PostgreSQL's lower() is already Unicode-aware, so nothing to register.</summary>
     public override string Fold(string expression) => $"lower({expression})";

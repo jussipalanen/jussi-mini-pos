@@ -8,8 +8,9 @@ baseline and the expectations for automated coding agents working here.
 JussiMiniPos is a Windows-only point-of-sale desktop application built with WPF
 on .NET 10. The current project version is `1.0.0-beta.4`. It persists through
 either `Microsoft.Data.Sqlite` (the default) or `Npgsql`, chosen by a
-`database.env` file read before anything is opened, and has no automated test
-project yet. Repositories are written against `DbConnection`; whatever differs
+`database.env` file read before anything is opened, and is covered by an xUnit
+test project in `tests/JussiMiniPos.Tests` that runs against both engines.
+Repositories are written against `DbConnection`; whatever differs
 between the two engines belongs in `Services/SqlDialect.cs` rather than in a
 repository.
 
@@ -86,19 +87,35 @@ version is read from the published executable, so change `<Version>` in
 `src/JussiMiniPos/JussiMiniPos.csproj` rather than the `.iss` script, and never change its
 `AppId`.
 
-The project currently has no automated test suite. For every code or XAML
-change, at minimum run `dotnet build --no-restore` after dependencies have been
-restored. For behavior changes, manually exercise the affected UI or CLI flow
-and report what was and was not verified. Do not claim that tests passed when
-only a build was run.
+Run the tests for every code change:
+
+```powershell
+docker compose up -d                     # PostgreSQL for the tests; optional
+dotnet test --solution JussiMiniPos.slnx
+```
+
+`global.json` selects Microsoft.Testing.Platform, which xUnit v3 needs, so use
+`dotnet test --solution`. Tests that must hold on both engines take
+`[MemberData(nameof(TestDatabase.Engines), MemberType = typeof(TestDatabase))]`
+and open their database with `TestDatabase.Create(engine)`: a SQLite file in a
+fresh temporary folder, or a fresh PostgreSQL database that is dropped
+afterwards. Without a reachable PostgreSQL those cases are reported as skipped,
+not passed — say so when reporting results. CI sets
+`JUSSIMINIPOS_TEST_REQUIRE_POSTGRES=true`, which turns a missing server into a
+failure. `JUSSIMINIPOS_TEST_POSTGRES` points the tests at another server.
+
+Tests cover the data layer and domain rules; there are no UI tests. For
+changes to XAML or view code-behind, also manually exercise the affected UI or
+CLI flow and report what was and was not verified. Do not claim that tests
+passed when only a build was run, or that both engines were tested when the
+PostgreSQL cases were skipped.
 
 Running the application or most CLI commands can create or modify real data in
 `%LOCALAPPDATA%\JussiMiniPos`. In particular, `--seed`, `--seed --reset`,
 `--clear`, and `--user-*` are mutating commands. Never run them against the
-user's normal profile as an incidental smoke test. Prefer tests that construct
-`Database` with a unique temporary database path and clean up that isolated
-directory afterward. `--ask` may make a billable network request when a Gemini
-key is configured.
+user's normal profile as an incidental smoke test; use `TestDatabase`, or point
+the `JUSSIMINIPOS_DB_*` variables at a scratch folder. `--ask` may make a
+billable network request when a Gemini key is configured.
 
 Do not edit or commit generated output from `bin/`, `obj/`, publish folders, IDE
 metadata, local databases, image stores, key files, or `.env` files.

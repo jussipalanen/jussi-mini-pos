@@ -193,6 +193,26 @@ Two things worth knowing before handing the installer to anyone:
 Unsigned installers trip SmartScreen ("Windows protected your PC" → *More
 info* → *Run anyway*). A code-signing certificate is the only real fix.
 
+### Tests
+
+The xUnit tests in `tests/JussiMiniPos.Tests` cover the data layer and the
+domain rules — reports and their Finnish date boundaries, product search,
+sales, the catalogue, users and password hashing, the schema and its
+migrations — and run each database test against **both** SQLite and
+PostgreSQL:
+
+```powershell
+docker compose up -d                     # the PostgreSQL the tests use
+dotnet test --solution JussiMiniPos.slnx
+```
+
+Every test gets a database of its own — a SQLite file in a temporary folder,
+or a PostgreSQL database created for it and dropped afterwards — so your own
+data under `%LOCALAPPDATA%\JussiMiniPos` is never touched. Without a reachable
+PostgreSQL the PostgreSQL cases are reported as *skipped*; set
+`JUSSIMINIPOS_TEST_POSTGRES` to a connection string to use another server.
+CI runs both engines on every pull request and fails if PostgreSQL is missing.
+
 ### Troubleshooting
 
 | Problem | Fix |
@@ -215,6 +235,8 @@ The repository root holds the solution, documentation and tooling:
 | ---------------------- | ------------------------------------------------------ |
 | `JussiMiniPos.slnx`    | Solution; `dotnet build` at the root builds every project in it |
 | `src/JussiMiniPos/`    | The WPF application (table below)                      |
+| `tests/JussiMiniPos.Tests/` | xUnit tests, run against SQLite and PostgreSQL    |
+| `global.json`          | Selects Microsoft.Testing.Platform for `dotnet test`   |
 | `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
 | `.github/`             | CI, CodeQL, dependency review, the release workflow and Dependabot |
 | `docker-compose.yml`   | A local PostgreSQL for development                     |

@@ -2,4 +2,7 @@
   <Folder Name="/src/">
     <Project Path="src/JussiMiniPos/JussiMiniPos.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/JussiMiniPos.Tests/JussiMiniPos.Tests.csproj" />
+  </Folder>
 </Solution>

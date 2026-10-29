@@ -7,6 +7,16 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Automated tests**, in `tests/JussiMiniPos.Tests` (xUnit v3), run against
+  both SQLite and PostgreSQL: report totals and Finnish date boundaries across
+  daylight saving, product search ranking and Unicode folding, schema creation
+  and every migration step, sale atomicity and snapshots, catalogue rules,
+  signing in, and password hashing. Each test gets its own throwaway database.
+  CI runs them on every pull request against the PostgreSQL that ships with
+  the Windows runner, and fails rather than skips if it is missing.
+
 ### Changed
 
 - **The application moved to `src/JussiMiniPos/`**, with a `JussiMiniPos.slnx`
@@ -24,6 +34,11 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   is being shut down*, or leave the main window open, because WPF still built
   the window from `StartupUri` after a command had asked the application to
   shut down. The main window is now created only when no command ran.
+- **The first sign-in on a new PostgreSQL database no longer fails.** Npgsql
+  reads the server's types when it first connects, which on a new database is
+  before the schema has installed `citext`, so reading any username or email
+  threw until the application was restarted. The driver now reloads its types
+  once the schema is in place. Found by the new PostgreSQL tests.
 
 ## [1.0.0-beta.4] - 2026-10-29
 

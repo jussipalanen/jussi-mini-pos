@@ -43,6 +43,44 @@ jobs:
       - name: Build with warnings as errors
         run: dotnet build JussiMiniPos.slnx --configuration Release --no-restore --property:ContinuousIntegrationBuild=true --warnaserror
 
+  tests:
+    name: Tests on SQLite and PostgreSQL
+    runs-on: windows-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # The Windows runner image ships PostgreSQL with its service stopped,
+      # and sets PGBIN, PGUSER and PGPASSWORD for it.
+      - name: Start PostgreSQL
+        shell: pwsh
+        run: |
+          $service = Get-Service -Name 'postgresql*'
+          Set-Service -InputObject $service -Status Running -StartupType Automatic
+          & "$env:PGBIN\pg_isready" --host localhost --timeout 60
+          if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL did not become ready.' }
+          "JUSSIMINIPOS_TEST_POSTGRES=Host=localhost;Port=5432;Username=$env:PGUSER;Password=$env:PGPASSWORD;Database=postgres" >> $env:GITHUB_ENV
+
+      - name: Restore dependencies
+        run: dotnet restore JussiMiniPos.slnx
+
+      - name: Build
+        run: dotnet build JussiMiniPos.slnx --configuration Release --no-restore --property:ContinuousIntegrationBuild=true
+
+      # Required, so a PostgreSQL that failed to start fails the run instead
+      # of quietly skipping half of the tests.
+      - name: Run tests
+        env:
+          JUSSIMINIPOS_TEST_REQUIRE_POSTGRES: "true"
+        run: dotnet test --solution JussiMiniPos.slnx --configuration Release --no-build
+
   nuget-audit:
     name: NuGet vulnerability audit
     runs-on: windows-latest
