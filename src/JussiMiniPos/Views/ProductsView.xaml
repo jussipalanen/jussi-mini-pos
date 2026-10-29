@@ -20,6 +20,18 @@
         <!-- ============ Header ============ -->
         <DockPanel Grid.Row="0" Margin="0,0,0,18">
             <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="16,0" Margin="0,0,10,0"
+                        AutomationProperties.Name="ALV-kannat"
+                        Click="VatRates_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <ContentControl Style="{StaticResource Icon}"
+                                        Tag="{StaticResource Icon.Percent}"
+                                        Width="16" Height="16"
+                                        Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                        VerticalAlignment="Center" />
+                        <TextBlock Text="ALV-kannat" Margin="8,0,0,0" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
                 <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="16,0"
                         AutomationProperties.Name="Kategoriat"
                         Click="Categories_Click">

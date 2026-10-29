@@ -1,0 +1,39 @@
+<Window x:Class="JussiMiniPos.Views.VoidSaleWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Mitätöi myynti"
+        Width="480" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="22,20">
+        <StackPanel>
+            <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Text.SectionHeader}" />
+            <TextBlock Style="{StaticResource Text.Muted}" Margin="0,8,0,0" TextWrapping="Wrap"
+                       Text="Mitätöity myynti säilyy Myynti-näkymässä merkittynä, mutta sitä ei lasketa kertymään eikä raportteihin. Mitätöintiä ei voi perua." />
+
+            <TextBlock Text="Syy" Style="{StaticResource Text.Muted}" Margin="0,16,0,6" />
+            <TextBox x:Name="ReasonBox" Style="{StaticResource FormBox}"
+                     MaxLength="200"
+                     AutomationProperties.Name="Mitätöinnin syy"
+                     TextChanged="Reason_Changed" />
+            <TextBlock Text="Esimerkiksi: väärä tuote, asiakas peruutti tai testimyynti." Style="{StaticResource Text.Muted}"
+                       FontSize="12" Margin="0,6,0,0" />
+
+            <TextBlock Text="{Binding SignedInText}" Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,12,0,0" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                        Content="Peruuta" IsCancel="True"
+                        AutomationProperties.Name="Peruuta"
+                        Click="Cancel_Click" />
+                <Button x:Name="VoidButton" Style="{StaticResource Button.Danger}" Width="150" Margin="10,0,0,0"
+                        Content="Mitätöi" IsDefault="True" IsEnabled="False"
+                        AutomationProperties.Name="Mitätöi myynti"
+                        Click="Void_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

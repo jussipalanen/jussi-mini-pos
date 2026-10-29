@@ -37,7 +37,11 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
 
     private ImageEntry? _featureImage;
 
-    public ProductEditWindow(Product? product, IReadOnlyList<Category> categories, ImageStore images)
+    public ProductEditWindow(
+        Product? product,
+        IReadOnlyList<Category> categories,
+        IReadOnlyList<VatRate> vatRates,
+        ImageStore images)
     {
         InitializeComponent();
 
@@ -68,6 +72,13 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
         {
             CategoryList.SelectedItems.Add(category);
         }
+
+        // Retired rates are not offered, except the one this product is still
+        // on, so opening and saving it does not quietly change its VAT. A new
+        // product starts on the highest rate, which never under-reports.
+        var choices = vatRates.Where(rate => rate.IsActive || rate.Id == product?.Vat.Id).ToList();
+        VatList.ItemsSource = choices;
+        VatList.SelectedItem = choices.FirstOrDefault(rate => rate.Id == product?.Vat.Id) ?? choices.FirstOrDefault();
 
         TitleBox.Focus();
         TitleBox.SelectAll();
@@ -313,11 +324,18 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
             return false;
         }
 
+        if (VatList.SelectedItem is not VatRate vatRate)
+        {
+            error = "Valitse ALV-kanta.";
+            return false;
+        }
+
         Draft = new CatalogRepository.ProductDraft(
             title,
             DescriptionBox.Text.Trim(),
             price,
             salePrice,
+            vatRate.Id,
             PublicBox.IsChecked == true,
             _featureImage?.RelativePath,
             categoryIds,

@@ -1,0 +1,92 @@
+<Window x:Class="JussiMiniPos.Views.UserEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="{Binding WindowTitle}"
+        Width="560" SizeToContent="Height"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="22,20">
+        <StackPanel>
+            <TextBlock Text="{Binding WindowTitle}" Style="{StaticResource Text.SectionHeader}" />
+
+            <Grid Margin="0,16,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="14" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+                <StackPanel Grid.Row="0" Grid.Column="0">
+                    <TextBlock Text="Käyttäjätunnus" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                    <TextBox x:Name="UsernameBox" Style="{StaticResource FormBox}" AutomationProperties.Name="Käyttäjätunnus" />
+                </StackPanel>
+                <StackPanel Grid.Row="0" Grid.Column="2">
+                    <TextBlock Text="Sähköposti" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                    <TextBox x:Name="EmailBox" Style="{StaticResource FormBox}" AutomationProperties.Name="Sähköposti" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="0" Margin="0,12,0,0">
+                    <TextBlock Text="Etunimi" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                    <TextBox x:Name="FirstNameBox" Style="{StaticResource FormBox}" AutomationProperties.Name="Etunimi" />
+                </StackPanel>
+                <StackPanel Grid.Row="1" Grid.Column="2" Margin="0,12,0,0">
+                    <TextBlock Text="Sukunimi" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                    <TextBox x:Name="LastNameBox" Style="{StaticResource FormBox}" AutomationProperties.Name="Sukunimi" />
+                </StackPanel>
+            </Grid>
+
+            <TextBlock Text="Rooli" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+            <ListBox x:Name="RoleList"
+                     Style="{StaticResource ChipList}"
+                     ItemContainerStyle="{StaticResource ChipItem}"
+                     DisplayMemberPath="Name"
+                     SelectionMode="Single"
+                     IsEnabled="{Binding CanChangeRole}"
+                     AutomationProperties.Name="Rooli" />
+            <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" TextWrapping="Wrap" Margin="0,6,0,0"
+                       Text="{Binding RoleHelp}" />
+
+            <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,14" />
+
+            <CheckBox x:Name="SetPasswordBox" Style="{StaticResource FormCheckBox}"
+                      Content="Aseta uusi salasana"
+                      Visibility="{Binding IsExisting, Converter={StaticResource BoolToVis}}"
+                      Checked="SetPassword_Changed" Unchecked="SetPassword_Changed" />
+            <StackPanel x:Name="PasswordPanel" Margin="0,8,0,0">
+                <TextBlock Style="{StaticResource Text.Muted}" Margin="0,0,0,6" TextWrapping="Wrap"
+                           Text="Salasana (näkyvissä, jotta voit kertoa sen käyttäjälle; hän voi vaihtaa sen Oma profiili -näkymässä)" />
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Height="40" Padding="12,0" Margin="8,0,0,0"
+                            Content="Luo salasana" AutomationProperties.Name="Luo satunnainen salasana"
+                            Click="Generate_Click" />
+                    <TextBox x:Name="PasswordBox" Style="{StaticResource FormBox}" FontFamily="Consolas"
+                             AutomationProperties.Name="Salasana" />
+                </DockPanel>
+            </StackPanel>
+
+            <TextBlock x:Name="ErrorText"
+                       Style="{StaticResource Text.Muted}"
+                       Foreground="{StaticResource Brush.Danger}"
+                       TextWrapping="Wrap" Margin="0,12,0,0"
+                       Visibility="Collapsed" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                        Content="Peruuta" IsCancel="True" AutomationProperties.Name="Peruuta"
+                        Click="Cancel_Click" />
+                <Button Style="{StaticResource Button.Primary}" Width="140" Margin="10,0,0,0"
+                        Content="Tallenna" IsDefault="True" AutomationProperties.Name="Tallenna käyttäjä"
+                        Click="Save_Click" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

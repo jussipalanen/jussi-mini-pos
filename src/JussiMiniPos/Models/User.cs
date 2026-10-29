@@ -22,11 +22,46 @@ public sealed record User(
     string LastName,
     UserRole Role)
 {
+    /// <summary>
+    /// When the account is locked after too many failed sign-ins, until
+    /// when; null when it is not. Only filled in where the user list needs it.
+    /// </summary>
+    public DateTimeOffset? LockedUntil { get; init; }
+
+    public bool IsLocked => LockedUntil is { } until && until > DateTimeOffset.Now;
+
+    /// <summary>"Esimies", for lists.</summary>
+    public string RoleText => UserRoleNames.Finnish(Role);
+
+    /// <summary>"Lukittu klo 14.35 asti", or empty, for the user list.</summary>
+    public string LockText => IsLocked ? $"Lukittu klo {LockedUntil!.Value.ToLocalTime():HH.mm} asti" : string.Empty;
+
     /// <summary>Only an administrator may open Admin.</summary>
     public bool CanOpenAdmin => Role == UserRole.Admin;
 
+    /// <summary>Only an administrator adds, changes, unlocks or removes accounts.</summary>
+    public bool CanManageUsers => Role == UserRole.Admin;
+
+    /// <summary>
+    /// Every signed-in user may sell. A seller can do nothing else; Kassa is
+    /// what the role is for.
+    /// </summary>
+    public bool CanUseCheckout => true;
+
+    /// <summary>Tuotteet, categories and VAT rates: administrators and managers.</summary>
+    public bool CanManageCatalogue => Role is UserRole.Admin or UserRole.Manager;
+
+    /// <summary>Myynti, the full sales history: administrators and managers.</summary>
+    public bool CanOpenSales => Role is UserRole.Admin or UserRole.Manager;
+
     /// <summary>Sales reports are available to administrators and managers.</summary>
     public bool CanOpenReports => Role is UserRole.Admin or UserRole.Manager;
+
+    /// <summary>
+    /// Voiding takes a sale out of the takings, so it is limited to the
+    /// people who answer for them: administrators and managers.
+    /// </summary>
+    public bool CanVoidSales => Role is UserRole.Admin or UserRole.Manager;
 
     /// <summary>
     /// "Matti Meikäläinen", or as much of it as has been filled in. Empty when

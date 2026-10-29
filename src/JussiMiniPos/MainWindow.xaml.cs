@@ -1,4 +1,6 @@
 ﻿using System.Windows;
+using System.Windows.Input;
+using System.Windows.Threading;
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
 using JussiMiniPos.Views;
@@ -34,9 +36,24 @@ public partial class MainWindow : Window
 
     private ProductsView? _productsView;
 
+    /// <summary>When the keyboard, mouse or touch screen was last used, for the idle sign-out.</summary>
+    private DateTime _lastInput = DateTime.UtcNow;
+
+    private readonly DispatcherTimer _idleTimer = new() { Interval = TimeSpan.FromSeconds(30) };
+
     public MainWindow()
     {
         InitializeComponent();
+
+        InputManager.Current.PreProcessInput += (_, e) =>
+        {
+            if (e.StagingItem.Input is KeyboardEventArgs or MouseEventArgs or TouchEventArgs)
+            {
+                _lastInput = DateTime.UtcNow;
+            }
+        };
+        _idleTimer.Tick += (_, _) => SignOutIfIdle();
+        _idleTimer.Start();
 
         _database.EnsureCreated();
 
@@ -109,7 +126,74 @@ public partial class MainWindow : Window
         }
 
         _currentUser = window.SignedInUser;
+        _database.Audit.Actor = _currentUser.Username;
         return true;
+    }
+
+    /// <summary>The signed-in user, prompting for a sign-in first when nobody is.</summary>
+    private User? RequireUser(string purpose) =>
+        _currentUser is not null || SignIn(purpose) ? _currentUser : null;
+
+    /// <summary>
+    /// Whether the session may open a view: prompts for a sign-in when nobody
+    /// is signed in, then checks the domain rule, explaining a refusal. The
+    /// rule is a <see cref="User"/> property such as
+    /// <see cref="User.CanManageCatalogue"/>, never which buttons are shown.
+    /// </summary>
+    private bool Authorize(Func<User, bool> allowed, string signInPurpose, string refusal)
+    {
+        if (RequireUser(signInPurpose) is not { } user)
+        {
+            return false;
+        }
+
+        if (allowed(user))
+        {
+            return true;
+        }
+
+        MessageBox.Show(
+            this,
+            $"{refusal}\n\nOlet kirjautunut käyttäjänä {user.Display}.",
+            "JussiMiniPos",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
+
+        // Redrawn so a sign-in that happened just now is on screen even
+        // though it did not open the view.
+        ShowStartView();
+        return false;
+    }
+
+    /// <summary>Ends the session: recorded, then back to the start screen signed out.</summary>
+    private void SignOut(string reason)
+    {
+        if (_currentUser is { } user)
+        {
+            ViewErrors.Try(this, "Uloskirjautumista ei voitu kirjata.",
+                () => _database.Audit.Record(AuditActions.SignOut, $"{user.Display}{reason}"));
+        }
+
+        _currentUser = null;
+        _database.Audit.Actor = null;
+        ShowStartView();
+    }
+
+    /// <summary>
+    /// Signs out a session nobody has touched for <see cref="IdleSession.Timeout"/>,
+    /// so a till left signed in on a shared counter does not stay usable by
+    /// whoever walks up. Checked every half minute.
+    /// </summary>
+    private void SignOutIfIdle()
+    {
+        if (IdleSession.ShouldSignOut(
+                _currentUser is not null,
+                DateTime.UtcNow - _lastInput,
+                paymentInProgress: ViewHost.Content is PaymentView,
+                dialogOpen: OwnedWindows.Count > 0))
+        {
+            SignOut(" (ei toimintaa, automaattinen uloskirjautuminen)");
+        }
     }
 
     private void OnLoginRequested()
@@ -121,11 +205,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnLogoutRequested()
-    {
-        _currentUser = null;
-        ShowStartView();
-    }
+    private void OnLogoutRequested() => SignOut(string.Empty);
 
     private void ShowCheckoutView()
     {
@@ -159,7 +239,7 @@ public partial class MainWindow : Window
 
     private void ShowSalesView()
     {
-        var view = new SalesView(_salesRepository);
+        var view = new SalesView(_salesRepository, RequireUser);
         view.Back += ShowStartView;
         ViewHost.Content = view;
     }
@@ -173,20 +253,6 @@ public partial class MainWindow : Window
 
     private void ShowReportsView()
     {
-        if (_currentUser is null
-            && !SignIn("Raportit ovat ylläpitäjille ja esimiehille. Kirjaudu jatkaaksesi."))
-        {
-            return;
-        }
-
-        if (_currentUser is not { CanOpenReports: true })
-        {
-            MessageBox.Show(this, "Raportit ovat vain ylläpitäjille ja esimiehille.",
-                "JussiMiniPos", MessageBoxButton.OK, MessageBoxImage.Information);
-            ShowStartView();
-            return;
-        }
-
         var view = new ReportsView(new ReportsRepository(_database));
         view.Back += ShowStartView;
         ViewHost.Content = view;
@@ -199,34 +265,22 @@ public partial class MainWindow : Window
     /// </summary>
     private void ShowAdminView()
     {
-        // Signing in is offered rather than demanded up front: the prompt says
-        // why it appeared, so Admin does not just refuse and leave the user to
-        // work out that there is a login somewhere.
-        if (_currentUser is null
-            && !SignIn("Admin-osio on vain ylläpitäjille. Kirjaudu jatkaaksesi."))
-        {
-            return;
-        }
-
-        if (_currentUser is not { CanOpenAdmin: true })
-        {
-            MessageBox.Show(
-                this,
-                $"Admin-osio on vain ylläpitäjille.\n\n" +
-                $"Olet kirjautunut käyttäjänä {_currentUser!.Display}.",
-                "JussiMiniPos",
-                MessageBoxButton.OK,
-                MessageBoxImage.Information);
-
-            // Redrawn so a sign-in that happened just now is on screen even
-            // though it did not open Admin.
-            ShowStartView();
-            return;
-        }
-
         var view = new AdminView(_options, _database.DataDirectory, _currentUser);
         view.Back += ShowStartView;
+        view.AuditLogRequested += () => new AuditLogWindow(_database.Audit) { Owner = this }.ShowDialog();
+        view.UsersRequested += ShowUsersWindow;
         ViewHost.Content = view;
+    }
+
+    /// <summary>User management, for administrators only; the session's own user is passed so it can be protected.</summary>
+    private void ShowUsersWindow()
+    {
+        if (_currentUser is not { CanManageUsers: true } admin)
+        {
+            return;
+        }
+
+        new UsersWindow(_users, admin) { Owner = this }.ShowDialog();
     }
 
     /// <summary>
@@ -253,12 +307,14 @@ public partial class MainWindow : Window
 
     private void ShowPaymentView()
     {
-        if (_checkoutView is null)
+        // The session may have timed out while the cart was being built; the
+        // sale is recorded under whoever is signed in when it is paid.
+        if (_checkoutView is null || RequireUser("Kirjaudu sisään jatkaaksesi myyntiä.") is not { } seller)
         {
             return;
         }
 
-        var view = new PaymentView(_checkoutView.Cart, _salesRepository);
+        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username);
         view.Cancelled += ShowCheckoutView;
         view.Finished += StartNewSale;
         ViewHost.Content = view;
@@ -271,29 +327,56 @@ public partial class MainWindow : Window
         ShowCheckoutView();
     }
 
+    /// <summary>
+    /// Every view needs a signed-in user. A seller may use Kassa only;
+    /// Tuotteet, Myynti and Raportit need a manager or an administrator, and
+    /// Admin an administrator. Each check is a <see cref="User"/> rule.
+    /// </summary>
     private void OnNavigate(AppView destination)
     {
         if (destination == AppView.Checkout)
         {
-            ShowCheckoutView();
+            if (Authorize(user => user.CanUseCheckout, "Kirjaudu sisään myydäksesi.", "Kassa ei ole käytettävissä."))
+            {
+                ShowCheckoutView();
+            }
+
             return;
         }
 
         if (destination == AppView.Products)
         {
-            ShowProductsView();
+            if (Authorize(user => user.CanManageCatalogue,
+                    "Tuotteet ovat esimiehille ja ylläpitäjille. Kirjaudu jatkaaksesi.",
+                    "Tuotteita voivat hallita vain esimiehet ja ylläpitäjät."))
+            {
+                ShowProductsView();
+            }
+
             return;
         }
 
         if (destination == AppView.Sales)
         {
-            ShowSalesView();
+            if (Authorize(user => user.CanOpenSales,
+                    "Myynti on esimiehille ja ylläpitäjille. Kirjaudu jatkaaksesi.",
+                    "Myyntihistorian näkevät vain esimiehet ja ylläpitäjät."))
+            {
+                ShowSalesView();
+            }
+
             return;
         }
 
         if (destination == AppView.Admin)
         {
-            ShowAdminView();
+            if (Authorize(user => user.CanOpenAdmin,
+                    "Admin-osio on vain ylläpitäjille. Kirjaudu jatkaaksesi.",
+                    "Admin-osio on vain ylläpitäjille."))
+            {
+                ShowAdminView();
+            }
+
             return;
         }
 
@@ -305,7 +388,13 @@ public partial class MainWindow : Window
 
         if (destination == AppView.Reports)
         {
-            ShowReportsView();
+            if (Authorize(user => user.CanOpenReports,
+                    "Raportit ovat ylläpitäjille ja esimiehille. Kirjaudu jatkaaksesi.",
+                    "Raportit ovat vain ylläpitäjille ja esimiehille."))
+            {
+                ShowReportsView();
+            }
+
             return;
         }
 

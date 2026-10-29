@@ -119,6 +119,15 @@
                     <DataGridTextColumn Header="Myynti (€)" Binding="{Binding Total, StringFormat=N2}" Width="150" ElementStyle="{StaticResource Table.Number}" />
                 </DataGrid.Columns>
             </DataGrid>
+            <DataGrid Grid.Row="2" Style="{StaticResource Table.ReadOnly}" ItemsSource="{Binding Report.VatLines}"
+                      Visibility="{Binding IsVat, Converter={StaticResource BoolToVis}}" AutomationProperties.Name="ALV-erittely">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Verokanta" Binding="{Binding Label}" Width="*" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Veroton (€)" Binding="{Binding Net, StringFormat=N2, TargetNullValue=–}" Width="140" ElementStyle="{StaticResource Table.Number}" />
+                    <DataGridTextColumn Header="ALV (€)" Binding="{Binding Vat, StringFormat=N2, TargetNullValue=–}" Width="120" ElementStyle="{StaticResource Table.Number}" />
+                    <DataGridTextColumn Header="Verollinen (€)" Binding="{Binding Gross, StringFormat=N2}" Width="150" ElementStyle="{StaticResource Table.Number}" />
+                </DataGrid.Columns>
+            </DataGrid>
         </Grid>
     </Grid>
 </UserControl>

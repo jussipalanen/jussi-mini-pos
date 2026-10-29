@@ -16,9 +16,58 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   signing in, and password hashing. Each test gets its own throwaway database.
   CI runs them on every pull request against the PostgreSQL that ships with
   the Windows runner, and fails rather than skips if it is missing.
+- **VAT (ALV).** Every product has a VAT rate, picked in the product editor
+  from a managed list in **Tuotteet → ALV-kannat**: add a rate, rename it,
+  change its percentage, or retire it from new choices. A new database starts
+  with the Finnish rates in force since 1 January 2026 — 25,5 %, 13,5 %, 10 %
+  and 0 % — and a rate change is one edit that every product on it follows.
+  Prices still include VAT.
+  - Each sold line records its rate and its VAT to the cent, so a later rate
+    change never rewrites a past receipt.
+  - The receipt shows a VAT breakdown per rate: VAT-free amount, VAT, and the
+    total with VAT.
+  - Raportit has a new **ALV-erittely** tab with the same breakdown for any
+    date range. Lines sold before this release are listed as *ALV ei tiedossa*
+    rather than given an invented figure.
+  - `--dump` lists the rates and each product's rate.
+  - Upgrading puts existing products on the **25,5 %** general rate, which
+    never under-reports VAT; set food and drink to 13,5 % in Tuotteet. The demo
+    catalogue is seeded at 13,5 %.
+- **An audit log** of who did what: sign-ins and failed sign-ins, sign-outs,
+  voided sales, product changes with the price, offer price, VAT and
+  visibility before and after, VAT rate changes, and user account changes.
+  Each entry is written in the same transaction as the change, and the log is
+  append-only. Administrators read it in **Admin → Tapahtumaloki**, and
+  `--audit` prints it. Entries never contain passwords or hashes, and a failed
+  sign-in with an unknown username does not repeat what was typed.
+
+- **User management in Admin → Käyttäjät**: add users with a typed or
+  generated password, change a user's name, email, role or password in one
+  step, unlock a locked account, or remove one — no longer command line only.
+- **Account lockout**: five wrong passwords in a row lock the account for five
+  minutes, even against the right password. An administrator can unlock it,
+  and a new password unlocks it too.
+- **Automatic sign-out** after 15 minutes without keyboard, mouse or touch
+  input, never in the middle of a card payment or behind an open dialog.
+- **Each sale records who sold it**, shown on its receipt.
 
 ### Changed
 
+- **Every view needs a signed-in user, and roles mean something.** A seller
+  (*Myyjä*) can use Kassa only; Tuotteet, Myynti and Raportit need a manager or
+  an administrator; Admin needs an administrator. Previously Kassa, Tuotteet
+  and Myynti were open to anyone at the machine. Each check is a domain rule on
+  `User`, not a button's visibility.
+- **The last-administrator rule is enforced in `UserRepository`**, inside the
+  write's transaction, so the command line and Admin → Käyttäjät share one
+  check. It was only in the command line before.
+- **Sales are voided instead of deleted.** Myynti's delete button is now
+  **Mitätöi**: it needs a signed-in manager or administrator and a reason, and
+  keeps the sale and its lines, marked with when, by whom and why. A voided
+  sale stays in the list, dimmed with a *Mitätöity* badge, and its receipt
+  says who voided it; it no longer counts in Myynti's totals, in Raportit or in
+  a product's sales summary. A sale cannot be voided twice, and there is no
+  longer any way to delete one.
 - **The application moved to `src/JussiMiniPos/`**, with a `JussiMiniPos.slnx`
   solution at the repository root. This makes room for the test project and the
   REST API on the roadmap: a project file at the root compiles every `.cs` file
@@ -29,6 +78,12 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`--clear` and `--seed --reset` work on PostgreSQL.** Both reset the id
+  numbering through `sqlite_sequence`, a table only SQLite has, so on
+  PostgreSQL they failed without clearing anything. The numbering is now reset
+  the way each engine does it. On PostgreSQL, seeding also moves the product
+  numbering past the demo ids, so a product added afterwards no longer starts
+  from 1 while SQLite carried on from 1021.
 - **Command-line runs no longer crash or leave a window open.** `--version`,
   `--seed`, `--dump` and the other commands could throw *The Application object
   is being shut down*, or leave the main window open, because WPF still built

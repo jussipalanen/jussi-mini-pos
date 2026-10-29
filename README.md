@@ -520,6 +520,7 @@ JussiMiniPos.exe --dump           # print the catalogue tables
 JussiMiniPos.exe --clear          # delete the catalogue rows (sales are kept)
 JussiMiniPos.exe --ask "Mitä sopii kahvin kanssa?"   # one AI assistant question
 JussiMiniPos.exe --users          # list the users
+JussiMiniPos.exe --audit          # the newest 100 audit log entries
 JussiMiniPos.exe --version        # print the version and exit
 JussiMiniPos.exe --user-add / --user-update / --user-delete   # see "Users" below
 JussiMiniPos.exe --help
@@ -554,14 +555,18 @@ Categories                    Products
 ├── Title                     ├── Title
 ├── ParentId → Categories.Id  ├── Description
 └── IsPublic (0/1)            ├── FeatureImage
-                              ├── PriceCents
+                              ├── PriceCents      (VAT included)
 ProductImages                 ├── SalePriceCents  (NULL = not on offer)
-├── Id                        └── IsPublic (0/1)
-├── ProductId → Products.Id
-├── Path                      ProductCategories
-└── SortOrder                 ├── ProductId  → Products.Id
-                              └── CategoryId → Categories.Id
-                                  (composite primary key)
+├── Id                        ├── IsPublic (0/1)
+├── ProductId → Products.Id   └── VatRateId → VatRates.Id
+├── Path
+└── SortOrder                 ProductCategories
+                              ├── ProductId  → Products.Id
+VatRates                      └── CategoryId → Categories.Id
+├── Id                            (composite primary key)
+├── Name
+├── BasisPoints  (25,5 % = 2550)
+└── IsActive (0/1)
 ```
 
 `Categories.ParentId` is a self-reference, so categories nest. A product can
@@ -571,6 +576,29 @@ rather than a column; its extra images do too.
 `SalePriceCents` is `NULL` when there is no offer, so "is this discounted" is a
 null check rather than a sentinel price. The till charges
 `Product.EffectivePrice`, which is the offer price when one applies.
+
+#### VAT (ALV)
+
+Prices **include VAT**. Every product points at a rate in `VatRates`, a managed
+list rather than a percentage typed per product, so when a rate changes —
+14 % becoming 13,5 % in 2026, say — it is one edit in **Tuotteet → ALV-kannat**
+and every product on that rate follows from the next sale. A new database
+starts with the Finnish rates in force since 1 January 2026:
+
+| Name      | Rate   | Typical use |
+| --------- | ------ | ----------- |
+| Yleinen   | 25,5 % | most goods and services |
+| Alennettu | 13,5 % | food and non-alcoholic drink, restaurants |
+| Alennettu | 10 %   | e.g. newspapers and magazines |
+| Veroton   | 0 %    | exempt sales |
+
+Check [Vero.fi](https://www.vero.fi/en/businesses-and-corporations/taxes-and-charges/vat/rates-of-vat/)
+for which rate applies to what you sell. Rates are stored in hundredths of a
+percent (`2550`), an integer for the same reason money is cents. They are
+never deleted, only retired from new choices, so a product always points at a
+rate that exists. The demo catalogue is seeded at 13,5 %; products that
+already existed when a database is upgraded get **25,5 %**, which never
+under-reports VAT — lower the food items in Tuotteet.
 
 The checkout reads this catalogue through `CatalogRepository` — editing a row
 changes what the till shows and charges on the next start. `DemoCatalog` is
@@ -599,9 +627,11 @@ cannot do that. Columns added this way land at the end of the table, so column
 *order* differs between a fresh and an upgraded database; nothing selects `*`,
 so that only matters if you read the schema by eye.
 
-In practice these only ever fire against a SQLite file old enough to predate
-the column. A PostgreSQL database is always created from the current schema, so
-every column is there the first time and each check does nothing.
+The steps from before PostgreSQL support only ever fire against a SQLite file
+old enough to predate them. The VAT columns came after both engines, so their
+steps run on either: they add `Products.VatRateId` and the `SaleItems` VAT
+columns, write the default rates into an empty `VatRates`, and put existing
+products on the general rate.
 
 One migration does more than add a column. `ProductCategories.SortOrder` records
 the order the links were written, so the first category a product was given
@@ -620,13 +650,44 @@ Sales                         SaleItems
 └── PaymentMethod             ├── Name
                               ├── Category
                               ├── UnitPriceCents
-                              └── Quantity
+                              ├── Quantity
+                              ├── VatRateBasisPoints  (NULL = sold before VAT was recorded)
+                              └── VatCents
 ```
 
 A sale and its items are written in one transaction, and only after the payment
 succeeds — cancelling or failing a payment leaves nothing in the database.
-Sold lines copy the name and price, so later catalogue edits never rewrite
-past receipts.
+Sold lines copy the name, price, VAT rate and VAT amount, so later catalogue
+or rate edits never rewrite past receipts. Each line's VAT is worked out of its
+VAT-inclusive total and rounded to the cent; the receipt and Raportit's
+**ALV-erittely** show the sums of those per rate. Lines sold before VAT was
+recorded keep `NULL` and are listed as *ALV ei tiedossa* rather than given an
+invented figure.
+
+#### Voiding a sale
+
+A sale is never deleted. **Myynti → Mitätöi** marks it voided instead —
+`Sales.VoidedAt`, `VoidedBy` and `VoidReason` say when, by whom and why — and
+keeps the sale and its lines. A voided sale stays in the Myynti list, dimmed
+with a *Mitätöity* badge, and its receipt shows who voided it and why; it is
+left out of Myynti's totals, every Raportit figure and a product's sales
+summary. Voiding needs a signed-in **manager or administrator**
+(`User.CanVoidSales`) and a reason, and cannot be undone or repeated.
+
+#### Audit log
+
+`AuditLog` records sign-ins (and failed ones), sign-outs, voids, product
+creation, edits and deletion with the before and after of price, offer price,
+VAT and visibility, VAT rate changes, and user account changes — who, when
+and what. Each change writes its entry in its own transaction, so a change
+cannot be stored without its entry. The log is append-only: nothing in the
+application updates or deletes it. Administrators read it in **Admin →
+Tapahtumaloki**; `--audit` prints it in a terminal.
+
+Entries never contain passwords, hashes or keys. A failed sign-in names the
+account only when the username exists — what was typed for an unknown one is
+not repeated, since it may be a password typed into the wrong field. Changes
+made from the command line are recorded as `komentorivi (<Windows account>)`.
 
 ### Conventions
 
@@ -657,7 +718,8 @@ past receipts.
 
 Open **Raportit** from the start screen and sign in as an administrator or
 manager. Sellers cannot open reports; this is checked by the navigation shell
-using `User.CanOpenReports`, not just by the button's visibility.
+using `User.CanOpenReports`, not just by the button's visibility. Voided sales
+are left out of every figure.
 
 The initial report covers the current month through today. Choose **Tänään**,
 **Tämä viikko** (Monday through today), **Tämä kuukausi**, or enter inclusive
@@ -679,7 +741,7 @@ saving changes, regardless of the offset originally stored with the sale.
 
 Reports read the existing `Sales` and `SaleItems` snapshots; no schema change,
 remote service or new package is needed. Catalogue edits and product deletion
-do not alter historical results. Deleting a sale removes it from reports.
+do not alter historical results. A voided sale is left out of every figure.
 SQL aggregates integer cents and reads all report sections in one transaction.
 Queries run off the UI thread and returning to the start screen prevents a late
 result from reopening a view. Date conversion happens during queries; the
@@ -847,11 +909,35 @@ signed in, who that is and **Kirjaudu ulos**. Admin holds the application's own
 settings, as opposed to its data — today the AI assistant: on/off, the API key
 and the model, all described above.
 
-**Only the `admin` role can open Admin.** Opening it while signed out shows the
-login prompt with a line saying why, rather than simply refusing; signed in as
-another role, it says so and stays put. The session lasts as long as the
-process — restarting signs everybody out, which for a till on a shared counter
-is the safer default.
+**Every view needs a signed-in user**, and the role decides which:
+
+| View | Myyjä (`seller`) | Esimies (`manager`) | Ylläpitäjä (`admin`) |
+| ---- | :--------------: | :-----------------: | :------------------: |
+| Kassa | ✓ | ✓ | ✓ |
+| Tuotteet, kategoriat, ALV-kannat | | ✓ | ✓ |
+| Myynti, mitätöinti | | ✓ | ✓ |
+| Raportit | | ✓ | ✓ |
+| Admin, Käyttäjät, Tapahtumaloki | | | ✓ |
+
+Opening a view while signed out shows the login prompt with a line saying why,
+rather than simply refusing; signed in as a role that may not, it says so and
+returns to the start screen. Each check is a `User` rule —
+`CanUseCheckout`, `CanManageCatalogue`, `CanOpenSales`, `CanOpenReports`,
+`CanOpenAdmin`, `CanManageUsers`, `CanVoidSales` — applied by the navigation
+shell, never just a button's visibility. Every sale records the seller who rang
+it up (`Sales.SoldBy`), shown on its receipt.
+
+The session lasts until **Kirjaudu ulos**, a restart, or **15 minutes without
+any keyboard, mouse or touch input**, after which the till signs out on its own
+so a till left signed in on a shared counter is not usable by whoever walks up.
+It never signs out in the middle of a card payment or behind an open dialog;
+it waits until those are over.
+
+**Five wrong passwords in a row lock the account for 5 minutes.** A locked
+account refuses even the right password until then, and says so at the prompt.
+An administrator can unlock it at once in **Admin → Käyttäjät**, and setting a
+new password unlocks it too. Every attempt still costs a full password check,
+so the reply time gives nothing away.
 
 Settings live in the `Options` table, one row per name, so they survive a
 restart. `--dump` prints them. A name with no row means "use the default", so a
@@ -867,7 +953,9 @@ Users
 ├── FirstName     (empty when not given)
 ├── LastName      (empty when not given)
 ├── PasswordHash
-└── Role          (CHECK: 'admin' | 'manager' | 'seller')
+├── Role          (CHECK: 'admin' | 'manager' | 'seller')
+├── FailedSignIns (wrong passwords in a row)
+└── LockedUntil   (NULL unless locked)
 ```
 
 `FirstName` and `LastName` were added after the table existed, so they arrive
@@ -879,9 +967,11 @@ Either the username or the email works at the prompt, matched
 case-insensitively — `COLLATE NOCASE` on the column, so the match is
 case-insensitive without `lower()` defeating the unique index.
 
-`manager` can open Raportit alongside `admin`; `seller` cannot. Admin settings
-remain restricted to administrators. `User.CanOpenAdmin`
-is the single place that decides.
+Administrators manage accounts in **Admin → Käyttäjät**: add a user with a
+typed or generated password (shown, so it can be handed over; the user changes
+it in *Oma profiili*), change a user's name, email, role or password in one
+step, unlock a locked account, or remove one. An administrator cannot change
+their own role or remove their own account there.
 
 ### First run: signing in for the first time
 
@@ -1003,8 +1093,10 @@ trusted because reaching it already means having the machine.
 
 **The last administrator cannot be deleted or demoted.** Either would leave
 Admin unreachable with no way back short of editing the database by hand, so
-both are refused until another administrator exists. If the table does end up
-empty, the next start seeds `admin` again.
+both are refused until another administrator exists. The rule is enforced in
+`UserRepository`, inside the write's own transaction, so the command line and
+Admin → Käyttäjät apply exactly the same check. If the table does end up empty,
+the next start seeds `admin` again.
 
 Every command reports what it did and exits `0`, or explains what stopped it
 and exits `1`.

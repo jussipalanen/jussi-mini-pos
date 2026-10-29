@@ -184,8 +184,21 @@ metadata, local databases, image stores, key files, or `.env` files.
   key enforcement enabled on every connection.
 - Completed sales and their line snapshots are written in one transaction only
   after successful payment. Catalogue edits must never rewrite sale history.
+- Sales are never deleted. `SalesRepository.VoidSale` marks one voided (when,
+  by whom, why) and reports, totals and product summaries leave voided sales
+  out. Who may void is `User.CanVoidSales`, a domain rule, not button state.
+- Changes that matter to an audit — sign-ins, voids, product, price and VAT
+  changes, user changes — write an `AuditLog` entry through
+  `database.Audit.Record(connection, transaction, …)` inside their own
+  transaction. The log is append-only; never add an update or delete for it,
+  and never put passwords, hashes, keys or an unknown typed username in it.
 - A missing `SalePriceCents` means no discount. The till charges
   `Product.EffectivePrice`.
+- Prices include VAT. Every product has a `VatRate` from the managed
+  `VatRates` table (rates in basis points, 25,5 % = 2550; deactivated, never
+  deleted). Work VAT out with `Vat.Included`, never by hand. Sale lines
+  snapshot `VatRateBasisPoints` and `VatCents`; `NULL` there means the line was
+  sold before VAT was recorded and must stay unknown, not be back-filled.
 - Products may belong to several categories. Category hierarchy uses
   `ParentId`; deleting a parent with children remains restricted.
 - Image paths stored in SQLite are relative to the application data directory.
@@ -208,9 +221,17 @@ metadata, local databases, image stores, key files, or `.env` files.
   Preserve random salts, fixed-time verification, malformed-hash failure, and
   equivalent work for unknown usernames. Do not weaken iteration counts or the
   minimum-password rules.
-- Preserve the rule that the last administrator cannot be deleted or demoted.
-  Authorization for Admin belongs in the domain rule (`CanOpenAdmin`), not only
-  in button visibility.
+- Preserve the rule that the last administrator cannot be deleted or demoted;
+  it is enforced in `UserRepository.UpdateAccount`/`DeleteUser` inside the
+  write's transaction, so every caller shares it. Do not re-check it elsewhere.
+- Every view needs a signed-in user. Authorization belongs in the `User`
+  domain rules (`CanUseCheckout`, `CanManageCatalogue`, `CanOpenSales`,
+  `CanOpenReports`, `CanOpenAdmin`, `CanManageUsers`, `CanVoidSales`), applied
+  by `MainWindow.Authorize`, not only in button visibility. A seller may use
+  Kassa only.
+- Preserve the lockout (`MaxFailedSignIns`, `LockoutDuration`) and the idle
+  sign-out (`IdleSession`); a locked account must refuse even the right
+  password and still cost a full verify.
 - The Gemini key is stored separately from SQLite and protected with Windows
   DPAPI when available. A stored key takes precedence over `GEMINI_API_KEY`;
   stored model settings take precedence over `GEMINI_MODEL`.

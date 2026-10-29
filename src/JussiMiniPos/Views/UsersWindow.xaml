@@ -1,0 +1,57 @@
+<Window x:Class="JussiMiniPos.Views.UsersWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Käyttäjät"
+        Width="900" Height="600"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="22,20,22,12">
+                <TextBlock Text="Käyttäjät" Style="{StaticResource Text.SectionHeader}" />
+                <TextBlock Style="{StaticResource Text.Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="Myyjä käyttää vain kassaa. Esimies hallitsee myös tuotteita, myyntiä ja raportteja. Ylläpitäjä pääsee lisäksi Admin-osioon. Viimeistä ylläpitäjää ei voi poistaa eikä alentaa." />
+            </StackPanel>
+
+            <DataGrid x:Name="UserGrid" Grid.Row="1" Margin="22,0,22,0" Style="{StaticResource Table.ReadOnly}"
+                      ItemsSource="{Binding Users}" SelectionMode="Single"
+                      AutomationProperties.Name="Käyttäjät"
+                      MouseDoubleClick="UserGrid_MouseDoubleClick">
+                <DataGrid.Columns>
+                    <DataGridTextColumn Header="Käyttäjätunnus" Binding="{Binding Username}" Width="150" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Nimi" Binding="{Binding FullName}" Width="*" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Sähköposti" Binding="{Binding Email}" Width="*" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Rooli" Binding="{Binding RoleText}" Width="110" ElementStyle="{StaticResource Table.Text}" />
+                    <DataGridTextColumn Header="Tila" Binding="{Binding LockText}" Width="160" ElementStyle="{StaticResource Table.Text}" />
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <DockPanel Grid.Row="2" Margin="22,14,22,20" LastChildFill="False">
+                <Button DockPanel.Dock="Left" Style="{StaticResource Button.Primary}" Width="150"
+                        Content="Uusi käyttäjä" AutomationProperties.Name="Uusi käyttäjä"
+                        Click="New_Click" />
+                <Button DockPanel.Dock="Left" Style="{StaticResource Button.Ghost}" Height="46" Padding="16,0" Margin="10,0,0,0"
+                        Content="Muokkaa" AutomationProperties.Name="Muokkaa valittua käyttäjää"
+                        Click="Edit_Click" />
+                <Button DockPanel.Dock="Left" Style="{StaticResource Button.Ghost}" Height="46" Padding="16,0" Margin="6,0,0,0"
+                        Content="Avaa lukitus" AutomationProperties.Name="Avaa valitun käyttäjän lukitus"
+                        Click="Unlock_Click" />
+                <Button DockPanel.Dock="Left" Style="{StaticResource Button.Ghost}" Height="46" Padding="16,0" Margin="6,0,0,0"
+                        Foreground="{StaticResource Brush.Danger}"
+                        Content="Poista" AutomationProperties.Name="Poista valittu käyttäjä"
+                        Click="Delete_Click" />
+                <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                        Content="Sulje" IsCancel="True" AutomationProperties.Name="Sulje"
+                        Click="Close_Click" />
+            </DockPanel>
+        </Grid>
+    </Border>
+</Window>

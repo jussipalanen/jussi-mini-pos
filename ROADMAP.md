@@ -73,28 +73,31 @@ is real sales data than after.
 
 ### 2.1 VAT (ALV)
 
-- [ ] A VAT rate per product, chosen from a managed list of rates rather than
+- [x] A VAT rate per product, chosen from a managed list of rates rather than
       typed in, because Finnish rates change over time.
-- [ ] Each sale line snapshots its rate and VAT amount in integer cents, so a
+- [x] Each sale line snapshots its rate and VAT amount in integer cents, so a
       later rate change never rewrites history.
-- [ ] Prices stay VAT-inclusive at the till; receipts and Raportit show the VAT
+- [x] Prices stay VAT-inclusive at the till; receipts and Raportit show the VAT
       breakdown per rate.
-- [ ] Idempotent migration for existing databases, on both engines.
+- [x] Idempotent migration for existing databases, on both engines.
 
 ### 2.2 Void sales instead of deleting them
 
-- [ ] Replace deleting a sale with voiding it: who, when and why are recorded,
+- [x] Replace deleting a sale with voiding it: who, when and why are recorded,
       and the sale and its lines stay in the database.
-- [ ] Voided sales are excluded from report totals and shown as voided in Myynti.
+- [x] Voided sales are excluded from report totals and shown as voided in Myynti.
+- [x] The audit log from *Missing features*, built here because voiding is the
+      first thing that must record who did it: sign-ins, voids, price and VAT
+      changes, and user changes, each written in the same transaction.
 
 ### 2.3 Users and roles
 
-- [ ] Move the last-administrator rule out of `CommandLine` into the domain, so
+- [x] Move the last-administrator rule out of `CommandLine` into the domain, so
       the command line and the Admin view share it, and test it.
-- [ ] Add, edit, change the role of and remove users in the Admin view, not only
+- [x] Add, edit, change the role of and remove users in the Admin view, not only
       from the command line. The last-administrator rule still applies.
-- [ ] Account lockout after repeated failed sign-ins, and an inactivity timeout.
-- [ ] Give the `seller` role real meaning: decide which of Kassa, Tuotteet and
+- [x] Account lockout after repeated failed sign-ins, and an inactivity timeout.
+- [x] Give the `seller` role real meaning: decide which of Kassa, Tuotteet and
       Myynti need a signed-in user, and enforce it in the domain rules.
 
 ### 2.4 Installer follow-ups
@@ -110,8 +113,8 @@ is real sales data than after.
 
 The *High* items marked *1.0.0* under [Missing features](#missing-features):
 barcodes, cash payment, returns and refunds, receipt printing with shop details,
-an audit log, and backup and restore. Opening and closing the till and the
-end-of-day report follow cash payment.
+and backup and restore. Opening and closing the till and the end-of-day report
+follow cash payment. (The audit log shipped with 2.2.)
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 

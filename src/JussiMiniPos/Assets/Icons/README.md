@@ -29,3 +29,5 @@ Resource keys are English; the Finnish text is what the user sees on screen.
 | `arrow-left.svg`    | `Icon.ArrowLeft`   | —          |
 | `credit-card.svg`   | `Icon.CreditCard`  | —          |
 | `x.svg`             | `Icon.X`           | —          |
+| `percent.svg`       | `Icon.Percent`     | ALV-kannat |
+| `ban.svg`           | `Icon.Ban`         | Mitätöi myynti |

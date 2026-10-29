@@ -24,17 +24,21 @@ public partial class PaymentView : UserControl, INotifyPropertyChanged
     private readonly IReadOnlyList<CartLine> _cart;
     private readonly SalesRepository _repository;
 
+    /// <summary>The signed-in seller, recorded on the sale.</summary>
+    private readonly string _soldBy;
+
     private PaymentState _state = PaymentState.ChoosingMethod;
     private string _errorMessage = string.Empty;
     private Sale? _savedSale;
 
-    public PaymentView(IReadOnlyList<CartLine> cart, SalesRepository repository)
+    public PaymentView(IReadOnlyList<CartLine> cart, SalesRepository repository, string soldBy)
     {
         InitializeComponent();
 
         // Snapshot the cart: the checkout view keeps its own live copy.
         _cart = [.. cart];
         _repository = repository;
+        _soldBy = soldBy;
 
         DataContext = this;
     }
@@ -106,7 +110,7 @@ public partial class PaymentView : UserControl, INotifyPropertyChanged
             // Stand-in for the card terminal round trip.
             await Task.Delay(TerminalDelay);
 
-            var sale = Sale.FromCart(_cart, method);
+            var sale = Sale.FromCart(_cart, method) with { SoldBy = _soldBy };
             _savedSale = await Task.Run(() => _repository.Save(sale));
 
             OnPropertyChanged(nameof(ReceiptSummary));

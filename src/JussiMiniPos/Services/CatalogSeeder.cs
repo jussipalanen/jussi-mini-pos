@@ -123,7 +123,7 @@ public static class CatalogSeeder
         }
 
         Execute(connection, transaction,
-            "DELETE FROM sqlite_sequence WHERE name IN ('Products', 'Categories', 'ProductImages');");
+            database.Dialect.RestartIdentities("Products", "Categories", "ProductImages"));
 
         transaction.Commit();
     }
@@ -170,6 +170,7 @@ public static class CatalogSeeder
         }
 
         var links = 0;
+        var vatRateId = FoodVatRateId(connection, transaction);
 
         foreach (var product in DemoCatalog.Products)
         {
@@ -179,15 +180,16 @@ public static class CatalogSeeder
 
             Execute(connection, transaction,
                 """
-                INSERT INTO Products (Id, Title, Description, FeatureImage, PriceCents, SalePriceCents, IsPublic)
-                VALUES (@id, @title, @description, @featureImage, @priceCents, @salePriceCents, 1);
+                INSERT INTO Products (Id, Title, Description, FeatureImage, PriceCents, SalePriceCents, IsPublic, VatRateId)
+                VALUES (@id, @title, @description, @featureImage, @priceCents, @salePriceCents, 1, @vatRateId);
                 """,
                 ("@id", product.Id),
                 ("@title", product.Name),
                 ("@description", Descriptions.GetValueOrDefault(product.Id, string.Empty)),
                 ("@featureImage", DBNull.Value),
                 ("@priceCents", SalesRepository.ToCents(product.Price)),
-                ("@salePriceCents", salePrice));
+                ("@salePriceCents", salePrice),
+                ("@vatRateId", vatRateId));
 
             var categories = new List<string> { product.Category };
             if (ExtraCategory.TryGetValue(product.Id, out var extra))
@@ -212,9 +214,34 @@ public static class CatalogSeeder
             }
         }
 
+        // The demo ids were written explicitly, so the numbering for products
+        // added later has to be moved past them where the engine does not.
+        if (database.Dialect.AdvanceIdentity("Products") is { } advance)
+        {
+            Execute(connection, transaction, advance);
+        }
+
         transaction.Commit();
 
         return new Result(categoryIds.Count, DemoCatalog.Products.Count, links);
+    }
+
+    /// <summary>
+    /// The demo catalogue is food and non-alcoholic drink, which Finland taxes
+    /// at the reduced 13,5 %. Falls back to the highest rate if that one has
+    /// been changed, so a re-seed never under-reports VAT.
+    /// </summary>
+    private static long FoodVatRateId(DbConnection connection, DbTransaction transaction)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            SELECT Id FROM VatRates
+             ORDER BY CASE WHEN BasisPoints = 1350 AND IsActive = 1 THEN 0 ELSE 1 END, BasisPoints DESC, Id
+             LIMIT 1;
+            """;
+        return Convert.ToInt64(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
     private static long InsertCategory(

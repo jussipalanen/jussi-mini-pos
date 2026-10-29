@@ -112,10 +112,21 @@
                     <ItemsControl ItemsSource="{Binding PageSales}">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
-                                <Border Background="{StaticResource Brush.Surface}"
-                                        BorderBrush="{StaticResource Brush.Border}"
+                                <Border BorderBrush="{StaticResource Brush.Border}"
                                         BorderThickness="1" CornerRadius="8"
                                         Padding="14,11" Margin="0,0,4,6">
+                                    <!-- A voided sale stays listed, dimmed, so the record of it is still there. -->
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{StaticResource Brush.Surface}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsVoided}" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource Brush.SurfaceMuted}" />
+                                                    <Setter Property="Opacity" Value="0.65" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="70" />
@@ -131,9 +142,18 @@
                                                    Foreground="{StaticResource Brush.Text}"
                                                    VerticalAlignment="Center" />
 
-                                        <TextBlock Grid.Column="1" Text="{Binding SoldAt, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
-                                                   Foreground="{StaticResource Brush.Text}"
-                                                   FontSize="14" VerticalAlignment="Center" />
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding SoldAt, StringFormat={}{0:dd.MM.yyyy HH:mm}}"
+                                                       Foreground="{StaticResource Brush.Text}"
+                                                       FontSize="14" VerticalAlignment="Center" />
+                                            <Border Style="{StaticResource Badge}" Margin="10,0,0,0"
+                                                    Background="{StaticResource Brush.DangerSurface}"
+                                                    Visibility="{Binding IsVoided, Converter={StaticResource BoolToVis}}"
+                                                    ToolTip="{Binding Void.Display}">
+                                                <TextBlock Text="Mitätöity" FontSize="11"
+                                                           Foreground="{StaticResource Brush.Danger}" />
+                                            </Border>
+                                        </StackPanel>
 
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                                             <ContentControl Style="{StaticResource Icon}"
@@ -163,11 +183,12 @@
                                                     AutomationProperties.Name="Näytä myynti"
                                                     Click="View_Click" />
                                             <Button Style="{StaticResource Button.IconDanger}"
-                                                    Tag="{StaticResource Icon.Trash}"
-                                                    ToolTip="Poista myynti"
-                                                    AutomationProperties.Name="Poista myynti"
+                                                    Tag="{StaticResource Icon.Ban}"
+                                                    ToolTip="Mitätöi myynti"
+                                                    AutomationProperties.Name="Mitätöi myynti"
                                                     Margin="6,0,0,0"
-                                                    Click="Delete_Click" />
+                                                    IsEnabled="{Binding CanBeVoided}"
+                                                    Click="Void_Click" />
                                         </StackPanel>
                                     </Grid>
                                 </Border>

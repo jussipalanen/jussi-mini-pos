@@ -73,6 +73,19 @@ public abstract class SqlDialect
     /// <summary>Whether a column is already there, for the migrations.</summary>
     public abstract string ColumnExistsSql(string table);
 
+    /// <summary>
+    /// Starts the id numbering of emptied tables again from 1, so a cleared
+    /// and re-seeded catalogue numbers its categories the way a fresh one
+    /// does. Table names are compile-time constants, never input.
+    /// </summary>
+    public abstract string RestartIdentities(params string[] tables);
+
+    /// <summary>
+    /// Moves a table's id numbering past the highest id in it, after rows were
+    /// written with explicit ids, or null when the engine does that itself.
+    /// </summary>
+    public virtual string? AdvanceIdentity(string table) => null;
+
     /// <summary>Registers whatever the connection needs before the reporting queries run.</summary>
     public virtual void PrepareReporting(DbConnection connection)
     {
@@ -123,6 +136,10 @@ public sealed class SqliteDialect : SqlDialect
 
     public override string ColumnExistsSql(string table) =>
         $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = @column;";
+
+    /// <summary>AUTOINCREMENT keeps its counters in sqlite_sequence, one row per table.</summary>
+    public override string RestartIdentities(params string[] tables) =>
+        $"DELETE FROM sqlite_sequence WHERE name IN ({string.Join(", ", tables.Select(t => $"'{t}'"))});";
 
     /// <summary>
     /// ISO timestamps carry their original offset, so the conversion is a
@@ -190,7 +207,11 @@ public sealed class SqliteDialect : SqlDialect
             FirstName    TEXT    NOT NULL DEFAULT '',
             LastName     TEXT    NOT NULL DEFAULT '',
             PasswordHash TEXT    NOT NULL,
-            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller'))
+            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller')),
+            -- Wrong passwords in a row, and the lock they lead to; see
+            -- UserRepository.SignIn.
+            FailedSignIns INTEGER NOT NULL DEFAULT 0,
+            LockedUntil   TEXT        NULL
         );
 
         -- ---------- Catalogue ----------
@@ -204,9 +225,24 @@ public sealed class SqliteDialect : SqlDialect
 
         CREATE INDEX IF NOT EXISTS IX_Categories_ParentId ON Categories(ParentId);
 
+        -- The managed list of VAT rates. BasisPoints is the rate in
+        -- hundredths of a percent (25,5 % = 2550), an integer for the same
+        -- reason money is cents. Rates are deactivated, never deleted, so a
+        -- product always points at a row that exists.
+        CREATE TABLE IF NOT EXISTS VatRates (
+            Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            Name        TEXT    NOT NULL,
+            BasisPoints INTEGER NOT NULL CHECK (BasisPoints BETWEEN 0 AND 10000),
+            IsActive    INTEGER NOT NULL DEFAULT 1 CHECK (IsActive IN (0, 1))
+        );
+
         -- PriceCents is the normal price. SalePriceCents is the discounted one
         -- and is NULL when the product is not on offer, so "is there an offer"
-        -- is a NULL check rather than a sentinel value.
+        -- is a NULL check rather than a sentinel value. Both include VAT.
+        --
+        -- VatRateId is nullable only because SQLite cannot add a NOT NULL
+        -- foreign key to an existing table; the migration fills it and every
+        -- write sets it.
         CREATE TABLE IF NOT EXISTS Products (
             Id             INTEGER PRIMARY KEY AUTOINCREMENT,
             Title          TEXT    NOT NULL,
@@ -214,7 +250,8 @@ public sealed class SqliteDialect : SqlDialect
             FeatureImage   TEXT        NULL,
             PriceCents     INTEGER NOT NULL DEFAULT 0,
             SalePriceCents INTEGER     NULL,
-            IsPublic       INTEGER NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1))
+            IsPublic       INTEGER NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1)),
+            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT
         );
 
         -- A product's gallery. FeatureImage above is the single image used in
@@ -245,25 +282,47 @@ public sealed class SqliteDialect : SqlDialect
 
         -- ---------- Sales ----------
 
+        -- A voided sale keeps its row and lines; VoidedAt, VoidedBy and
+        -- VoidReason say when, by whom and why, and are NULL otherwise.
         CREATE TABLE IF NOT EXISTS Sales (
             Id            INTEGER PRIMARY KEY AUTOINCREMENT,
             "DateTime"    TEXT    NOT NULL,
             TotalCents    INTEGER NOT NULL,
-            PaymentMethod TEXT    NOT NULL
+            PaymentMethod TEXT    NOT NULL,
+            VoidedAt      TEXT        NULL,
+            VoidedBy      TEXT        NULL,
+            VoidReason    TEXT        NULL,
+            SoldBy        TEXT        NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_Sales_DateTime ON Sales("DateTime");
 
-        -- Sold lines are a snapshot: the name and price are copied at the time
-        -- of sale so later catalogue edits never rewrite history.
+        -- ---------- Audit log ----------
+
+        -- Append-only: the application inserts and reads, never updates or
+        -- deletes. Actor is a username copied as text, so an entry outlives
+        -- the account it names.
+        CREATE TABLE IF NOT EXISTS AuditLog (
+            Id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            "DateTime" TEXT    NOT NULL,
+            Actor      TEXT        NULL,
+            Action     TEXT    NOT NULL,
+            Details    TEXT    NOT NULL
+        );
+
+        -- Sold lines are a snapshot: the name, price and VAT are copied at the
+        -- time of sale so later catalogue or rate edits never rewrite history.
+        -- The VAT columns are NULL only on lines sold before VAT was recorded.
         CREATE TABLE IF NOT EXISTS SaleItems (
-            Id             INTEGER PRIMARY KEY AUTOINCREMENT,
-            SaleId         INTEGER NOT NULL REFERENCES Sales(Id) ON DELETE CASCADE,
-            ProductId      INTEGER NOT NULL,
-            Name           TEXT    NOT NULL,
-            Category       TEXT    NOT NULL,
-            UnitPriceCents INTEGER NOT NULL,
-            Quantity       INTEGER NOT NULL
+            Id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+            SaleId             INTEGER NOT NULL REFERENCES Sales(Id) ON DELETE CASCADE,
+            ProductId          INTEGER NOT NULL,
+            Name               TEXT    NOT NULL,
+            Category           TEXT    NOT NULL,
+            UnitPriceCents     INTEGER NOT NULL,
+            Quantity           INTEGER NOT NULL,
+            VatRateBasisPoints INTEGER     NULL,
+            VatCents           INTEGER     NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_SaleItems_SaleId ON SaleItems(SaleId);
@@ -329,6 +388,18 @@ public sealed class PostgreSqlDialect : SqlDialect
            AND lower(column_name) = lower(@column);
         """;
 
+    public override string RestartIdentities(params string[] tables) =>
+        string.Concat(tables.Select(t => $"ALTER TABLE {t} ALTER COLUMN Id RESTART WITH 1;"));
+
+    /// <summary>
+    /// An identity column's sequence does not notice ids written explicitly,
+    /// unlike SQLite's AUTOINCREMENT, so the next generated id would collide
+    /// with one already used. Unquoted names are folded to lower case, which
+    /// is the spelling pg_get_serial_sequence needs.
+    /// </summary>
+    public override string? AdvanceIdentity(string table) =>
+        $"SELECT setval(pg_get_serial_sequence('{table.ToLowerInvariant()}', 'id'), MAX(Id)) FROM {table} HAVING COUNT(*) > 0;";
+
     /// <summary>
     /// The same tables, in PostgreSQL's spelling. The column types are chosen
     /// to match how the repositories read them: PostgreSQL is strict where
@@ -361,7 +432,11 @@ public sealed class PostgreSqlDialect : SqlDialect
             FirstName    TEXT    NOT NULL DEFAULT '',
             LastName     TEXT    NOT NULL DEFAULT '',
             PasswordHash TEXT    NOT NULL,
-            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller'))
+            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller')),
+            -- Wrong passwords in a row, and the lock they lead to; see
+            -- UserRepository.SignIn.
+            FailedSignIns INTEGER NOT NULL DEFAULT 0,
+            LockedUntil   TEXT        NULL
         );
 
         -- ---------- Catalogue ----------
@@ -379,6 +454,15 @@ public sealed class PostgreSqlDialect : SqlDialect
 
         CREATE INDEX IF NOT EXISTS IX_Categories_ParentId ON Categories(ParentId);
 
+        -- See the SQLite schema for why rates are basis points and why
+        -- Products.VatRateId is nullable.
+        CREATE TABLE IF NOT EXISTS VatRates (
+            Id          INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            Name        TEXT    NOT NULL,
+            BasisPoints INTEGER NOT NULL CHECK (BasisPoints BETWEEN 0 AND 10000),
+            IsActive    BIGINT  NOT NULL DEFAULT 1 CHECK (IsActive IN (0, 1))
+        );
+
         CREATE TABLE IF NOT EXISTS Products (
             Id             INTEGER GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
             Title          TEXT    NOT NULL,
@@ -386,7 +470,8 @@ public sealed class PostgreSqlDialect : SqlDialect
             FeatureImage   TEXT        NULL,
             PriceCents     BIGINT  NOT NULL DEFAULT 0,
             SalePriceCents BIGINT      NULL,
-            IsPublic       BIGINT  NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1))
+            IsPublic       BIGINT  NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1)),
+            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT
         );
 
         CREATE TABLE IF NOT EXISTS ProductImages (
@@ -420,19 +505,33 @@ public sealed class PostgreSqlDialect : SqlDialect
             Id            BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
             "DateTime"    TEXT   NOT NULL,
             TotalCents    BIGINT NOT NULL,
-            PaymentMethod TEXT   NOT NULL
+            PaymentMethod TEXT   NOT NULL,
+            VoidedAt      TEXT       NULL,
+            VoidedBy      TEXT       NULL,
+            VoidReason    TEXT       NULL,
+            SoldBy        TEXT       NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_Sales_DateTime ON Sales("DateTime");
 
+        CREATE TABLE IF NOT EXISTS AuditLog (
+            Id         BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            "DateTime" TEXT   NOT NULL,
+            Actor      TEXT       NULL,
+            Action     TEXT   NOT NULL,
+            Details    TEXT   NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS SaleItems (
-            Id             BIGINT  GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-            SaleId         BIGINT  NOT NULL REFERENCES Sales(Id) ON DELETE CASCADE,
-            ProductId      INTEGER NOT NULL,
-            Name           TEXT    NOT NULL,
-            Category       TEXT    NOT NULL,
-            UnitPriceCents BIGINT  NOT NULL,
-            Quantity       INTEGER NOT NULL
+            Id                 BIGINT  GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            SaleId             BIGINT  NOT NULL REFERENCES Sales(Id) ON DELETE CASCADE,
+            ProductId          INTEGER NOT NULL,
+            Name               TEXT    NOT NULL,
+            Category           TEXT    NOT NULL,
+            UnitPriceCents     BIGINT  NOT NULL,
+            Quantity           INTEGER NOT NULL,
+            VatRateBasisPoints INTEGER     NULL,
+            VatCents           BIGINT      NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_SaleItems_SaleId ON SaleItems(SaleId);

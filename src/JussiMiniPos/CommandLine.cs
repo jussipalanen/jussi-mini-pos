@@ -94,6 +94,11 @@ public static class CommandLine
             return Run(ListUsers);
         }
 
+        if (flags.Contains("audit"))
+        {
+            return Run(ListAudit);
+        }
+
         if (flags.Contains("user-add"))
         {
             return Run(database => AddUser(new UserRepository(database), Options(args)));
@@ -133,6 +138,10 @@ public static class CommandLine
         try
         {
             var database = new Database();
+
+            // Changes made from a terminal are recorded in the audit log under
+            // the Windows account that ran them, since nobody is signed in.
+            database.Audit.Actor = AuditLog.CommandLineActor;
             database.EnsureCreated();
             Write($"Database: {database.Path}");
             Write(string.Empty);
@@ -299,6 +308,23 @@ public static class CommandLine
             """);
     }
 
+    /// <summary>The newest audit log entries, for checking what happened from a terminal.</summary>
+    private static void ListAudit(Database database)
+    {
+        Write("AuditLog (newest first)");
+        var entries = database.Audit.GetEntries(limit: 100);
+        if (entries.Count == 0)
+        {
+            Write("  (empty)");
+            return;
+        }
+
+        foreach (var entry in entries)
+        {
+            Write($"  {entry.At.ToLocalTime():yyyy-MM-dd HH:mm:ss}  {entry.ActorText,-24}  {entry.Action,-18}  {entry.Details}");
+        }
+    }
+
     private static void AddUser(UserRepository users, IReadOnlyDictionary<string, string> options)
     {
         var username = Required(options, "username");
@@ -361,14 +387,8 @@ public static class CommandLine
                 "--role, --password or --generate-password.");
         }
 
-        // Losing the last administrator would leave Admin unreachable with no
-        // way back short of editing the database by hand.
-        if (user.Role == UserRole.Admin && role != UserRole.Admin && users.CountAdmins() <= 1)
-        {
-            throw new InvalidOperationException(
-                $"{user.Username} is the only administrator. Promote another user first.");
-        }
-
+        // The last-administrator rule lives in UserRepository.UpdateUser, so
+        // this and the Admin view cannot disagree about it.
         if (!string.Equals(username, user.Username, StringComparison.OrdinalIgnoreCase)
             && users.FindUser(username) is { } byName)
         {
@@ -431,12 +451,7 @@ public static class CommandLine
         var user = users.FindUser(selector)
             ?? throw new InvalidOperationException($"No user matched \"{selector}\".");
 
-        if (user.Role == UserRole.Admin && users.CountAdmins() <= 1)
-        {
-            throw new InvalidOperationException(
-                $"{user.Username} is the only administrator. Add another one first.");
-        }
-
+        // Refused by UserRepository.DeleteUser when this is the last administrator.
         users.DeleteUser(user.Id);
         Write($"Deleted user #{user.Id}  {user.Username} <{user.Email}>");
 
@@ -634,7 +649,7 @@ public static class CommandLine
     {
         // Commands
         "help", "h", "?", "version", "v", "seed", "reset", "dump", "ask", "clear",
-        "users", "user-add", "user-update", "user-delete",
+        "users", "user-add", "user-update", "user-delete", "audit",
 
         // Values
         "user", "username", "email", "firstname", "lastname", "role",
@@ -673,6 +688,15 @@ public static class CommandLine
             ORDER BY COALESCE(c.ParentId, c.Id), c.Id;
             """);
 
+        Write("VatRates");
+        WriteTable(connection,
+            """
+            SELECT v.Id AS "Id", v.Name AS "Name", v.BasisPoints AS "BasisPoints", v.IsActive AS "Active",
+                   (SELECT COUNT(*) FROM Products p WHERE p.VatRateId = v.Id) AS "Products"
+            FROM VatRates v
+            ORDER BY v.BasisPoints DESC, v.Id;
+            """);
+
         Write("Products");
 
         // Columns named *Cents are rendered as euros by WriteTable.
@@ -681,6 +705,7 @@ public static class CommandLine
             SELECT p.Id AS "Id", p.Title AS "Title",
                    p.PriceCents AS "PriceCents",
                    p.SalePriceCents AS "SalePriceCents",
+                   (SELECT v.BasisPoints FROM VatRates v WHERE v.Id = p.VatRateId) AS "VatBasisPoints",
                    p.IsPublic AS "Public",
                    (SELECT {database.Dialect.GroupConcat("c.Id || '=' || c.Title", "', '")}
                       FROM ProductCategories pc
@@ -757,6 +782,7 @@ public static class CommandLine
         Write("  JussiMiniPos.exe --clear         delete the catalogue rows (keeps sales)");
         Write($"""  JussiMiniPos.exe --ask "..."     ask the AI assistant one question""");
         Write("  JussiMiniPos.exe --users         list the users");
+        Write("  JussiMiniPos.exe --audit         the newest 100 audit log entries");
         Write("  JussiMiniPos.exe --version       print the version and exit");
         Write("  JussiMiniPos.exe --help          this text");
         Write(string.Empty);

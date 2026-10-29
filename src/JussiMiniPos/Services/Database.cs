@@ -30,6 +30,7 @@ public sealed class Database
     {
         _settings = settings;
         Dialect = SqlDialect.For(settings.Provider);
+        Audit = new AuditLog(this);
 
         Directory.CreateDirectory(settings.DataDirectory);
 
@@ -48,6 +49,12 @@ public sealed class Database
 
     /// <summary>Which engine this is, and the SQL that differs because of it.</summary>
     public SqlDialect Dialect { get; }
+
+    /// <summary>
+    /// The audit log, here so every repository can write an entry inside its
+    /// own transaction without each one being handed the log separately.
+    /// </summary>
+    public AuditLog Audit { get; }
 
     /// <summary>The configuration this was opened with.</summary>
     public DatabaseSettings Settings => _settings;
@@ -111,10 +118,9 @@ public sealed class Database
     /// added to an existing table have to be handled here.
     /// </summary>
     /// <remarks>
-    /// These only ever fire against a SQLite file old enough to predate the
-    /// columns. A PostgreSQL database is always created from the current
-    /// schema, so every column is there the first time and each check is a
-    /// no-op.
+    /// The steps before VAT only ever fire against a SQLite file old enough
+    /// to predate them, since PostgreSQL support arrived later. VAT came after
+    /// both, so its steps run on either engine.
     /// </remarks>
     private void ApplyMigrations(DbConnection connection)
     {
@@ -141,7 +147,74 @@ public sealed class Database
             backfill.CommandText = "UPDATE ProductCategories SET SortOrder = rowid;";
             backfill.ExecuteNonQuery();
         }
+
+        // Added with account lockout, and with every sale recording who sold it.
+        AddColumnIfMissing(connection, "Users", "FailedSignIns", "INTEGER NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Users", "LockedUntil", "TEXT NULL");
+        AddColumnIfMissing(connection, "Sales", "SoldBy", "TEXT NULL");
+
+        // Added when deleting a sale became voiding it.
+        AddColumnIfMissing(connection, "Sales", "VoidedAt", "TEXT NULL");
+        AddColumnIfMissing(connection, "Sales", "VoidedBy", "TEXT NULL");
+        AddColumnIfMissing(connection, "Sales", "VoidReason", "TEXT NULL");
+
+        // Added with VAT. Sale lines from before keep NULL: their VAT was
+        // never recorded, and inventing it now would rewrite history.
+        AddColumnIfMissing(connection, "SaleItems", "VatRateBasisPoints", "INTEGER NULL");
+        AddColumnIfMissing(connection, "SaleItems", "VatCents", $"{money} NULL");
+
+        // Nullable: SQLite cannot add a NOT NULL foreign key to a table that
+        // already has rows. Filled straight away below.
+        AddColumnIfMissing(connection, "Products", "VatRateId", "INTEGER NULL REFERENCES VatRates(Id) ON DELETE RESTRICT");
+
+        SeedVatRates(connection);
+
+        // Products from before VAT get the general rate. Never under-reports
+        // VAT; anything sold at a reduced rate is lowered in Tuotteet.
+        using (var assign = connection.CreateCommand())
+        {
+            assign.CommandText =
+                """
+                UPDATE Products SET VatRateId = (
+                    SELECT Id FROM VatRates ORDER BY BasisPoints DESC, Id LIMIT 1)
+                 WHERE VatRateId IS NULL;
+                """;
+            assign.ExecuteNonQuery();
+        }
     }
+
+    /// <summary>
+    /// The Finnish rates in force since 1 January 2026, written once into an
+    /// empty table. Afterwards the list is the user's: a rate change is an
+    /// edit in the application, not a new release.
+    /// </summary>
+    private static void SeedVatRates(DbConnection connection)
+    {
+        using var count = connection.CreateCommand();
+        count.CommandText = "SELECT COUNT(*) FROM VatRates;";
+        if (Convert.ToInt64(count.ExecuteScalar()) > 0)
+        {
+            return;
+        }
+
+        foreach (var (name, basisPoints) in DefaultVatRates)
+        {
+            using var insert = connection.CreateCommand();
+            insert.CommandText = "INSERT INTO VatRates (Name, BasisPoints, IsActive) VALUES (@name, @basisPoints, 1);";
+            AddParameter(insert, "@name", name);
+            AddParameter(insert, "@basisPoints", basisPoints);
+            insert.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Rate names are user-visible, so Finnish.</summary>
+    private static readonly (string Name, int BasisPoints)[] DefaultVatRates =
+    [
+        ("Yleinen", 2550),
+        ("Alennettu", 1350),
+        ("Alennettu", 1000),
+        ("Veroton", 0),
+    ];
 
     private bool AddColumnIfMissing(
         DbConnection connection,

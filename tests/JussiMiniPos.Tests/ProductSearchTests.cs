@@ -159,5 +159,5 @@ public sealed class ProductSearchTests
         decimal? salePrice = null,
         bool isPublic = true) =>
         catalogue.InsertProduct(new ProductDraft(
-            title, description, price, salePrice, isPublic, FeatureImage: null, [categoryId], []));
+            title, description, price, salePrice, catalogue.GetVatRates()[0].Id, isPublic, FeatureImage: null, [categoryId], []));
 }

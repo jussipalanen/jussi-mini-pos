@@ -25,6 +25,7 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     private IReadOnlyList<Product> _allProducts = [];
     private IReadOnlyList<Product> _matches = [];
     private IReadOnlyList<Category> _allCategories = [];
+    private IReadOnlyList<VatRate> _vatRates = [];
 
     private string _searchText = string.Empty;
     private Category _selectedCategory = Category.All;
@@ -181,7 +182,12 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     {
         // Editing needs every category, including hidden ones, so a product
         // already in a hidden category does not silently lose it on save.
-        var window = new ProductEditWindow(product, _allCategories, _images)
+        if (!ViewErrors.Try(this, "ALV-kantoja ei voitu lukea.", () => _vatRates = _catalog.GetVatRates()))
+        {
+            return;
+        }
+
+        var window = new ProductEditWindow(product, _allCategories, _vatRates, _images)
         {
             Owner = Window.GetWindow(this),
         };
@@ -213,6 +219,16 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
     }
 
     private void Categories_Click(object sender, RoutedEventArgs e) => ManageCategories?.Invoke();
+
+    /// <summary>
+    /// Opens the VAT rate list. Products show their rate, so the catalogue is
+    /// re-read afterwards in case one changed.
+    /// </summary>
+    private void VatRates_Click(object sender, RoutedEventArgs e)
+    {
+        new VatRatesWindow(_catalog) { Owner = Window.GetWindow(this) }.ShowDialog();
+        ViewErrors.Try(this, "Tuotteita ei voitu lukea.", Reload);
+    }
 
     private void View_Click(object sender, RoutedEventArgs e)
     {
