@@ -24,7 +24,8 @@
   <a href="#-sales-reports-raportit">📊 Reports</a> ·
   <a href="#-ai-assistant-ai-avustaja">🤖 AI assistant</a> ·
   <a href="#-admin-and-signing-in">🔐 Admin</a> ·
-  <a href="#-license">📄 License</a>
+  <a href="#-license">📄 License</a> ·
+  <a href="ROADMAP.md">🧭 Roadmap</a>
 </p>
 
 > **Status:** in progress. Kassa works end to end — product search, cart,

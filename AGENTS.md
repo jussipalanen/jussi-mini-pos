@@ -36,7 +36,9 @@ The application is intentionally small and direct:
   SVG files under `Assets/Icons/` are design sources; WPF uses the corresponding
   `PathGeometry` resources rather than loading SVG files at runtime.
 - `README.md` documents behavior and operator workflows. `CHANGELOG.md` follows
-  Keep a Changelog and records release-facing changes.
+  Keep a Changelog and records release-facing changes. `ROADMAP.md` is the
+  ordered plan of what comes next, including the C#/.NET REST API; follow its
+  phase order and tick items off when they ship.
 
 `Raportit` provides read-only sales summaries and daily/product/category
 breakdowns for administrators and managers. Preserve Finnish date boundaries,
