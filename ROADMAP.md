@@ -102,10 +102,10 @@ is real sales data than after.
 
 ### 2.4 Installer follow-ups
 
-- [ ] The uninstaller's data prompt says it removes sales data. Under PostgreSQL
-      that folder holds only `database.env` and images, while sales stay on the
-      server. Word the prompt for both cases.
-- [ ] Document `%LOCALAPPDATA%\JussiMiniPos\database.env` as the place to
+- [x] Word the uninstaller's data prompt for both providers: list local files
+      found in the data folder and make clear that PostgreSQL server data is
+      never removed. Keeping local data remains the default.
+- [x] Document `%LOCALAPPDATA%\JussiMiniPos\database.env` as the place to
       configure an installed till, since the folder beside the executable is
       under Program Files and needs administrator rights to write.
 

@@ -53,6 +53,12 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The uninstaller describes the local data it would remove**, including
+  the SQLite database, connection settings, images and saved Gemini key when
+  present. Keeping the folder remains the default. The prompt makes clear
+  that PostgreSQL server data is never removed, even when no default
+  PostgreSQL image folder exists. Installed-till configuration is documented
+  at `%LOCALAPPDATA%\JussiMiniPos\database.env`, outside Program Files.
 - **Every view needs a signed-in user, and roles mean something.** A seller
   (*Myyjä*) can use Kassa only; Tuotteet, Myynti and Raportit need a manager or
   an administrator; Admin needs an administrator. Previously Kassa, Tuotteet

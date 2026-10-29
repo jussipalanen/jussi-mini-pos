@@ -174,9 +174,23 @@ than written in the script, with the `+<commit>` suffix trimmed the same way
 `Services/AppInfo.cs` trims it — so the installer, Add/Remove Programs and the
 start screen cannot disagree about which build this is.
 
-**Uninstalling leaves your data alone.** `%LOCALAPPDATA%\JussiMiniPos` holds
-the sales history, the catalogue and the product images, so the uninstaller
-asks before touching it and defaults to keeping it.
+**Configuring an installed till.** Copy
+[`database.env.example`](database.env.example) to
+`%LOCALAPPDATA%\JussiMiniPos\database.env` and edit it, then restart the app.
+Create the folder if it does not exist. This location is writable without
+administrator rights; the install folder under Program Files is not. A
+`database.env` beside the executable takes precedence over this file. See
+[Choosing the database driver](#choosing-the-database-driver) for the settings.
+
+**Uninstalling keeps local data by default.** The uninstaller asks before
+removing the current Windows account's `%LOCALAPPDATA%\JussiMiniPos` folder
+and defaults to **No**. Its prompt lists the known local data found there.
+SQLite keeps its sales, catalogue and users in that folder; PostgreSQL keeps
+its connection configuration, product images and saved Gemini key locally,
+while its database stays on the server. Choosing **Yes** removes the entire
+folder and its subfolders, including both providers' local files if present.
+It never removes PostgreSQL server data or files configured outside this
+folder. Other Windows accounts' data is left alone.
 
 Two things worth knowing before handing the installer to anyone:
 
@@ -184,11 +198,12 @@ Two things worth knowing before handing the installer to anyone:
   one Windows account, so a copied `gemini.key` cannot be decrypted elsewhere.
   It fails closed — the assistant falls back to plain search — and the key has
   to be entered again in Admin on the new machine.
-- **Each Windows account gets its own database**, because the data lives under
-  `%LOCALAPPDATA%`. Two people sharing a till under separate Windows logins
-  would keep separate catalogues and separate sales. Giving a till one shared
-  dataset would mean moving the database to `ProgramData`, which is a code
-  change rather than an installer setting.
+- **SQLite defaults to a separate database per Windows account**, because its
+  file lives under `%LOCALAPPDATA%`. Separate Windows logins therefore have
+  separate catalogues and sales unless configured otherwise. For shared
+  tills, configure each account to use the same PostgreSQL database through
+  its own `database.env`; local images and saved keys still belong to each
+  account.
 
 Unsigned installers trip SmartScreen ("Windows protected your PC" → *More
 info* → *Run anyway*). A code-signing certificate is the only real fix.

@@ -110,9 +110,9 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
 
 ; Nothing is listed under [UninstallDelete]: the application's data lives in
-; %LOCALAPPDATA%\JussiMiniPos and holds the sales history and the product
-; images. Removing it silently would destroy a till's records, so it is only
-; ever removed after the question asked in [Code] below.
+; %LOCALAPPDATA%\JussiMiniPos. SQLite keeps its database here; PostgreSQL
+; keeps local configuration and images here, with sales on the server.
+; The folder is only removed after the question asked in [Code] below.
 
 [Code]
 const
@@ -137,22 +137,29 @@ begin
 
   // What the folder holds depends on the database in use, so the question
   // lists what is actually there. With SQLite it is the database itself;
-  // with PostgreSQL the sales live on the server, and this folder only holds
-  // the connection settings and the images, which deleting it must not
-  // suggest otherwise.
+  // with PostgreSQL the sales live on the server. Both kinds of local data
+  // may exist after switching providers, so do not infer the active provider.
   Question := 'Poistetaanko myös sovelluksen tiedot tältä koneelta?' + #13#10#13#10 + DataDir + #13#10;
 
   if FileExists(DataDir + '\jussiminipos.db') then
-    Question := Question + #13#10 + '- Paikallinen tietokanta: myynnit, tuotteet, käyttäjät ja tuotekuvat';
+    Question := Question + #13#10 + '- Paikallinen tietokanta: myynnit, tuotteet ja käyttäjät';
 
   if FileExists(DataDir + '\database.env') then
     Question := Question + #13#10 + '- Tietokanta-asetukset (database.env)';
 
-  if DirExists(DataDir + '\postgresql') then
-    Question := Question + #13#10 + '- PostgreSQL-käytön tuotekuvat ja asetukset.' + #13#10 +
-      '  PostgreSQL-palvelimella olevat myynnit ja tuotteet eivät poistu.';
+  if DirExists(DataDir + '\images') then
+    Question := Question + #13#10 + '- Paikalliset tuotekuvat';
 
-  Question := Question + #13#10#13#10 + 'Valitse Ei, jos haluat säilyttää ne.';
+  if FileExists(DataDir + '\gemini.key') then
+    Question := Question + #13#10 + '- Tallennettu AI-avustajan API-avain';
+
+  if DirExists(DataDir + '\postgresql') then
+    Question := Question + #13#10 + '- PostgreSQL-käytön paikalliset tuotekuvat ja API-avain';
+
+  Question := Question + #13#10#13#10 +
+    'Koko yllä oleva kansio alikansioineen poistetaan.' + #13#10 +
+    'PostgreSQL-palvelimella olevia tietoja ei poisteta.' + #13#10#13#10 +
+    'Valitse Ei, jos haluat säilyttää paikalliset tiedot.';
 
   // Defaults to No: an absent-minded Enter keeps the data.
   if MsgBox(Question, mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
