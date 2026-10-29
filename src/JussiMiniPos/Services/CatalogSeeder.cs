@@ -123,7 +123,7 @@ public static class CatalogSeeder
         }
 
         Execute(connection, transaction,
-            "DELETE FROM sqlite_sequence WHERE name IN ('Products', 'Categories', 'ProductImages');");
+            database.Dialect.RestartIdentities("Products", "Categories", "ProductImages"));
 
         transaction.Commit();
     }
@@ -212,6 +212,13 @@ public static class CatalogSeeder
                     ("@sortOrder", sortOrder++));
                 links++;
             }
+        }
+
+        // The demo ids were written explicitly, so the numbering for products
+        // added later has to be moved past them where the engine does not.
+        if (database.Dialect.AdvanceIdentity("Products") is { } advance)
+        {
+            Execute(connection, transaction, advance);
         }
 
         transaction.Commit();

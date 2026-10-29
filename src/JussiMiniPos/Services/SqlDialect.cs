@@ -73,6 +73,19 @@ public abstract class SqlDialect
     /// <summary>Whether a column is already there, for the migrations.</summary>
     public abstract string ColumnExistsSql(string table);
 
+    /// <summary>
+    /// Starts the id numbering of emptied tables again from 1, so a cleared
+    /// and re-seeded catalogue numbers its categories the way a fresh one
+    /// does. Table names are compile-time constants, never input.
+    /// </summary>
+    public abstract string RestartIdentities(params string[] tables);
+
+    /// <summary>
+    /// Moves a table's id numbering past the highest id in it, after rows were
+    /// written with explicit ids, or null when the engine does that itself.
+    /// </summary>
+    public virtual string? AdvanceIdentity(string table) => null;
+
     /// <summary>Registers whatever the connection needs before the reporting queries run.</summary>
     public virtual void PrepareReporting(DbConnection connection)
     {
@@ -123,6 +136,10 @@ public sealed class SqliteDialect : SqlDialect
 
     public override string ColumnExistsSql(string table) =>
         $"SELECT COUNT(*) FROM pragma_table_info('{table}') WHERE name = @column;";
+
+    /// <summary>AUTOINCREMENT keeps its counters in sqlite_sequence, one row per table.</summary>
+    public override string RestartIdentities(params string[] tables) =>
+        $"DELETE FROM sqlite_sequence WHERE name IN ({string.Join(", ", tables.Select(t => $"'{t}'"))});";
 
     /// <summary>
     /// ISO timestamps carry their original offset, so the conversion is a
@@ -347,6 +364,18 @@ public sealed class PostgreSqlDialect : SqlDialect
            AND lower(table_name) = lower('{table}')
            AND lower(column_name) = lower(@column);
         """;
+
+    public override string RestartIdentities(params string[] tables) =>
+        string.Concat(tables.Select(t => $"ALTER TABLE {t} ALTER COLUMN Id RESTART WITH 1;"));
+
+    /// <summary>
+    /// An identity column's sequence does not notice ids written explicitly,
+    /// unlike SQLite's AUTOINCREMENT, so the next generated id would collide
+    /// with one already used. Unquoted names are folded to lower case, which
+    /// is the spelling pg_get_serial_sequence needs.
+    /// </summary>
+    public override string? AdvanceIdentity(string table) =>
+        $"SELECT setval(pg_get_serial_sequence('{table.ToLowerInvariant()}', 'id'), MAX(Id)) FROM {table} HAVING COUNT(*) > 0;";
 
     /// <summary>
     /// The same tables, in PostgreSQL's spelling. The column types are chosen
