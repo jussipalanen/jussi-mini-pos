@@ -87,12 +87,37 @@ public sealed class ReportsRepository(Database database)
             }
         }
 
+        // The VAT recorded on each line at the time of sale, summed per rate.
+        // Lines from before VAT was recorded form a group of their own with
+        // no VAT figure, rather than being guessed at.
+        using var vatCommand = CreateCommand(connection, transaction, from, through,
+            $"""
+            SELECT i.VatRateBasisPoints, CAST(SUM(i.UnitPriceCents * i.Quantity) AS BIGINT), CAST(SUM(i.VatCents) AS BIGINT)
+            FROM SaleItems i JOIN Sales s ON s.Id = i.SaleId
+            WHERE {DateFilter}
+            GROUP BY i.VatRateBasisPoints;
+            """);
+        var vat = new List<VatLine>();
+        using (var reader = vatCommand.ExecuteReader())
+        {
+            while (reader.Read())
+            {
+                vat.Add(new VatLine(
+                    reader.IsDBNull(0) ? null : reader.GetInt32(0),
+                    SalesRepository.FromCents(reader.GetInt64(1)),
+                    reader.IsDBNull(0) || reader.IsDBNull(2) ? null : SalesRepository.FromCents(reader.GetInt64(2))));
+            }
+        }
+
         transaction.Commit();
         var maximum = days.Count == 0 ? 0 : days.Max(day => day.Total);
         return new SalesReport(from, through, days.Sum(day => day.SaleCount), days.Sum(day => day.ItemCount),
             days.Sum(day => day.Total),
             days.Select(day => day with { BarWidth = maximum <= 0 ? 0 : (double)(day.Total / maximum) * 120 }).ToList(),
-            products, categories);
+            products, categories,
+            // Highest rate first, unrecorded last; sorted here because the two
+            // engines disagree on where NULL sorts.
+            [.. vat.OrderByDescending(line => line.BasisPoints ?? -1)]);
     }
 
     public IReadOnlyList<Sale> GetDaySales(DateOnly day)
@@ -101,7 +126,8 @@ public sealed class ReportsRepository(Database database)
         using var command = CreateCommand(connection, null, day, day,
             $"""
             SELECT s.Id, s."DateTime", s.TotalCents, s.PaymentMethod,
-                   i.ProductId, i.Name, i.Category, i.UnitPriceCents, i.Quantity
+                   i.ProductId, i.Name, i.Category, i.UnitPriceCents, i.Quantity,
+                   i.VatRateBasisPoints, i.VatCents
             FROM Sales s LEFT JOIN SaleItems i ON i.SaleId = s.Id
             WHERE {DateFilter}
             ORDER BY s.Id DESC, i.Id;
@@ -127,8 +153,7 @@ public sealed class ReportsRepository(Database database)
 
             if (!reader.IsDBNull(4))
             {
-                items.Add(new SaleItem(reader.GetInt32(4), reader.GetString(5), reader.GetString(6),
-                    SalesRepository.FromCents(reader.GetInt64(7)), reader.GetInt32(8)));
+                items.Add(SalesRepository.ReadItem(reader, 4));
             }
         }
 

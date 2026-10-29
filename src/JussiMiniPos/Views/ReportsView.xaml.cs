@@ -41,7 +41,7 @@ public partial class ReportsView : UserControl, INotifyPropertyChanged
 
     public event Action? Back;
     public event PropertyChangedEventHandler? PropertyChanged;
-    public IReadOnlyList<string> Tabs { get; } = ["Päivittäin", "Tuotteittain", "Kategorioittain"];
+    public IReadOnlyList<string> Tabs { get; } = ["Päivittäin", "Tuotteittain", "Kategorioittain", "ALV-erittely"];
     public SalesReport? Report { get; private set; }
     public string Notice { get; private set; } = string.Empty;
     public bool HasReport => Report is not null;
@@ -49,11 +49,13 @@ public partial class ReportsView : UserControl, INotifyPropertyChanged
     public bool IsDaily => SelectedTab == 0;
     public bool IsProducts => SelectedTab == 1;
     public bool IsCategories => SelectedTab == 2;
+    public bool IsVat => SelectedTab == 3;
     public string TableNotice => SelectedTab switch
     {
         0 => "Vain päivät, joilla on myyntejä. Avaa päivän tapahtumat Näytä myynnit -painikkeesta.",
         1 => "Myyntihetken nimet. Eri nimillä myyty tuote näkyy erillisillä riveillä. Lajittele sarakeotsikosta.",
-        _ => "Myyntihetkellä tallennettu kategoria. Tuotteen muut kategoriat eivät sisälly erittelyyn.",
+        2 => "Myyntihetkellä tallennettu kategoria. Tuotteen muut kategoriat eivät sisälly erittelyyn.",
+        _ => "Myyntihetkellä tallennettu verokanta ja vero, rivien summina. Ennen ALV:n tallentamista myydyt rivit näkyvät omana rivinään ilman veroa.",
     };
 
     public DateTime? From
@@ -90,6 +92,7 @@ public partial class ReportsView : UserControl, INotifyPropertyChanged
             OnPropertyChanged(nameof(IsDaily));
             OnPropertyChanged(nameof(IsProducts));
             OnPropertyChanged(nameof(IsCategories));
+            OnPropertyChanged(nameof(IsVat));
             OnPropertyChanged(nameof(TableNotice));
         }
     }

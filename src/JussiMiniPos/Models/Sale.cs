@@ -5,18 +5,30 @@ using System.Linq;
 namespace JussiMiniPos.Models;
 
 /// <summary>
-/// One line of a completed sale. This is a snapshot: the name and unit price
-/// are copied from the product at the time of sale, so later catalogue edits
-/// never rewrite history.
+/// One line of a completed sale. This is a snapshot: the name, unit price and
+/// VAT are copied from the product at the time of sale, so later catalogue or
+/// rate edits never rewrite history.
 /// </summary>
+/// <param name="VatBasisPoints">
+/// The rate the line was sold at, in hundredths of a percent. Null only for
+/// lines sold before VAT was recorded.
+/// </param>
+/// <param name="VatAmount">The VAT contained in <see cref="LineTotal"/>, to the cent.</param>
 public sealed record SaleItem(
     int ProductId,
     string Name,
     string Category,
     decimal UnitPrice,
-    int Quantity)
+    int Quantity,
+    int? VatBasisPoints = null,
+    decimal? VatAmount = null)
 {
     public decimal LineTotal => UnitPrice * Quantity;
+
+    /// <summary>A line taxed at <paramref name="basisPoints"/>, with its VAT worked out.</summary>
+    public static SaleItem Taxed(int productId, string name, string category, decimal unitPrice, int quantity, int basisPoints) =>
+        new(productId, name, category, unitPrice, quantity, basisPoints,
+            Vat.Included(unitPrice * quantity, basisPoints));
 }
 
 /// <summary>A completed, paid checkout.</summary>
@@ -35,16 +47,37 @@ public sealed record Sale(
     /// <summary>Finnish name of the payment method, for display.</summary>
     public string PaymentMethodName => PaymentMethodNames.Finnish(PaymentMethod);
 
+    /// <summary>
+    /// What the receipt shows under the total: per rate, the gross amount and
+    /// the VAT in it, highest rate first. Each line's VAT was rounded when it
+    /// was sold, and these are the sums of those, so the receipt adds up to
+    /// exactly what was recorded.
+    /// </summary>
+    public IReadOnlyList<VatLine> VatBreakdown =>
+        [.. Items
+            .GroupBy(item => item.VatBasisPoints)
+            .OrderByDescending(group => group.Key ?? -1)
+            .Select(group => new VatLine(
+                group.Key,
+                group.Sum(item => item.LineTotal),
+                group.Key is null ? null : group.Sum(item => item.VatAmount ?? 0m)))];
+
+    /// <summary>The VAT in the whole sale, when every line recorded it.</summary>
+    public decimal? VatTotal => Items.All(item => item.VatAmount is not null)
+        ? Items.Sum(item => item.VatAmount ?? 0m)
+        : null;
+
     /// <summary>Builds a sale from the current contents of the cart.</summary>
     public static Sale FromCart(IEnumerable<CartLine> cart, PaymentMethod paymentMethod)
     {
         var items = cart
-            .Select(line => new SaleItem(
+            .Select(line => SaleItem.Taxed(
                 line.Product.Id,
                 line.Product.Name,
                 line.Product.PrimaryCategory,
                 line.UnitPrice,
-                line.Quantity))
+                line.Quantity,
+                line.Product.Vat.BasisPoints))
             .ToList();
 
         return new Sale(

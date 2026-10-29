@@ -17,10 +17,10 @@ public sealed class CatalogRepositoryTests
         var older = catalogue.InsertCategory("Juomat", null, isPublic: true);
         var newer = catalogue.InsertCategory("Kahvit", null, isPublic: true);
 
-        var id = catalogue.InsertProduct(Draft("Kahvi", [newer, older]));
+        var id = catalogue.InsertProduct(Draft(test, "Kahvi", [newer, older]));
         Assert.Equal("Kahvit", Assert.Single(catalogue.GetProducts()).PrimaryCategory);
 
-        catalogue.UpdateProduct(id, Draft("Kahvi", [older, newer]));
+        catalogue.UpdateProduct(id, Draft(test, "Kahvi", [older, newer]));
         Assert.Equal("Juomat", Assert.Single(catalogue.GetProducts()).PrimaryCategory);
     }
 
@@ -32,7 +32,7 @@ public sealed class CatalogRepositoryTests
         var catalogue = new CatalogRepository(test.Database);
         var parent = catalogue.InsertCategory("Juomat", null, isPublic: true);
         var child = catalogue.InsertCategory("Kahvit", parent, isPublic: true);
-        catalogue.InsertProduct(Draft("Kahvi", [child]));
+        catalogue.InsertProduct(Draft(test, "Kahvi", [child]));
 
         Assert.Equal(1, catalogue.CountChildCategories(parent));
         Assert.ThrowsAny<DbException>(() => catalogue.DeleteCategory(parent));
@@ -52,8 +52,8 @@ public sealed class CatalogRepositoryTests
         var catalogue = new CatalogRepository(test.Database);
         var visible = catalogue.InsertCategory("Juomat", null, isPublic: true);
         var hiddenCategory = catalogue.InsertCategory("Varasto", null, isPublic: false);
-        catalogue.InsertProduct(Draft("Kahvi", [visible]));
-        catalogue.InsertProduct(Draft("Salainen", [visible], isPublic: false));
+        catalogue.InsertProduct(Draft(test, "Kahvi", [visible]));
+        catalogue.InsertProduct(Draft(test, "Salainen", [visible], isPublic: false));
 
         Assert.Equal(["Kahvi"], catalogue.GetProducts().Select(p => p.Name));
         Assert.Equal(["Kahvi", "Salainen"], catalogue.GetProducts(publicOnly: false).Select(p => p.Name).Order());
@@ -70,11 +70,12 @@ public sealed class CatalogRepositoryTests
         var catalogue = new CatalogRepository(test.Database);
         var category = catalogue.InsertCategory("Juomat", null, isPublic: true);
         catalogue.InsertProduct(new ProductDraft(
-            "Kahvi", "Tumma paahto", 4.50m, 3.95m, true, "images/feature.jpg", [category],
+            "Kahvi", "Tumma paahto", 4.50m, 3.95m, test.VatRateId(1350), true, "images/feature.jpg", [category],
             ["images/b.jpg", "images/a.jpg"]));
 
         var product = Assert.Single(catalogue.GetProducts());
         Assert.Equal((4.50m, 3.95m, 3.95m), (product.Price, product.SalePrice, product.EffectivePrice));
+        Assert.Equal(1350, product.Vat.BasisPoints);
         Assert.Equal("images/feature.jpg", product.FeatureImage);
         Assert.Equal(["images/b.jpg", "images/a.jpg"], product.Images);
     }
@@ -87,12 +88,15 @@ public sealed class CatalogRepositoryTests
     [InlineData(5.00, 4.50, false)]
     public void The_till_charges_the_effective_price(double? salePrice, double charged, bool onSale)
     {
-        var product = new Product(1, "Kahvi", "", 4.50m, (decimal?)salePrice, null, true, []);
+        var product = new Product(1, "Kahvi", "", 4.50m, (decimal?)salePrice, null, true, [])
+        {
+            Vat = new VatRate(1, "Alennettu", 1350),
+        };
 
         Assert.Equal((decimal)charged, product.EffectivePrice);
         Assert.Equal(onSale, product.IsOnSale);
     }
 
-    private static ProductDraft Draft(string title, IReadOnlyList<int> categoryIds, bool isPublic = true) =>
-        new(title, "", 1.00m, null, isPublic, null, categoryIds, []);
+    private static ProductDraft Draft(TestDatabase test, string title, IReadOnlyList<int> categoryIds, bool isPublic = true) =>
+        new(title, "", 1.00m, null, test.VatRateId(), isPublic, null, categoryIds, []);
 }

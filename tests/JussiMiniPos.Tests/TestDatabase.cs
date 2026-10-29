@@ -84,6 +84,10 @@ public sealed class TestDatabase : IDisposable
         command.ExecuteNonQuery();
     }
 
+    /// <summary>The id of the seeded VAT rate with this percentage, e.g. 2550 for 25,5 %.</summary>
+    public int VatRateId(int basisPoints = 2550) =>
+        new CatalogRepository(Database).GetVatRates().First(rate => rate.BasisPoints == basisPoints).Id;
+
     /// <summary>Reads one number, such as a row count.</summary>
     public long Scalar(string sql)
     {

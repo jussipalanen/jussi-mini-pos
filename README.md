@@ -528,14 +528,18 @@ Categories                    Products
 ├── Title                     ├── Title
 ├── ParentId → Categories.Id  ├── Description
 └── IsPublic (0/1)            ├── FeatureImage
-                              ├── PriceCents
+                              ├── PriceCents      (VAT included)
 ProductImages                 ├── SalePriceCents  (NULL = not on offer)
-├── Id                        └── IsPublic (0/1)
-├── ProductId → Products.Id
-├── Path                      ProductCategories
-└── SortOrder                 ├── ProductId  → Products.Id
-                              └── CategoryId → Categories.Id
-                                  (composite primary key)
+├── Id                        ├── IsPublic (0/1)
+├── ProductId → Products.Id   └── VatRateId → VatRates.Id
+├── Path
+└── SortOrder                 ProductCategories
+                              ├── ProductId  → Products.Id
+VatRates                      └── CategoryId → Categories.Id
+├── Id                            (composite primary key)
+├── Name
+├── BasisPoints  (25,5 % = 2550)
+└── IsActive (0/1)
 ```
 
 `Categories.ParentId` is a self-reference, so categories nest. A product can
@@ -545,6 +549,29 @@ rather than a column; its extra images do too.
 `SalePriceCents` is `NULL` when there is no offer, so "is this discounted" is a
 null check rather than a sentinel price. The till charges
 `Product.EffectivePrice`, which is the offer price when one applies.
+
+#### VAT (ALV)
+
+Prices **include VAT**. Every product points at a rate in `VatRates`, a managed
+list rather than a percentage typed per product, so when a rate changes —
+14 % becoming 13,5 % in 2026, say — it is one edit in **Tuotteet → ALV-kannat**
+and every product on that rate follows from the next sale. A new database
+starts with the Finnish rates in force since 1 January 2026:
+
+| Name      | Rate   | Typical use |
+| --------- | ------ | ----------- |
+| Yleinen   | 25,5 % | most goods and services |
+| Alennettu | 13,5 % | food and non-alcoholic drink, restaurants |
+| Alennettu | 10 %   | e.g. newspapers and magazines |
+| Veroton   | 0 %    | exempt sales |
+
+Check [Vero.fi](https://www.vero.fi/en/businesses-and-corporations/taxes-and-charges/vat/rates-of-vat/)
+for which rate applies to what you sell. Rates are stored in hundredths of a
+percent (`2550`), an integer for the same reason money is cents. They are
+never deleted, only retired from new choices, so a product always points at a
+rate that exists. The demo catalogue is seeded at 13,5 %; products that
+already existed when a database is upgraded get **25,5 %**, which never
+under-reports VAT — lower the food items in Tuotteet.
 
 The checkout reads this catalogue through `CatalogRepository` — editing a row
 changes what the till shows and charges on the next start. `DemoCatalog` is
@@ -573,9 +600,11 @@ cannot do that. Columns added this way land at the end of the table, so column
 *order* differs between a fresh and an upgraded database; nothing selects `*`,
 so that only matters if you read the schema by eye.
 
-In practice these only ever fire against a SQLite file old enough to predate
-the column. A PostgreSQL database is always created from the current schema, so
-every column is there the first time and each check does nothing.
+The steps from before PostgreSQL support only ever fire against a SQLite file
+old enough to predate them. The VAT columns came after both engines, so their
+steps run on either: they add `Products.VatRateId` and the `SaleItems` VAT
+columns, write the default rates into an empty `VatRates`, and put existing
+products on the general rate.
 
 One migration does more than add a column. `ProductCategories.SortOrder` records
 the order the links were written, so the first category a product was given
@@ -594,13 +623,19 @@ Sales                         SaleItems
 └── PaymentMethod             ├── Name
                               ├── Category
                               ├── UnitPriceCents
-                              └── Quantity
+                              ├── Quantity
+                              ├── VatRateBasisPoints  (NULL = sold before VAT was recorded)
+                              └── VatCents
 ```
 
 A sale and its items are written in one transaction, and only after the payment
 succeeds — cancelling or failing a payment leaves nothing in the database.
-Sold lines copy the name and price, so later catalogue edits never rewrite
-past receipts.
+Sold lines copy the name, price, VAT rate and VAT amount, so later catalogue
+or rate edits never rewrite past receipts. Each line's VAT is worked out of its
+VAT-inclusive total and rounded to the cent; the receipt and Raportit's
+**ALV-erittely** show the sums of those per rate. Lines sold before VAT was
+recorded keep `NULL` and are listed as *ALV ei tiedossa* rather than given an
+invented figure.
 
 ### Conventions
 

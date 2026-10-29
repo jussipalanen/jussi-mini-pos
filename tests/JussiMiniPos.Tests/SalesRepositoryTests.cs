@@ -82,17 +82,22 @@ public sealed class SalesRepositoryTests
         using var test = TestDatabase.Create(engine);
         var catalogue = new CatalogRepository(test.Database);
         var category = catalogue.InsertCategory("Kahvit", null, isPublic: true);
-        var productId = catalogue.InsertProduct(new ProductDraft("Kahvi", "", 4.50m, 3.90m, true, null, [category], []));
+        var food = test.VatRateId(1350);
+        var productId = catalogue.InsertProduct(new ProductDraft("Kahvi", "", 4.50m, 3.90m, food, true, null, [category], []));
         var product = Assert.Single(catalogue.GetProducts());
 
         var sales = new SalesRepository(test.Database);
         sales.Save(Sale.FromCart([new CartLine(product, 2)], PaymentMethod.Card));
 
-        catalogue.UpdateProduct(productId, new ProductDraft("Kahvi uusi", "", 9.99m, null, true, null, [category], []));
+        catalogue.UpdateProduct(productId, new ProductDraft("Kahvi uusi", "", 9.99m, null, test.VatRateId(2550), true, null, [category], []));
+        catalogue.UpdateVatRate(food, "Alennettu", 1400, isActive: true);
         catalogue.DeleteProduct(productId);
 
         var line = Assert.Single(Assert.Single(sales.GetSales()).Items);
         Assert.Equal(("Kahvi", "Kahvit", 3.90m, 2), (line.Name, line.Category, line.UnitPrice, line.Quantity));
+
+        // 7,80 sold at 13,5 % holds 0,93 of VAT, whatever the rate became since.
+        Assert.Equal((1350, 0.93m), (line.VatBasisPoints, line.VatAmount));
     }
 
     [Theory]

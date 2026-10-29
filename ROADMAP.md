@@ -73,13 +73,13 @@ is real sales data than after.
 
 ### 2.1 VAT (ALV)
 
-- [ ] A VAT rate per product, chosen from a managed list of rates rather than
+- [x] A VAT rate per product, chosen from a managed list of rates rather than
       typed in, because Finnish rates change over time.
-- [ ] Each sale line snapshots its rate and VAT amount in integer cents, so a
+- [x] Each sale line snapshots its rate and VAT amount in integer cents, so a
       later rate change never rewrites history.
-- [ ] Prices stay VAT-inclusive at the till; receipts and Raportit show the VAT
+- [x] Prices stay VAT-inclusive at the till; receipts and Raportit show the VAT
       breakdown per rate.
-- [ ] Idempotent migration for existing databases, on both engines.
+- [x] Idempotent migration for existing databases, on both engines.
 
 ### 2.2 Void sales instead of deleting them
 

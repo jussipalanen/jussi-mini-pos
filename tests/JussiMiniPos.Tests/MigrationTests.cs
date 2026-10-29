@@ -40,6 +40,26 @@ public sealed class MigrationTests
             CategoryId INTEGER NOT NULL REFERENCES Categories(Id) ON DELETE CASCADE,
             PRIMARY KEY (ProductId, CategoryId)
         );
+        CREATE TABLE Sales (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            "DateTime"    TEXT    NOT NULL,
+            TotalCents    INTEGER NOT NULL,
+            PaymentMethod TEXT    NOT NULL
+        );
+        CREATE TABLE SaleItems (
+            Id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            SaleId         INTEGER NOT NULL REFERENCES Sales(Id) ON DELETE CASCADE,
+            ProductId      INTEGER NOT NULL,
+            Name           TEXT    NOT NULL,
+            Category       TEXT    NOT NULL,
+            UnitPriceCents INTEGER NOT NULL,
+            Quantity       INTEGER NOT NULL
+        );
+
+        -- A sale from before VAT was recorded.
+        INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod) VALUES ('2026-01-10T12:00:00.0000000+02:00', 250, 'Card');
+        INSERT INTO SaleItems (SaleId, ProductId, Name, Category, UnitPriceCents, Quantity)
+        VALUES (1, 1, 'Vanha tuote', 'Ensin linkitetty', 250, 1);
 
         INSERT INTO Users (Username, Email, PasswordHash, Role)
         VALUES ('vanha', 'vanha@example.com', 'x', 'admin');
@@ -72,6 +92,15 @@ public sealed class MigrationTests
 
         // The SortOrder backfill keeps the link written first as the primary category.
         Assert.Equal("Ensin linkitetty", product.PrimaryCategory);
+
+        // Products from before VAT get the general rate, so VAT is never under-reported.
+        Assert.Equal(2550, product.Vat.BasisPoints);
+        Assert.Equal([2550, 1350, 1000, 0], new CatalogRepository(database).GetVatRates().Select(rate => rate.BasisPoints));
+
+        // A line sold before VAT keeps "not recorded" rather than an invented figure.
+        var oldLine = Assert.Single(Assert.Single(new SalesRepository(database).GetSales()).Items);
+        Assert.Null(oldLine.VatBasisPoints);
+        Assert.Null(oldLine.VatAmount);
 
         var user = new UserRepository(database).FindUser("VANHA");
         Assert.NotNull(user);

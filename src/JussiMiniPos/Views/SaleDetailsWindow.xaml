@@ -110,7 +110,7 @@
                 </ItemsControl>
             </ScrollViewer>
 
-            <!-- ===== Total and close ===== -->
+            <!-- ===== Total, VAT breakdown and close ===== -->
             <StackPanel Grid.Row="2" Margin="24,0,24,20">
                 <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,14,0,14" />
                 <DockPanel>
@@ -122,6 +122,41 @@
                                Foreground="{StaticResource Brush.TextMuted}"
                                VerticalAlignment="Bottom" Margin="0,0,0,3" />
                 </DockPanel>
+
+                <!-- Per rate: the VAT-free amount, the VAT, and the total with
+                     VAT, as a Finnish receipt shows them. -->
+                <Grid Margin="0,12,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="90" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="1" Text="Veroton" Style="{StaticResource Text.Muted}" FontSize="12" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="2" Text="ALV" Style="{StaticResource Text.Muted}" FontSize="12" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="3" Text="Verollinen" Style="{StaticResource Text.Muted}" FontSize="12" HorizontalAlignment="Right" />
+                </Grid>
+                <ItemsControl ItemsSource="{Binding Sale.VatBreakdown}" AutomationProperties.Name="ALV-erittely">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Grid Margin="0,3,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="80" />
+                                    <ColumnDefinition Width="90" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" Text="{Binding Label}" Style="{StaticResource Text.Muted}" FontSize="12" />
+                                <TextBlock Grid.Column="1" Text="{Binding Net, StringFormat={}{0:N2}, TargetNullValue=–}"
+                                           Style="{StaticResource Text.Muted}" FontSize="12" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="2" Text="{Binding Vat, StringFormat={}{0:N2}, TargetNullValue=–}"
+                                           Style="{StaticResource Text.Muted}" FontSize="12" HorizontalAlignment="Right" />
+                                <TextBlock Grid.Column="3" Text="{Binding Gross, StringFormat={}{0:N2}}"
+                                           Style="{StaticResource Text.Muted}" FontSize="12" HorizontalAlignment="Right" />
+                            </Grid>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
                 <Button Style="{StaticResource Button.Primary}" Width="140" Margin="0,18,0,0"
                         HorizontalAlignment="Right"
                         Content="Sulje" IsCancel="True" IsDefault="True"

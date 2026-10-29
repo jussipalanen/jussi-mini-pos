@@ -673,6 +673,15 @@ public static class CommandLine
             ORDER BY COALESCE(c.ParentId, c.Id), c.Id;
             """);
 
+        Write("VatRates");
+        WriteTable(connection,
+            """
+            SELECT v.Id AS "Id", v.Name AS "Name", v.BasisPoints AS "BasisPoints", v.IsActive AS "Active",
+                   (SELECT COUNT(*) FROM Products p WHERE p.VatRateId = v.Id) AS "Products"
+            FROM VatRates v
+            ORDER BY v.BasisPoints DESC, v.Id;
+            """);
+
         Write("Products");
 
         // Columns named *Cents are rendered as euros by WriteTable.
@@ -681,6 +690,7 @@ public static class CommandLine
             SELECT p.Id AS "Id", p.Title AS "Title",
                    p.PriceCents AS "PriceCents",
                    p.SalePriceCents AS "SalePriceCents",
+                   (SELECT v.BasisPoints FROM VatRates v WHERE v.Id = p.VatRateId) AS "VatBasisPoints",
                    p.IsPublic AS "Public",
                    (SELECT {database.Dialect.GroupConcat("c.Id || '=' || c.Title", "', '")}
                       FROM ProductCategories pc

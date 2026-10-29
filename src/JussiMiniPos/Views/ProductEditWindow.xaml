@@ -56,6 +56,15 @@
                         </StackPanel>
                     </Grid>
 
+                    <TextBlock Text="ALV-kanta (hinnat sisältävät arvonlisäveron)"
+                               Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <ListBox x:Name="VatList"
+                             Style="{StaticResource ChipList}"
+                             ItemContainerStyle="{StaticResource ChipItem}"
+                             DisplayMemberPath="Display"
+                             SelectionMode="Single"
+                             AutomationProperties.Name="ALV-kanta" />
+
                     <!-- ===== Feature image ===== -->
                     <TextBlock Text="Pääkuva" Style="{StaticResource Text.Muted}" Margin="0,18,0,6" />
                     <Border Background="{StaticResource Brush.SurfaceMuted}"

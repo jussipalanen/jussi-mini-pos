@@ -1,0 +1,96 @@
+<Window x:Class="JussiMiniPos.Views.VatRatesWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="ALV-kannat"
+        Width="560" Height="640"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="22,20,22,0">
+                <TextBlock Text="ALV-kannat" Style="{StaticResource Text.SectionHeader}" />
+                <TextBlock Style="{StaticResource Text.Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
+                           Text="Tuotteiden hinnat sisältävät arvonlisäveron. Kun verokanta muuttuu, muuta kannan prosentti: muutos koskee seuraavia myyntejä, ja aiemmat myynnit säilyttävät tallennetun verokantansa." />
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,14,0,0" />
+            </StackPanel>
+
+            <ListBox x:Name="RateList" Grid.Row="1" Margin="22,12,22,0"
+                     Background="Transparent" BorderThickness="0"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     AutomationProperties.Name="ALV-kannat"
+                     SelectionChanged="RateList_SelectionChanged">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <DockPanel Margin="4,6">
+                            <TextBlock DockPanel.Dock="Right" Text="{Binding StatusText}"
+                                       Style="{StaticResource Text.Muted}" FontSize="12"
+                                       VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Rate.Display}" FontSize="14"
+                                       Foreground="{StaticResource Brush.Text}"
+                                       VerticalAlignment="Center" />
+                        </DockPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <!-- ===== The selected or new rate ===== -->
+            <StackPanel Grid.Row="2" Margin="22,10,22,0">
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,0,0,12" />
+                <TextBlock x:Name="FormHeader" Text="Uusi kanta" Style="{StaticResource Text.Muted}"
+                           FontWeight="SemiBold" Margin="0,0,0,8" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="150" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Text="Nimi" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                        <TextBox x:Name="NameBox" Style="{StaticResource FormBox}"
+                                 AutomationProperties.Name="Kannan nimi" />
+                    </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Text="Verokanta (%)" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                        <TextBox x:Name="PercentBox" Style="{StaticResource FormBox}"
+                                 AutomationProperties.Name="Verokanta prosentteina" />
+                    </StackPanel>
+                </Grid>
+                <CheckBox x:Name="ActiveBox" Margin="0,10,0,0" IsChecked="True"
+                          Style="{StaticResource FormCheckBox}"
+                          Content="Valittavissa tuotteille" />
+                <TextBlock x:Name="ErrorText"
+                           Style="{StaticResource Text.Muted}"
+                           Foreground="{StaticResource Brush.Danger}"
+                           TextWrapping="Wrap" Margin="0,10,0,0"
+                           Visibility="Collapsed" />
+            </StackPanel>
+
+            <StackPanel Grid.Row="3" Margin="22,0,22,20">
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,14,0,14" />
+                <DockPanel LastChildFill="False">
+                    <Button DockPanel.Dock="Left" Style="{StaticResource Button.Ghost}" Height="46" Padding="16,0"
+                            Content="Uusi kanta"
+                            AutomationProperties.Name="Uusi ALV-kanta"
+                            Click="New_Click" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Button.Primary}" Width="140" Margin="10,0,0,0"
+                            Content="Tallenna" IsDefault="True"
+                            AutomationProperties.Name="Tallenna ALV-kanta"
+                            Click="Save_Click" />
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                            Content="Sulje" IsCancel="True"
+                            AutomationProperties.Name="Sulje"
+                            Click="Close_Click" />
+                </DockPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

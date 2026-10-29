@@ -3,8 +3,9 @@ name: Build and standards
 on:
   push:
     branches: [main]
+  # Every pull request, whatever it targets, so a PR stacked on another
+  # branch is checked too; pushes are built on main only.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
