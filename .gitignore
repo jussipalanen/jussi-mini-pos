@@ -102,3 +102,8 @@ appsettings.*.Local.json
 
 ## Installer output
 installer/Output/
+
+## Local database configuration
+# Holds the database password, so it never belongs in the repository.
+# database.env.example is the template and is tracked.
+database.env

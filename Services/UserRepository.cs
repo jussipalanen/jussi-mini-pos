@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading;
 using JussiMiniPos.Models;
-using Microsoft.Data.Sqlite;
+using System.Data.Common;
 
 namespace JussiMiniPos.Services;
 
@@ -94,17 +95,17 @@ public sealed class UserRepository(Database database)
         command.CommandText =
             """
             INSERT INTO Users (Username, Email, FirstName, LastName, PasswordHash, Role)
-            VALUES ($username, $email, $firstName, $lastName, $passwordHash, $role);
-            SELECT last_insert_rowid();
+            VALUES (@username, @email, @firstName, @lastName, @passwordHash, @role)
+            RETURNING Id;
             """;
-        command.Parameters.AddWithValue("$username", username);
-        command.Parameters.AddWithValue("$email", email);
-        command.Parameters.AddWithValue("$firstName", firstName);
-        command.Parameters.AddWithValue("$lastName", lastName);
-        command.Parameters.AddWithValue("$passwordHash", PasswordHasher.Hash(password));
-        command.Parameters.AddWithValue("$role", UserRoleNames.ToStorage(role));
+        Database.AddParameter(command, "@username", username);
+        Database.AddParameter(command, "@email", email);
+        Database.AddParameter(command, "@firstName", firstName);
+        Database.AddParameter(command, "@lastName", lastName);
+        Database.AddParameter(command, "@passwordHash", PasswordHasher.Hash(password));
+        Database.AddParameter(command, "@role", UserRoleNames.ToStorage(role));
 
-        return (int)(long)command.ExecuteScalar()!;
+        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
     /// <summary>
@@ -125,13 +126,13 @@ public sealed class UserRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            UPDATE Users SET Username = $username, Email = $email, Role = $role
-             WHERE Id = $id;
+            UPDATE Users SET Username = @username, Email = @email, Role = @role
+             WHERE Id = @id;
             """;
-        command.Parameters.AddWithValue("$id", id);
-        command.Parameters.AddWithValue("$username", username);
-        command.Parameters.AddWithValue("$email", email);
-        command.Parameters.AddWithValue("$role", UserRoleNames.ToStorage(role));
+        Database.AddParameter(command, "@id", id);
+        Database.AddParameter(command, "@username", username);
+        Database.AddParameter(command, "@email", email);
+        Database.AddParameter(command, "@role", UserRoleNames.ToStorage(role));
         command.ExecuteNonQuery();
     }
 
@@ -147,13 +148,13 @@ public sealed class UserRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            UPDATE Users SET FirstName = $firstName, LastName = $lastName, Email = $email
-             WHERE Id = $id;
+            UPDATE Users SET FirstName = @firstName, LastName = @lastName, Email = @email
+             WHERE Id = @id;
             """;
-        command.Parameters.AddWithValue("$id", id);
-        command.Parameters.AddWithValue("$firstName", firstName);
-        command.Parameters.AddWithValue("$lastName", lastName);
-        command.Parameters.AddWithValue("$email", email);
+        Database.AddParameter(command, "@id", id);
+        Database.AddParameter(command, "@firstName", firstName);
+        Database.AddParameter(command, "@lastName", lastName);
+        Database.AddParameter(command, "@email", email);
         command.ExecuteNonQuery();
     }
 
@@ -163,10 +164,10 @@ public sealed class UserRepository(Database database)
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "UPDATE Users SET FirstName = $firstName, LastName = $lastName WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
-        command.Parameters.AddWithValue("$firstName", firstName);
-        command.Parameters.AddWithValue("$lastName", lastName);
+            "UPDATE Users SET FirstName = @firstName, LastName = @lastName WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
+        Database.AddParameter(command, "@firstName", firstName);
+        Database.AddParameter(command, "@lastName", lastName);
         command.ExecuteNonQuery();
     }
 
@@ -179,8 +180,8 @@ public sealed class UserRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT PasswordHash FROM Users WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "SELECT PasswordHash FROM Users WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
 
         return PasswordHasher.Verify(password, command.ExecuteScalar() as string);
     }
@@ -191,8 +192,8 @@ public sealed class UserRepository(Database database)
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
         command.CommandText =
-            "SELECT Id, Username, Email, FirstName, LastName, Role FROM Users WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
+            "SELECT Id, Username, Email, FirstName, LastName, Role FROM Users WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
 
         using var reader = command.ExecuteReader();
         return reader.Read() ? Read(reader) : null;
@@ -203,9 +204,9 @@ public sealed class UserRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "UPDATE Users SET PasswordHash = $passwordHash WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
-        command.Parameters.AddWithValue("$passwordHash", PasswordHasher.Hash(password));
+        command.CommandText = "UPDATE Users SET PasswordHash = @passwordHash WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
+        Database.AddParameter(command, "@passwordHash", PasswordHasher.Hash(password));
         command.ExecuteNonQuery();
     }
 
@@ -213,8 +214,8 @@ public sealed class UserRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "DELETE FROM Users WHERE Id = $id;";
-        command.Parameters.AddWithValue("$id", id);
+        command.CommandText = "DELETE FROM Users WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
         command.ExecuteNonQuery();
     }
 
@@ -227,8 +228,8 @@ public sealed class UserRepository(Database database)
     {
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
-        command.CommandText = "SELECT COUNT(*) FROM Users WHERE Role = $role;";
-        command.Parameters.AddWithValue("$role", UserRoleNames.ToStorage(UserRole.Admin));
+        command.CommandText = "SELECT COUNT(*) FROM Users WHERE Role = @role;";
+        Database.AddParameter(command, "@role", UserRoleNames.ToStorage(UserRole.Admin));
         return Convert.ToInt32(command.ExecuteScalar());
     }
 
@@ -271,16 +272,19 @@ public sealed class UserRepository(Database database)
         using var connection = database.OpenConnection();
         using var command = connection.CreateCommand();
 
-        // Both columns are COLLATE NOCASE, so the match is case-insensitive
-        // without lower() defeating the unique index.
+        // Either name matches whatever the case, without lower() defeating the
+        // unique index: COLLATE NOCASE under SQLite and citext under
+        // PostgreSQL. Which of the two needs saying in the SQL is the
+        // dialect's business — see SqlDialect.TextEquals.
         command.CommandText =
-            """
+            $"""
             SELECT Id, Username, Email, FirstName, LastName, Role, PasswordHash
             FROM Users
-            WHERE Username = $name OR Email = $name
+            WHERE {database.Dialect.TextEquals("Username", "@name")}
+               OR {database.Dialect.TextEquals("Email", "@name")}
             LIMIT 1;
             """;
-        command.Parameters.AddWithValue("$name", usernameOrEmail.Trim());
+        Database.AddParameter(command, "@name", usernameOrEmail.Trim());
 
         using var reader = command.ExecuteReader();
         return reader.Read() ? (Read(reader), reader.GetString(6)) : null;
@@ -292,7 +296,7 @@ public sealed class UserRepository(Database database)
     /// selects those six first, in that order, so a hash that follows them
     /// does not shift the ones this reads.
     /// </summary>
-    private static User Read(SqliteDataReader reader) => new(
+    private static User Read(DbDataReader reader) => new(
         reader.GetInt32(0),
         reader.GetString(1),
         reader.GetString(2),
