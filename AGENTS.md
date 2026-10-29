@@ -57,6 +57,24 @@ dotnet publish -c Release -r win-x64 --self-contained false
 dotnet run -- --version
 ```
 
+Build the Windows installer (`installer\Output\JussiMiniPos-<version>-setup.exe`)
+with Inno Setup 6.3 or newer. The script publishes a self-contained single-file
+build first, then compiles `installer\JussiMiniPos.iss` over it:
+
+```powershell
+winget install --id JRSoftware.InnoSetup
+.\installer\build.ps1
+.\installer\build.ps1 -SkipPublish
+```
+
+`-SkipPublish` recompiles the installer from the last publish. Publishing a
+GitHub release runs `.github/workflows/release.yml`, which builds the installer
+from the release tag and attaches it as `JussiMiniPos-setup.exe`; keep that
+asset name fixed, because the README's download link depends on it. The installer's
+version is read from the published executable, so change `<Version>` in
+`JussiMiniPos.csproj` rather than the `.iss` script, and never change its
+`AppId`.
+
 The project currently has no automated test suite. For every code or XAML
 change, at minimum run `dotnet build --no-restore` after dependencies have been
 restored. For behavior changes, manually exercise the affected UI or CLI flow

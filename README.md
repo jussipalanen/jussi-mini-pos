@@ -10,6 +10,18 @@ A small point-of-sale (POS) desktop application built with WPF on .NET 10.
 > roles, and a profile view. Raportit provides date-filtered sales summaries
 > and daily, product and category breakdowns for administrators and managers.
 
+## Download
+
+<a href="https://github.com/jussipalanen/jussi-mini-pos/releases/latest/download/JussiMiniPos-setup.exe"><img src="Assets/Icons/icon/android-chrome-192x192.png" width="32" height="32" alt=""> <b>Download the latest Windows installer (JussiMiniPos-setup.exe)</b></a>
+
+Run the downloaded file and follow the setup wizard. It needs Windows 10 or
+newer (64-bit) and nothing else — the .NET runtime is included. Older versions
+and release notes are on the
+[Releases page](https://github.com/jussipalanen/jussi-mini-pos/releases).
+
+The installer is not code-signed yet, so Windows may show *"Windows protected
+your PC"*. Choose **More info → Run anyway** to continue.
+
 ## Requirements
 
 - **Windows** (WPF does not run on Linux or macOS)
@@ -102,8 +114,18 @@ winget install --id JRSoftware.InnoSetup   # once; free, ~5 MB
 ```
 
 The result is `installer\Output\JussiMiniPos-<version>-setup.exe`, roughly
-55 MB. It installs per-machine under `Program Files`, adds a Start Menu
+45 MB. It installs per-machine under `Program Files`, adds a Start Menu
 shortcut and an optional desktop one, and registers a proper uninstaller.
+
+Publishing a GitHub release does this automatically:
+[`.github/workflows/release.yml`](.github/workflows/release.yml) builds the
+installer from the release's tag and attaches it as `JussiMiniPos-setup.exe`,
+which is what the [download link](#download) at the top points to. The workflow
+fails if the tag and `<Version>` in `JussiMiniPos.csproj` disagree, so bump the
+version before tagging. `releases/latest` skips drafts and pre-releases, so the
+link keeps pointing at the previous release until a new one is published as
+neither. To rebuild the installer for a release that already exists, run the
+workflow by hand from the Actions tab with that release's tag.
 
 The version is read out of the published executable's `ProductVersion` rather
 than written in the script, with the `+<commit>` suffix trimmed the same way

@@ -77,10 +77,14 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 
-; Numeric, because the Win32 version resource cannot hold "-beta.2".
+; The numeric fields cannot hold "-beta.3", and Inno Setup refuses to compile if
+; they are given it. The full version goes in the text fields, which are what
+; Explorer's Details tab shows.
 VersionInfoVersion={#GetVersionNumbersString(AppExe)}
 VersionInfoProductName={#AppName}
-VersionInfoProductVersion={#AppVersion}
+VersionInfoProductVersion={#GetVersionNumbersString(AppExe)}
+VersionInfoTextVersion={#AppVersion}
+VersionInfoProductTextVersion={#AppVersion}
 
 [Languages]
 ; The application's own text is Finnish, so the installer offers Finnish and

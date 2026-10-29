@@ -7,7 +7,15 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-Nothing yet.
+### Added
+
+- **A Windows installer.** `installer\build.ps1` publishes a self-contained
+  build and compiles `JussiMiniPos-<version>-setup.exe` with Inno Setup. It
+  installs under Program Files with Start Menu and optional desktop shortcuts,
+  and the uninstaller asks before removing data, defaulting to keeping it.
+- **A download link for the latest installer** at the top of the README.
+  Publishing a GitHub release builds the installer from its tag and attaches it
+  as `JussiMiniPos-setup.exe`.
 
 ## [1.0.0-beta.3] - 2026-09-11
 

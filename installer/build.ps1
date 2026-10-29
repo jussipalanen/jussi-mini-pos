@@ -55,13 +55,16 @@ if (-not (Test-Path $exe)) {
     throw "Published executable not found at $exe. Run without -SkipPublish."
 }
 
-# Inno Setup does not put itself on PATH, so look where it installs. 6.3 or
-# newer is needed for ArchitecturesAllowed=x64compatible.
+# Inno Setup does not put itself on PATH, so look where it installs: per-machine
+# under Program Files, or per-user under %LOCALAPPDATA%\Programs, which is where
+# winget puts it when it runs without elevation. 6.3 or newer is needed for
+# ArchitecturesAllowed=x64compatible.
 $iscc = (Get-Command 'iscc.exe' -ErrorAction SilentlyContinue).Source
 if (-not $iscc) {
     foreach ($candidate in @(
         "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
-        "$env:ProgramFiles\Inno Setup 6\ISCC.exe")) {
+        "$env:ProgramFiles\Inno Setup 6\ISCC.exe",
+        "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe")) {
         if (Test-Path $candidate) { $iscc = $candidate; break }
     }
 }
