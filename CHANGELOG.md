@@ -46,6 +46,12 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **`--clear` and `--seed --reset` work on PostgreSQL.** Both reset the id
+  numbering through `sqlite_sequence`, a table only SQLite has, so on
+  PostgreSQL they failed without clearing anything. The numbering is now reset
+  the way each engine does it. On PostgreSQL, seeding also moves the product
+  numbering past the demo ids, so a product added afterwards no longer starts
+  from 1 while SQLite carried on from 1021.
 - **Command-line runs no longer crash or leave a window open.** `--version`,
   `--seed`, `--dump` and the other commands could throw *The Application object
   is being shut down*, or leave the main window open, because WPF still built
