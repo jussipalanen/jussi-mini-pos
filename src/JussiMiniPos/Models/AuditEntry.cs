@@ -38,6 +38,7 @@ public static class AuditActions
     public const string UserUpdated = "user-updated";
     public const string UserDeleted = "user-deleted";
     public const string PasswordChanged = "password-changed";
+    public const string UserUnlocked = "user-unlocked";
 
     public static string Finnish(string action) => action switch
     {
@@ -54,6 +55,7 @@ public static class AuditActions
         UserUpdated => "Käyttäjää muutettu",
         UserDeleted => "Käyttäjä poistettu",
         PasswordChanged => "Salasana vaihdettu",
+        UserUnlocked => "Tilin lukitus avattu",
         _ => action,
     };
 }

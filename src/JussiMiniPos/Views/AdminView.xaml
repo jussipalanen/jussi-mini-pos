@@ -107,6 +107,11 @@
 
             <Button Style="{StaticResource Button.Ghost}" Height="40" Padding="14,0" Margin="24,0,0,0"
                     VerticalAlignment="Center"
+                    Content="Käyttäjät"
+                    AutomationProperties.Name="Hallitse käyttäjiä"
+                    Click="Users_Click" />
+            <Button Style="{StaticResource Button.Ghost}" Height="40" Padding="14,0" Margin="8,0,0,0"
+                    VerticalAlignment="Center"
                     Content="Tapahtumaloki"
                     AutomationProperties.Name="Avaa tapahtumaloki"
                     Click="AuditLog_Click" />

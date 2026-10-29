@@ -82,7 +82,12 @@ public partial class AdminView : UserControl, INotifyPropertyChanged
     /// <summary>Raised when the administrator opens the audit log.</summary>
     public event Action? AuditLogRequested;
 
+    /// <summary>Raised when the administrator opens user management.</summary>
+    public event Action? UsersRequested;
+
     private void AuditLog_Click(object sender, RoutedEventArgs e) => AuditLogRequested?.Invoke();
+
+    private void Users_Click(object sender, RoutedEventArgs e) => UsersRequested?.Invoke();
 
     public IReadOnlyList<AiSettings.ModelChoice> Models => AiSettings.Models;
 

@@ -111,20 +111,22 @@ public partial class LoginWindow : Window, INotifyPropertyChanged
         {
             // PBKDF2 at 600k iterations blocks for a noticeable moment, and
             // SQLite is synchronous, so neither belongs on the UI thread.
-            var user = await Task.Run(() => _users.Authenticate(name, password));
+            var result = await Task.Run(() => _users.SignIn(name, password));
 
-            if (user is null)
+            if (result is { Status: SignInStatus.Success, User: { } user })
             {
-                await Task.Delay(FailureDelay);
-
-                ErrorMessage = "Käyttäjätunnus tai salasana on väärä.";
-                PasswordBox.Clear();
-                PasswordBox.Focus();
+                SignedInUser = user;
+                DialogResult = true;
                 return;
             }
 
-            SignedInUser = user;
-            DialogResult = true;
+            await Task.Delay(FailureDelay);
+
+            ErrorMessage = result is { Status: SignInStatus.LockedOut, LockedUntil: { } until }
+                ? $"Liian monta epäonnistunutta yritystä. Tili on lukittu klo {until.ToLocalTime():HH.mm} asti. Ylläpitäjä voi avata lukituksen."
+                : "Käyttäjätunnus tai salasana on väärä.";
+            PasswordBox.Clear();
+            PasswordBox.Focus();
         }
         catch (Exception ex)
         {

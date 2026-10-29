@@ -41,8 +41,26 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   `--audit` prints it. Entries never contain passwords or hashes, and a failed
   sign-in with an unknown username does not repeat what was typed.
 
+- **User management in Admin → Käyttäjät**: add users with a typed or
+  generated password, change a user's name, email, role or password in one
+  step, unlock a locked account, or remove one — no longer command line only.
+- **Account lockout**: five wrong passwords in a row lock the account for five
+  minutes, even against the right password. An administrator can unlock it,
+  and a new password unlocks it too.
+- **Automatic sign-out** after 15 minutes without keyboard, mouse or touch
+  input, never in the middle of a card payment or behind an open dialog.
+- **Each sale records who sold it**, shown on its receipt.
+
 ### Changed
 
+- **Every view needs a signed-in user, and roles mean something.** A seller
+  (*Myyjä*) can use Kassa only; Tuotteet, Myynti and Raportit need a manager or
+  an administrator; Admin needs an administrator. Previously Kassa, Tuotteet
+  and Myynti were open to anyone at the machine. Each check is a domain rule on
+  `User`, not a button's visibility.
+- **The last-administrator rule is enforced in `UserRepository`**, inside the
+  write's transaction, so the command line and Admin → Käyttäjät share one
+  check. It was only in the command line before.
 - **Sales are voided instead of deleted.** Myynti's delete button is now
   **Mitätöi**: it needs a signed-in manager or administrator and a reason, and
   keeps the sale and its lines, marked with when, by whom and why. A voided

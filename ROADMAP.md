@@ -92,12 +92,12 @@ is real sales data than after.
 
 ### 2.3 Users and roles
 
-- [ ] Move the last-administrator rule out of `CommandLine` into the domain, so
+- [x] Move the last-administrator rule out of `CommandLine` into the domain, so
       the command line and the Admin view share it, and test it.
-- [ ] Add, edit, change the role of and remove users in the Admin view, not only
+- [x] Add, edit, change the role of and remove users in the Admin view, not only
       from the command line. The last-administrator rule still applies.
-- [ ] Account lockout after repeated failed sign-ins, and an inactivity timeout.
-- [ ] Give the `seller` role real meaning: decide which of Kassa, Tuotteet and
+- [x] Account lockout after repeated failed sign-ins, and an inactivity timeout.
+- [x] Give the `seller` role real meaning: decide which of Kassa, Tuotteet and
       Myynti need a signed-in user, and enforce it in the domain rules.
 
 ### 2.4 Installer follow-ups

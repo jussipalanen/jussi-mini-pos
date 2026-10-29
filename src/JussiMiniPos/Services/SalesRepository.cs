@@ -30,13 +30,14 @@ public sealed class SalesRepository(Database database)
         insertSale.Transaction = transaction;
         insertSale.CommandText =
             """
-            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod)
-            VALUES (@dateTime, @totalCents, @paymentMethod)
+            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod, SoldBy)
+            VALUES (@dateTime, @totalCents, @paymentMethod, @soldBy)
             RETURNING Id;
             """;
         Database.AddParameter(insertSale, "@dateTime", sale.SoldAt.ToString("o", CultureInfo.InvariantCulture));
         Database.AddParameter(insertSale, "@totalCents", ToCents(sale.Total));
         Database.AddParameter(insertSale, "@paymentMethod", sale.PaymentMethod.ToString());
+        Database.AddParameter(insertSale, "@soldBy", sale.SoldBy, DbType.String);
 
         var saleId = Convert.ToInt64(insertSale.ExecuteScalar(), CultureInfo.InvariantCulture);
 
@@ -81,7 +82,7 @@ public sealed class SalesRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT Id, "DateTime", TotalCents, PaymentMethod, VoidedAt, VoidedBy, VoidReason
+            SELECT Id, "DateTime", TotalCents, PaymentMethod, VoidedAt, VoidedBy, VoidReason, SoldBy
             FROM Sales
             ORDER BY Id DESC;
             """;
@@ -101,6 +102,7 @@ public sealed class SalesRepository(Database database)
             {
                 Id = id,
                 Void = ReadVoid(reader, 4),
+                SoldBy = reader.IsDBNull(7) ? null : reader.GetString(7),
             });
         }
 

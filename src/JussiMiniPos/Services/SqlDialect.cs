@@ -207,7 +207,11 @@ public sealed class SqliteDialect : SqlDialect
             FirstName    TEXT    NOT NULL DEFAULT '',
             LastName     TEXT    NOT NULL DEFAULT '',
             PasswordHash TEXT    NOT NULL,
-            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller'))
+            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller')),
+            -- Wrong passwords in a row, and the lock they lead to; see
+            -- UserRepository.SignIn.
+            FailedSignIns INTEGER NOT NULL DEFAULT 0,
+            LockedUntil   TEXT        NULL
         );
 
         -- ---------- Catalogue ----------
@@ -287,7 +291,8 @@ public sealed class SqliteDialect : SqlDialect
             PaymentMethod TEXT    NOT NULL,
             VoidedAt      TEXT        NULL,
             VoidedBy      TEXT        NULL,
-            VoidReason    TEXT        NULL
+            VoidReason    TEXT        NULL,
+            SoldBy        TEXT        NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_Sales_DateTime ON Sales("DateTime");
@@ -427,7 +432,11 @@ public sealed class PostgreSqlDialect : SqlDialect
             FirstName    TEXT    NOT NULL DEFAULT '',
             LastName     TEXT    NOT NULL DEFAULT '',
             PasswordHash TEXT    NOT NULL,
-            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller'))
+            Role         TEXT    NOT NULL CHECK (Role IN ('admin', 'manager', 'seller')),
+            -- Wrong passwords in a row, and the lock they lead to; see
+            -- UserRepository.SignIn.
+            FailedSignIns INTEGER NOT NULL DEFAULT 0,
+            LockedUntil   TEXT        NULL
         );
 
         -- ---------- Catalogue ----------
@@ -499,7 +508,8 @@ public sealed class PostgreSqlDialect : SqlDialect
             PaymentMethod TEXT   NOT NULL,
             VoidedAt      TEXT       NULL,
             VoidedBy      TEXT       NULL,
-            VoidReason    TEXT       NULL
+            VoidReason    TEXT       NULL,
+            SoldBy        TEXT       NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_Sales_DateTime ON Sales("DateTime");
