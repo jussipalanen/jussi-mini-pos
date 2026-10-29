@@ -16,6 +16,23 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   signing in, and password hashing. Each test gets its own throwaway database.
   CI runs them on every pull request against the PostgreSQL that ships with
   the Windows runner, and fails rather than skips if it is missing.
+- **VAT (ALV).** Every product has a VAT rate, picked in the product editor
+  from a managed list in **Tuotteet → ALV-kannat**: add a rate, rename it,
+  change its percentage, or retire it from new choices. A new database starts
+  with the Finnish rates in force since 1 January 2026 — 25,5 %, 13,5 %, 10 %
+  and 0 % — and a rate change is one edit that every product on it follows.
+  Prices still include VAT.
+  - Each sold line records its rate and its VAT to the cent, so a later rate
+    change never rewrites a past receipt.
+  - The receipt shows a VAT breakdown per rate: VAT-free amount, VAT, and the
+    total with VAT.
+  - Raportit has a new **ALV-erittely** tab with the same breakdown for any
+    date range. Lines sold before this release are listed as *ALV ei tiedossa*
+    rather than given an invented figure.
+  - `--dump` lists the rates and each product's rate.
+  - Upgrading puts existing products on the **25,5 %** general rate, which
+    never under-reports VAT; set food and drink to 13,5 % in Tuotteet. The demo
+    catalogue is seeded at 13,5 %.
 
 ### Changed
 

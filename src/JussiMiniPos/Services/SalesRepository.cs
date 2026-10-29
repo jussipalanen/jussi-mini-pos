@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using JussiMiniPos.Models;
 using System.Data.Common;
@@ -45,8 +46,10 @@ public sealed class SalesRepository(Database database)
             insertItem.Transaction = transaction;
             insertItem.CommandText =
                 """
-                INSERT INTO SaleItems (SaleId, ProductId, Name, Category, UnitPriceCents, Quantity)
-                VALUES (@saleId, @productId, @name, @category, @unitPriceCents, @quantity);
+                INSERT INTO SaleItems (SaleId, ProductId, Name, Category, UnitPriceCents, Quantity,
+                                       VatRateBasisPoints, VatCents)
+                VALUES (@saleId, @productId, @name, @category, @unitPriceCents, @quantity,
+                        @vatBasisPoints, @vatCents);
                 """;
             Database.AddParameter(insertItem, "@saleId", saleId);
             Database.AddParameter(insertItem, "@productId", item.ProductId);
@@ -54,6 +57,9 @@ public sealed class SalesRepository(Database database)
             Database.AddParameter(insertItem, "@category", item.Category);
             Database.AddParameter(insertItem, "@unitPriceCents", ToCents(item.UnitPrice));
             Database.AddParameter(insertItem, "@quantity", item.Quantity);
+            Database.AddParameter(insertItem, "@vatBasisPoints", item.VatBasisPoints, DbType.Int32);
+            Database.AddParameter(insertItem, "@vatCents",
+                item.VatAmount is { } vat ? ToCents(vat) : null, DbType.Int64);
             insertItem.ExecuteNonQuery();
         }
 
@@ -117,7 +123,8 @@ public sealed class SalesRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT SaleId, ProductId, Name, Category, UnitPriceCents, Quantity
+            SELECT SaleId, ProductId, Name, Category, UnitPriceCents, Quantity,
+                   VatRateBasisPoints, VatCents
             FROM SaleItems
             ORDER BY SaleId, Id;
             """;
@@ -134,16 +141,26 @@ public sealed class SalesRepository(Database database)
                 result[saleId] = items;
             }
 
-            items.Add(new SaleItem(
-                reader.GetInt32(1),
-                reader.GetString(2),
-                reader.GetString(3),
-                FromCents(reader.GetInt64(4)),
-                reader.GetInt32(5)));
+            items.Add(ReadItem(reader, 1));
         }
 
         return result;
     }
+
+    /// <summary>
+    /// One sale line from a reader whose columns, starting at
+    /// <paramref name="first"/>, are ProductId, Name, Category,
+    /// UnitPriceCents, Quantity, VatRateBasisPoints and VatCents. Shared with
+    /// the reports so the two cannot read a line differently.
+    /// </summary>
+    internal static SaleItem ReadItem(DbDataReader reader, int first) =>
+        new(reader.GetInt32(first),
+            reader.GetString(first + 1),
+            reader.GetString(first + 2),
+            FromCents(reader.GetInt64(first + 3)),
+            reader.GetInt32(first + 4),
+            reader.IsDBNull(first + 5) ? null : reader.GetInt32(first + 5),
+            reader.IsDBNull(first + 6) ? null : FromCents(reader.GetInt64(first + 6)));
 
     /// <summary>
     /// Timestamps are written with "o". A row edited by hand might not be, so

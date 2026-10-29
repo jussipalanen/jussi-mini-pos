@@ -182,6 +182,11 @@ metadata, local databases, image stores, key files, or `.env` files.
   after successful payment. Catalogue edits must never rewrite sale history.
 - A missing `SalePriceCents` means no discount. The till charges
   `Product.EffectivePrice`.
+- Prices include VAT. Every product has a `VatRate` from the managed
+  `VatRates` table (rates in basis points, 25,5 % = 2550; deactivated, never
+  deleted). Work VAT out with `Vat.Included`, never by hand. Sale lines
+  snapshot `VatRateBasisPoints` and `VatCents`; `NULL` there means the line was
+  sold before VAT was recorded and must stay unknown, not be back-filled.
 - Products may belong to several categories. Category hierarchy uses
   `ParentId`; deleting a parent with children remains restricted.
 - Image paths stored in SQLite are relative to the application data directory.

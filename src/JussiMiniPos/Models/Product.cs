@@ -27,6 +27,12 @@ public sealed record Product(
     /// <summary>Gallery image paths, relative to the JussiMiniPos data folder.</summary>
     public IReadOnlyList<string> Images { get; init; } = [];
 
+    /// <summary>
+    /// The VAT rate the price includes. Required, so no product can be built
+    /// without one and reach the till untaxed.
+    /// </summary>
+    public required VatRate Vat { get; init; }
+
     /// <summary>The inverse of <see cref="IsPublic"/>, for badges and triggers.</summary>
     public bool IsHidden => !IsPublic;
 

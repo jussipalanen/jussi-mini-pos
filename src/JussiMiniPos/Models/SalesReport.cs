@@ -17,7 +17,13 @@ public sealed record SalesReport(
     decimal Total,
     IReadOnlyList<ReportDay> Days,
     IReadOnlyList<ReportProduct> Products,
-    IReadOnlyList<ReportCategory> Categories)
+    IReadOnlyList<ReportCategory> Categories,
+    IReadOnlyList<VatLine> VatLines)
 {
     public decimal AverageSale => SaleCount == 0 ? 0 : Total / SaleCount;
+
+    /// <summary>The VAT across the range, when every line in it recorded VAT.</summary>
+    public decimal? VatTotal => VatLines.All(line => line.Vat is not null)
+        ? VatLines.Sum(line => line.Vat ?? 0m)
+        : null;
 }

@@ -65,6 +65,7 @@ public sealed class CatalogRepository(Database database)
 
         var categoriesByProduct = ReadProductCategories(connection, publicOnly);
         var imagesByProduct = ReadProductImages(connection);
+        var vatRates = ReadVatRates(connection, activeOnly: false).ToDictionary(rate => rate.Id);
 
         using var command = connection.CreateCommand();
 
@@ -86,9 +87,13 @@ public sealed class CatalogRepository(Database database)
             }
         }
 
+        // A product without a rate cannot be written through here, but a row
+        // inserted by hand could lack one; it is charged the highest rate, the
+        // same choice the migration makes, so VAT is never under-reported.
         command.CommandText =
             $"""
-            SELECT Id, Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic
+            SELECT Id, Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic,
+                   COALESCE(VatRateId, (SELECT Id FROM VatRates ORDER BY BasisPoints DESC, Id LIMIT 1))
             FROM Products
             {(conditions.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", conditions))}
             ORDER BY Id;
@@ -112,10 +117,80 @@ public sealed class CatalogRepository(Database database)
                 categoriesByProduct.TryGetValue(id, out var categories) ? categories : [])
             {
                 Images = imagesByProduct.TryGetValue(id, out var images) ? images : [],
+                Vat = vatRates[reader.GetInt32(7)],
             });
         }
 
         return products;
+    }
+
+    // ---------- VAT rates ----------
+
+    /// <summary>The managed VAT rates, highest first.</summary>
+    /// <param name="activeOnly">Leaves out rates retired from new choices.</param>
+    public IReadOnlyList<VatRate> GetVatRates(bool activeOnly = false)
+    {
+        using var connection = database.OpenConnection();
+        return ReadVatRates(connection, activeOnly);
+    }
+
+    /// <summary>Adds a rate and returns its id.</summary>
+    public int InsertVatRate(string name, int basisPoints, bool isActive)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            INSERT INTO VatRates (Name, BasisPoints, IsActive) VALUES (@name, @basisPoints, @isActive)
+            RETURNING Id;
+            """;
+        Database.AddParameter(command, "@name", name);
+        Database.AddParameter(command, "@basisPoints", basisPoints);
+        Database.AddParameter(command, "@isActive", isActive ? 1 : 0);
+        return Convert.ToInt32(command.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    /// <summary>
+    /// Changes a rate. Every product on it is charged the new rate from the
+    /// next sale on; sales already made keep the rate they recorded.
+    /// </summary>
+    public void UpdateVatRate(int id, string name, int basisPoints, bool isActive)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "UPDATE VatRates SET Name = @name, BasisPoints = @basisPoints, IsActive = @isActive WHERE Id = @id;";
+        Database.AddParameter(command, "@id", id);
+        Database.AddParameter(command, "@name", name);
+        Database.AddParameter(command, "@basisPoints", basisPoints);
+        Database.AddParameter(command, "@isActive", isActive ? 1 : 0);
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Products charged at a rate, for the warning before changing it.</summary>
+    public int CountProductsWithVatRate(int id) =>
+        Count("SELECT COUNT(*) FROM Products WHERE VatRateId = @id;", id);
+
+    private static List<VatRate> ReadVatRates(DbConnection connection, bool activeOnly)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            $"""
+            SELECT Id, Name, BasisPoints, IsActive
+            FROM VatRates
+            {(activeOnly ? "WHERE IsActive = 1" : string.Empty)}
+            ORDER BY BasisPoints DESC, Id;
+            """;
+
+        using var reader = command.ExecuteReader();
+
+        var rates = new List<VatRate>();
+        while (reader.Read())
+        {
+            rates.Add(new VatRate(reader.GetInt32(0), reader.GetString(1), reader.GetInt32(2), reader.GetInt64(3) != 0));
+        }
+
+        return rates;
     }
 
     /// <summary>The values a product edit or insert writes.</summary>
@@ -124,6 +199,7 @@ public sealed class CatalogRepository(Database database)
         string Description,
         decimal Price,
         decimal? SalePrice,
+        int VatRateId,
         bool IsPublic,
         string? FeatureImage,
         IReadOnlyList<int> CategoryIds,
@@ -139,8 +215,8 @@ public sealed class CatalogRepository(Database database)
         insert.Transaction = transaction;
         insert.CommandText =
             """
-            INSERT INTO Products (Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic)
-            VALUES (@title, @description, @priceCents, @salePriceCents, @featureImage, @isPublic)
+            INSERT INTO Products (Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic, VatRateId)
+            VALUES (@title, @description, @priceCents, @salePriceCents, @featureImage, @isPublic, @vatRateId)
             RETURNING Id;
             """;
         AddProductParameters(insert, draft);
@@ -175,7 +251,8 @@ public sealed class CatalogRepository(Database database)
                        PriceCents = @priceCents,
                        SalePriceCents = @salePriceCents,
                        FeatureImage = @featureImage,
-                       IsPublic = @isPublic
+                       IsPublic = @isPublic,
+                       VatRateId = @vatRateId
                  WHERE Id = @id;
                 """;
             Database.AddParameter(command, "@id", id);
@@ -300,6 +377,7 @@ public sealed class CatalogRepository(Database database)
             draft.SalePrice is { } sale ? SalesRepository.ToCents(sale) : DBNull.Value);
         Database.AddParameter(command, "@featureImage", (object?)draft.FeatureImage ?? DBNull.Value);
         Database.AddParameter(command, "@isPublic", draft.IsPublic ? 1 : 0);
+        Database.AddParameter(command, "@vatRateId", draft.VatRateId);
     }
 
     private static void WriteCategories(
