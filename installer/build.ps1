@@ -32,9 +32,10 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $repo = Split-Path -Parent $PSScriptRoot
-$project = Join-Path $repo 'JussiMiniPos.csproj'
+$projectDir = Join-Path $repo 'src\JussiMiniPos'
+$project = Join-Path $projectDir 'JussiMiniPos.csproj'
 $script = Join-Path $PSScriptRoot 'JussiMiniPos.iss'
-$publishDir = Join-Path $repo "bin\Release\net10.0-windows\$Runtime\publish"
+$publishDir = Join-Path $projectDir "bin\Release\net10.0-windows\$Runtime\publish"
 
 if (-not $SkipPublish) {
     Write-Host 'Publishing (self-contained, single file)...' -ForegroundColor Cyan

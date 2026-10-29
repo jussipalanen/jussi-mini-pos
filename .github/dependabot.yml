@@ -2,7 +2,10 @@ version: 2
 
 updates:
   - package-ecosystem: nuget
-    directory: "/"
+    # Every project under src/, so projects added next to the application are
+    # covered without editing this file.
+    directories:
+      - "/src/*"
     schedule:
       interval: weekly
       day: monday

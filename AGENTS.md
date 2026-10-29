@@ -13,6 +13,12 @@ project yet. Repositories are written against `DbConnection`; whatever differs
 between the two engines belongs in `Services/SqlDialect.cs` rather than in a
 repository.
 
+The repository root holds `JussiMiniPos.slnx`, documentation, `installer/`,
+`.github/` and `docker-compose.yml`. The WPF application lives in
+`src/JussiMiniPos/`; the paths below are relative to it. New projects go under
+`src/` (and tests under `tests/`) and are added to the solution, never placed
+at the root, because an SDK-style project compiles every `.cs` file beneath it.
+
 The application is intentionally small and direct:
 
 - `App.xaml(.cs)` configures global resources, Finnish culture, and headless
@@ -51,15 +57,15 @@ Use PowerShell on Windows with the .NET 10 SDK:
 ```powershell
 dotnet restore
 dotnet build --no-restore
-dotnet run
+dotnet run --project src/JussiMiniPos
 ```
 
 Useful additional commands:
 
 ```powershell
-dotnet run -c Release
-dotnet publish -c Release -r win-x64 --self-contained false
-dotnet run -- --version
+dotnet run --project src/JussiMiniPos -c Release
+dotnet publish src/JussiMiniPos -c Release -r win-x64 --self-contained false
+dotnet run --project src/JussiMiniPos -- --version
 ```
 
 Build the Windows installer (`installer\Output\JussiMiniPos-<version>-setup.exe`)
@@ -77,7 +83,7 @@ GitHub release runs `.github/workflows/release.yml`, which builds the installer
 from the release tag and attaches it as `JussiMiniPos-setup.exe`; keep that
 asset name fixed, because the README's download link depends on it. The installer's
 version is read from the published executable, so change `<Version>` in
-`JussiMiniPos.csproj` rather than the `.iss` script, and never change its
+`src/JussiMiniPos/JussiMiniPos.csproj` rather than the `.iss` script, and never change its
 `AppId`.
 
 The project currently has no automated test suite. For every code or XAML

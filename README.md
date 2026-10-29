@@ -1,7 +1,7 @@
 <h1 align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="Assets/Icons/jussi-mini-pos-logo-dark.svg">
-    <img src="Assets/Icons/jussi-mini-pos-logo.svg" width="340" alt="Jussi mini-POS">
+    <source media="(prefers-color-scheme: dark)" srcset="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo-dark.svg">
+    <img src="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo.svg" width="340" alt="Jussi mini-POS">
   </picture>
 </h1>
 
@@ -40,7 +40,7 @@
 
 ## 📥 Download
 
-<a href="https://github.com/jussipalanen/jussi-mini-pos/releases/latest/download/JussiMiniPos-setup.exe"><img src="Assets/Icons/icon/android-chrome-192x192.png" width="32" height="32" alt=""> <b>Download the latest Windows installer (JussiMiniPos-setup.exe)</b></a>
+<a href="https://github.com/jussipalanen/jussi-mini-pos/releases/latest/download/JussiMiniPos-setup.exe"><img src="src/JussiMiniPos/Assets/Icons/icon/android-chrome-192x192.png" width="32" height="32" alt=""> <b>Download the latest Windows installer (JussiMiniPos-setup.exe)</b></a>
 
 Run the downloaded file and follow the setup wizard. It needs Windows 10 or
 newer (64-bit) and nothing else — the .NET runtime is included. Older versions
@@ -92,17 +92,18 @@ dotnet restore
 ### 3. Build and run
 
 ```powershell
-dotnet run
+dotnet run --project src/JussiMiniPos
 ```
 
 The WPF main window opens. `dotnet run` builds first, so a separate
-`dotnet build` is only needed when you want to compile without launching.
+`dotnet build` is only needed when you want to compile without launching;
+run at the repository root, it builds everything in `JussiMiniPos.slnx`.
 
 Stop the app by closing its window, or with `Ctrl+C` in the terminal.
 
 ### Running from Visual Studio
 
-1. Open `JussiMiniPos.csproj` (File → Open → Project/Solution).
+1. Open `JussiMiniPos.slnx` (File → Open → Project/Solution).
 2. Make sure `JussiMiniPos` is the startup project.
 3. Press `F5` to run with the debugger, or `Ctrl+F5` to run without it.
 
@@ -112,18 +113,19 @@ After a build, the executable is in the build output folder:
 
 ```powershell
 dotnet build
-.\bin\Debug\net10.0-windows\JussiMiniPos.exe
+.\src\JussiMiniPos\bin\Debug\net10.0-windows\JussiMiniPos.exe
 ```
 
 ### Release build
 
 ```powershell
-dotnet run -c Release
+dotnet run --project src/JussiMiniPos -c Release
 # or produce a distributable folder:
-dotnet publish -c Release -r win-x64 --self-contained false
+dotnet publish src/JussiMiniPos -c Release -r win-x64 --self-contained false
 ```
 
-The published output lands in `bin\Release\net10.0-windows\win-x64\publish\`.
+The published output lands in
+`src\JussiMiniPos\bin\Release\net10.0-windows\win-x64\publish\`.
 
 That build is small — under 3 MB — but it needs the **.NET 10 Desktop
 Runtime** on the machine that runs it. Not the plain runtime: WPF needs the
@@ -131,7 +133,7 @@ Desktop one. To hand the application to a machine that has nothing installed,
 publish it self-contained instead:
 
 ```powershell
-dotnet publish -c Release -r win-x64 --self-contained true `
+dotnet publish src/JussiMiniPos -c Release -r win-x64 --self-contained true `
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 ```
 
@@ -161,7 +163,7 @@ Publishing a GitHub release does this automatically:
 [`.github/workflows/release.yml`](.github/workflows/release.yml) builds the
 installer from the release's tag and attaches it as `JussiMiniPos-setup.exe`,
 which is what the [download link](#-download) at the top points to. The workflow
-fails if the tag and `<Version>` in `JussiMiniPos.csproj` disagree, so bump the
+fails if the tag and `<Version>` in `src/JussiMiniPos/JussiMiniPos.csproj` disagree, so bump the
 version before tagging. `releases/latest` skips drafts and pre-releases, so the
 link keeps pointing at the previous release until a new one is published as
 neither. To rebuild the installer for a release that already exists, run the
@@ -207,10 +209,23 @@ info* → *Run anyway*). A code-signing certificate is the only real fix.
 <details>
 <summary><b>What lives where in the repository</b></summary>
 
+The repository root holds the solution, documentation and tooling:
+
+| Path                   | Purpose                                                |
+| ---------------------- | ------------------------------------------------------ |
+| `JussiMiniPos.slnx`    | Solution; `dotnet build` at the root builds every project in it |
+| `src/JussiMiniPos/`    | The WPF application (table below)                      |
+| `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
+| `.github/`             | CI, CodeQL, dependency review, the release workflow and Dependabot |
+| `docker-compose.yml`   | A local PostgreSQL for development                     |
+| `database.env.example` | Template for choosing and configuring the database     |
+| `CHANGELOG.md`, `ROADMAP.md` | What changed in each release, and what comes next |
+
+The application, under `src/JussiMiniPos/`:
+
 | Path                   | Purpose                                                |
 | ---------------------- | ------------------------------------------------------ |
 | `JussiMiniPos.csproj`  | Project file (`net10.0-windows`, WPF enabled)          |
-| `CHANGELOG.md`         | What changed in each release                            |
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
 | `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView`, `ReportsView`, `AdminView`, `ProfileView`, `LoginWindow` and their dialogs; `Pager` is shared paging state |
@@ -219,7 +234,6 @@ info* → *Run anyway*). A code-signing certificate is the only real fix.
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` / `--ask` / `--user-*` / `--version` handling |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml`, the Lucide `.svg` sources, `jussi-mini-pos-logo.svg` and its `-dark` variant for this README |
 | `Assets/Icons/icon/`   | Application icon; `favicon.ico` is embedded in the exe  |
-| `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
 | `AssemblyInfo.cs`      | Assembly-level theme configuration                     |
 
 Build output (`bin/`, `obj/`) is generated locally and is not tracked in git.
@@ -699,7 +713,7 @@ never been through Admin:
 
 ```powershell
 $env:GEMINI_API_KEY = "..."
-dotnet run
+dotnet run --project src/JussiMiniPos
 ```
 
 | Setting | Stored in | Default |

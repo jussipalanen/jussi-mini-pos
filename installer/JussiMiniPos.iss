@@ -15,11 +15,11 @@
 #define AppExeName "JussiMiniPos.exe"
 
 ; Where "dotnet publish -c Release -r win-x64 --self-contained true" leaves it.
-#define PublishDir "..\bin\Release\net10.0-windows\win-x64\publish"
+#define PublishDir "..\src\JussiMiniPos\bin\Release\net10.0-windows\win-x64\publish"
 #define AppExe PublishDir + "\" + AppExeName
 
 #if !FileExists(AppExe)
-  #error Publish the application first: run installer\build.ps1, or dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
+  #error Publish the application first: run installer\build.ps1, or dotnet publish src\JussiMiniPos -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true
 #endif
 
 ; .NET writes <Version> into ProductVersion and appends "+<commit>" to it when
@@ -68,7 +68,7 @@ MinVersion=10.0
 
 OutputDir=Output
 OutputBaseFilename={#AppName}-{#AppVersion}-setup
-SetupIconFile=..\Assets\Icons\icon\favicon.ico
+SetupIconFile=..\src\JussiMiniPos\Assets\Icons\icon\favicon.ico
 
 ; The payload is a self-contained single file of about 136 MB, nearly all of
 ; it the .NET runtime, which compresses well. Solid compression helps because
