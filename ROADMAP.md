@@ -1,4 +1,4 @@
-# Roadmap
+﻿# Roadmap
 
 What comes next for JussiMiniPos, in the order it should be built. Each phase
 lists what is in scope and what "done" means. When an item ships, tick it here
@@ -116,6 +116,9 @@ The *High* items marked *1.0.0* under [Missing features](#missing-features):
 barcodes, cash payment, returns and refunds, receipt printing with shop details,
 and backup and restore. Opening and closing the till and the end-of-day report
 follow cash payment. (The audit log shipped with 2.2.)
+
+- [x] Barcodes: an EAN-13, EAN-8 or UPC-A code per product, checked and unique,
+      and scanner input in Kassa that adds the product straight to the cart.
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 

@@ -89,7 +89,7 @@
                 <!-- Search -->
                 <TextBox Grid.Row="0"
                          Style="{StaticResource SearchBox}"
-                         Tag="Hae tuotenumerolla tai nimellä…"
+                         Tag="Hae nimellä, tuotenumerolla tai viivakoodilla…"
                          Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
 
                 <!-- Category filter -->

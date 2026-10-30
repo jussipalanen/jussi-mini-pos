@@ -28,6 +28,12 @@ public sealed record Product(
     public IReadOnlyList<string> Images { get; init; } = [];
 
     /// <summary>
+    /// The EAN or UPC code a scanner reads off the package, or null when the
+    /// product has none. Unique across the catalogue; see <see cref="Models.Barcode"/>.
+    /// </summary>
+    public string? Barcode { get; init; }
+
+    /// <summary>
     /// The VAT rate the price includes. Required, so no product can be built
     /// without one and reach the till untaxed.
     /// </summary>
