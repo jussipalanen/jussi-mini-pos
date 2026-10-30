@@ -51,7 +51,7 @@ public sealed class ReportsRepository(Database database)
             {
                 days.Add(new ReportDay(
                     DateOnly.ParseExact(reader.GetString(0), "yyyy-MM-dd", CultureInfo.InvariantCulture).ToDateTime(TimeOnly.MinValue),
-                    reader.GetInt64(1), reader.GetInt64(3), SalesRepository.FromCents(reader.GetInt64(2))));
+                    reader.GetInt64(1), reader.GetInt64(3), Money.FromCents(reader.GetInt64(2))));
             }
         }
 
@@ -69,7 +69,7 @@ public sealed class ReportsRepository(Database database)
             while (reader.Read())
             {
                 products.Add(new ReportProduct(reader.GetInt32(0), reader.GetString(1),
-                    reader.GetInt64(2), SalesRepository.FromCents(reader.GetInt64(3))));
+                    reader.GetInt64(2), Money.FromCents(reader.GetInt64(3))));
             }
         }
 
@@ -88,7 +88,7 @@ public sealed class ReportsRepository(Database database)
             {
                 var name = reader.GetString(0);
                 categories.Add(new ReportCategory(name.Length == 0 ? "Ei kategoriaa" : name,
-                    reader.GetInt64(1), SalesRepository.FromCents(reader.GetInt64(2))));
+                    reader.GetInt64(1), Money.FromCents(reader.GetInt64(2))));
             }
         }
 
@@ -109,8 +109,8 @@ public sealed class ReportsRepository(Database database)
             {
                 vat.Add(new VatLine(
                     reader.IsDBNull(0) ? null : reader.GetInt32(0),
-                    SalesRepository.FromCents(reader.GetInt64(1)),
-                    reader.IsDBNull(0) || reader.IsDBNull(2) ? null : SalesRepository.FromCents(reader.GetInt64(2))));
+                    Money.FromCents(reader.GetInt64(1)),
+                    reader.IsDBNull(0) || reader.IsDBNull(2) ? null : Money.FromCents(reader.GetInt64(2))));
             }
         }
 
@@ -149,13 +149,13 @@ public sealed class ReportsRepository(Database database)
                 items = [];
                 var timestamp = DateTimeOffset.Parse(reader.GetString(1), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
                 sales.Add(new Sale(TimeZoneInfo.ConvertTime(timestamp, ReportTimeZone),
-                    SalesRepository.FromCents(reader.GetInt64(2)),
+                    Money.FromCents(reader.GetInt64(2)),
                     SalesRepository.ParsePaymentMethod(reader.GetString(3)),
                     items)
                 {
                     Id = id,
-                    Rounding = SalesRepository.FromCents(reader.GetInt64(4)),
-                    CashReceived = reader.IsDBNull(5) ? null : SalesRepository.FromCents(reader.GetInt64(5)),
+                    Rounding = Money.FromCents(reader.GetInt64(4)),
+                    CashReceived = reader.IsDBNull(5) ? null : Money.FromCents(reader.GetInt64(5)),
                 });
                 previousId = id;
             }

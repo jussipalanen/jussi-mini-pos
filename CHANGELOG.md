@@ -30,6 +30,13 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   - Upgrading records every earlier sale as an unrounded card payment, which is
     what they were.
 
+### Changed
+
+- Extracted `JussiMiniPos.Core`, a plain .NET 10 library containing the shared
+  models, money and VAT arithmetic, role permissions, public-product filter
+  and idle-session rule. The desktop app references it without changing till
+  behaviour. Added portable domain tests that reference only Core.
+
 ## [1.0.0-beta.5] - 2026-10-29
 
 ### Added

@@ -40,7 +40,7 @@ public sealed record Product(
     public required VatRate Vat { get; init; }
 
     /// <summary>The inverse of <see cref="IsPublic"/>, for badges and triggers.</summary>
-    public bool IsHidden => !IsPublic;
+    public bool IsHidden => !ProductVisibility.IsVisible(this);
 
     /// <summary>Every category name, for the management list.</summary>
     public string CategoryNames => string.Join(", ", Categories.Select(c => c.Title));

@@ -252,7 +252,9 @@ The repository root holds the solution, documentation and tooling:
 | Path                   | Purpose                                                |
 | ---------------------- | ------------------------------------------------------ |
 | `JussiMiniPos.slnx`    | Solution; `dotnet build` at the root builds every project in it |
+| `src/JussiMiniPos.Core/` | Shared models, money/VAT and domain rules (`net10.0`; no WPF or database dependencies) |
 | `src/JussiMiniPos/`    | The WPF application (table below)                      |
+| `tests/JussiMiniPos.Core.Tests/` | Portable domain tests referencing only Core |
 | `tests/JussiMiniPos.Tests/` | xUnit tests, run against SQLite and PostgreSQL    |
 | `global.json`          | Selects Microsoft.Testing.Platform for `dotnet test`   |
 | `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
@@ -264,6 +266,11 @@ The repository root holds the solution, documentation and tooling:
 | `database.env.example` | Template for choosing and configuring the database     |
 | `CHANGELOG.md`, `ROADMAP.md` | What changed in each release, and what comes next |
 
+Core keeps the existing `JussiMiniPos.Models` namespace for domain types and
+`JussiMiniPos.Services` for the pure `IdleSession` rule. The desktop app
+references it; repositories, file storage, authentication and remote calls
+stay in the desktop project. Future API code can reference Core directly.
+
 The application, under `src/JussiMiniPos/`:
 
 | Path                   | Purpose                                                |
@@ -272,7 +279,6 @@ The application, under `src/JussiMiniPos/`:
 | `App.xaml(.cs)`        | Entry point, merged resources, `fi-FI` culture setup   |
 | `MainWindow.xaml(.cs)` | Shell window; hosts one view and handles navigation    |
 | `Views/`               | `StartView`, `CheckoutView`, `PaymentView`, `ProductsView`, `CategoriesView`, `SalesView`, `ReportsView`, `AdminView`, `ProfileView`, `LoginWindow` and their dialogs; `Pager` is shared paging state |
-| `Models/`              | `Product`, `Category`, `CartLine`, `Sale`, `SalesReport`, `PaymentMethod`, `User` |
 | `Services/`            | `Database`, `CatalogRepository`, `SalesRepository`, `ReportsRepository`, `CatalogSeeder`, `ImageStore`, `DemoCatalog`, `OptionsRepository`, `UserRepository`, `PasswordHasher`, `PasswordGenerator`, `AppInfo`, and the assistant's `ProductSearch`, `ShoppingAssistant`, `GeminiClient`, `AiSettings` |
 | `CommandLine.cs`       | `--seed` / `--dump` / `--clear` / `--ask` / `--user-*` / `--version` handling |
 | `Assets/`              | `Styles.xaml`, `Icons.xaml`, the Lucide `.svg` sources, `jussi-mini-pos-logo.svg` and its `-dark` variant for this README |
@@ -765,7 +771,9 @@ made from the command line are recorded as `komentorivi (<Windows account>)`.
 - Money is an **integer number of cents**, not a floating point type. SQLite
   has no decimal type, and binary floating point cannot hold values like `0.10`
   exactly, so a column of `REAL` totals drifts once you start summing it for
-  reports. `SalesRepository.FromCents` converts back for display.
+  reports. `Money.ToCents` and `Money.FromCents` in Core convert between euros
+  and cents.
+  The existing `SalesRepository` helpers forward to these for compatibility.
 - Aggregates are wrapped in `CAST(... AS BIGINT)`. SQLite hands back whatever
   the sum fits in, but PostgreSQL widens `SUM` over a `bigint` to `numeric`,
   which `GetInt64` refuses.

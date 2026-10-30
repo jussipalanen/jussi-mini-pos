@@ -38,9 +38,9 @@ public sealed class SalesRepository(Database database)
         Database.AddParameter(insertSale, "@totalCents", ToCents(sale.Total));
         Database.AddParameter(insertSale, "@paymentMethod", sale.PaymentMethod.ToString());
         Database.AddParameter(insertSale, "@soldBy", sale.SoldBy, DbType.String);
-        Database.AddParameter(insertSale, "@roundingCents", ToCents(sale.Rounding));
+        Database.AddParameter(insertSale, "@roundingCents", Money.ToCents(sale.Rounding));
         Database.AddParameter(insertSale, "@cashReceivedCents",
-            sale.CashReceived is { } cash ? ToCents(cash) : null, DbType.Int64);
+            sale.CashReceived is { } cash ? Money.ToCents(cash) : null, DbType.Int64);
 
         var saleId = Convert.ToInt64(insertSale.ExecuteScalar(), CultureInfo.InvariantCulture);
 
@@ -107,8 +107,8 @@ public sealed class SalesRepository(Database database)
                 Id = id,
                 Void = ReadVoid(reader, 4),
                 SoldBy = reader.IsDBNull(7) ? null : reader.GetString(7),
-                Rounding = FromCents(reader.GetInt64(8)),
-                CashReceived = reader.IsDBNull(9) ? null : FromCents(reader.GetInt64(9)),
+                Rounding = Money.FromCents(reader.GetInt64(8)),
+                CashReceived = reader.IsDBNull(9) ? null : Money.FromCents(reader.GetInt64(9)),
             });
         }
 
@@ -229,9 +229,9 @@ public sealed class SalesRepository(Database database)
     internal static PaymentMethod ParsePaymentMethod(string value) =>
         Enum.TryParse<PaymentMethod>(value, out var parsed) ? parsed : PaymentMethod.Card;
 
-    public static long ToCents(decimal amount) =>
-        (long)decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero);
+    /// <summary>Compatibility entry point; shared money rules live in Core.</summary>
+    public static long ToCents(decimal amount) => Money.ToCents(amount);
 
-    /// <summary>Kept next to <see cref="ToCents"/> so the two stay in step when reading rows back.</summary>
-    public static decimal FromCents(long cents) => cents / 100m;
+    /// <summary>Compatibility entry point; shared money rules live in Core.</summary>
+    public static decimal FromCents(long cents) => Money.FromCents(cents);
 }
