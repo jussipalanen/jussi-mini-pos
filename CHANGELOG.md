@@ -64,6 +64,15 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   - Restoring checks the file, asks, keeps a backup of the current state,
     and restarts the till. Backups and restores are in the audit log.
   - PostgreSQL is backed up on the server with `pg_dump`; the README says how.
+- **REST API foundation** in `src/JussiMiniPos.Api`, targeting plain .NET 10
+  and referencing Core. Includes an anonymous `GET /api/v1/health` liveness
+  check, development OpenAPI and Scalar documentation at `/docs`, and Finnish
+  problem responses that keep exception details out of responses. HTTPS is
+  required. This slice does not connect to a database or expose shop data.
+- **API endpoint tests** in `tests/JussiMiniPos.Api.Tests`, covering liveness,
+  documentation and local assets, production docs restrictions, HTTPS and
+  error handling. They run in the Windows solution suite and separately on
+  Linux in CI.
 
 ### Changed
 
