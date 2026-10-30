@@ -5,7 +5,9 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d"
              d:DesignHeight="760" d:DesignWidth="1200"
-             FontFamily="Segoe UI">
+             FontFamily="Segoe UI"
+             Loaded="UserControl_Loaded"
+             PreviewTextInput="UserControl_PreviewTextInput">
 
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
@@ -77,10 +79,28 @@
                                    VerticalAlignment="Center" />
                     </DockPanel>
 
-                    <TextBox Grid.Row="1"
-                             Style="{StaticResource SearchBox}"
-                             Tag="Hae tuotenumerolla tai nimellä…"
-                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                    <StackPanel Grid.Row="1">
+                        <TextBox x:Name="SearchBox"
+                                 Style="{StaticResource SearchBox}"
+                                 Tag="Hae nimellä, tuotenumerolla tai viivakoodilla…"
+                                 AutomationProperties.Name="Hae tuotteita"
+                                 KeyDown="SearchBox_KeyDown"
+                                 Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" />
+                        <!-- What the last scan did: added a product, or found nothing -->
+                        <TextBlock Margin="2,8,0,0" FontSize="13" TextWrapping="Wrap"
+                                   Text="{Binding ScanMessage}"
+                                   Visibility="{Binding HasScanMessage, Converter={StaticResource BoolToVis}}">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock" BasedOn="{StaticResource Text.Muted}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsScanError}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource Brush.Danger}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </StackPanel>
 
                     <ListBox Grid.Row="2"
                              Margin="0,14,0,10"
@@ -219,7 +239,7 @@
                                         HorizontalAlignment="Center" />
                         <TextBlock Text="Ostoskori on tyhjä" Style="{StaticResource Text.Muted}"
                                    Margin="0,14,0,0" HorizontalAlignment="Center" />
-                        <TextBlock Text="Valitse tuote ja lisää se koriin."
+                        <TextBlock Text="Lue viivakoodi tai valitse tuote ja lisää se koriin."
                                    Style="{StaticResource Text.Muted}" FontSize="12"
                                    Margin="0,4,0,0" HorizontalAlignment="Center" />
                     </StackPanel>

@@ -1,4 +1,4 @@
-<h1 align="center">
+﻿<h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo-dark.svg">
     <img src="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo.svg" width="340" alt="Jussi mini-POS">
@@ -623,9 +623,10 @@ Categories                    Products
                               ├── PriceCents      (VAT included)
 ProductImages                 ├── SalePriceCents  (NULL = not on offer)
 ├── Id                        ├── IsPublic (0/1)
-├── ProductId → Products.Id   └── VatRateId → VatRates.Id
-├── Path
-└── SortOrder                 ProductCategories
+├── ProductId → Products.Id   ├── VatRateId → VatRates.Id
+├── Path                      └── Barcode  (UNIQUE, NULL = none)
+└── SortOrder
+                              ProductCategories
                               ├── ProductId  → Products.Id
 VatRates                      └── CategoryId → Categories.Id
 ├── Id                            (composite primary key)
@@ -641,6 +642,24 @@ rather than a column; its extra images do too.
 `SalePriceCents` is `NULL` when there is no offer, so "is this discounted" is a
 null check rather than a sentinel price. The till charges
 `Product.EffectivePrice`, which is the offer price when one applies.
+
+#### Barcodes
+
+A product can carry one barcode: EAN-13, EAN-8 or UPC-A (12 digits, as a
+scanner reports it). Enter it under **Viivakoodi** in the product editor, by
+typing or by scanning into the field. The editor checks the check digit, so a
+mistyped code is refused rather than saved to never match, and refuses a code
+another product already has, naming that product. `Products.Barcode` is
+unique; any number of products may have none.
+
+At the till, scan with any USB or Bluetooth scanner that acts as a keyboard
+(the usual default) and ends a code with Enter. Kassa keeps its search box
+focused, and digits typed while a button or list has focus go to the search box
+too, so a scan never presses the focused button. A scanned code that matches a
+product adds one to the cart, whatever category is selected, and the box is
+emptied for the next scan. A code that matches nothing shows *Viivakoodilla …
+ei löytynyt tuotetta*. Hidden products are not sold, so their codes are not
+found. Typing part of a code searches as before, in Kassa and Tuotteet alike.
 
 #### VAT (ALV)
 
@@ -696,7 +715,10 @@ The steps from before PostgreSQL support only ever fire against a SQLite file
 old enough to predate them. The VAT columns came after both engines, so their
 steps run on either: they add `Products.VatRateId` and the `SaleItems` VAT
 columns, write the default rates into an empty `VatRates`, and put existing
-products on the general rate.
+products on the general rate. Barcodes came later still: the migration adds
+`Products.Barcode` and creates its unique index `UX_Products_Barcode`, which
+lives there rather than in the schema because the schema runs before an older
+table has the column.
 
 One migration does more than add a column. `ProductCategories.SortOrder` records
 the order the links were written, so the first category a product was given
@@ -712,8 +734,9 @@ Sales                         SaleItems
 ├── Id                        ├── Id
 ├── DateTime   (ISO 8601)     ├── SaleId  → Sales.Id
 ├── TotalCents (integer)      ├── ProductId
-└── PaymentMethod             ├── Name
-                              ├── Category
+├── PaymentMethod (Card/Cash) ├── Name
+├── RoundingCents  (cash)     ├── Category
+└── CashReceivedCents         │
                               ├── UnitPriceCents
                               ├── Quantity
                               ├── VatRateBasisPoints  (NULL = sold before VAT was recorded)
@@ -729,6 +752,29 @@ VAT-inclusive total and rounded to the cent; the receipt and Raportit's
 recorded keep `NULL` and are listed as *ALV ei tiedossa* rather than given an
 invented figure.
 
+#### Cash payment
+
+**Maksa** offers *Maksukortti* and *Käteinen*. Cash opens a step where the
+seller types what the customer handed over, or picks *Tasaraha* or the next
+note up. The change is shown as it is typed, *Vastaanota käteinen* (or Enter)
+stores the sale, and the done screen shows **Anna takaisin** in large type.
+The amount must cover the total; the button stays disabled until it does.
+
+Cash totals are rounded to the nearest five cents, as Finnish shops do: endings
+1–2 and 6–7 round down, 3–4 and 8–9 up. Card payments are never rounded. The
+lines and their VAT stay exactly as sold, and the difference is stored as
+`Sales.RoundingCents`, so `TotalCents` is what was actually charged (lines plus
+rounding). Raportit's totals are that charged amount; its product, category and
+VAT breakdowns are line amounts, so over a period with cash sales they can
+differ from the total by the rounding. `CashReceivedCents` is the cash handed
+over (`NULL` for card); the change is the difference and is not stored twice.
+The receipt shows *Välisumma*, *Pyöristys*, *Käteinen* and *Takaisin* for a
+cash sale.
+
+Rounding is on by default. An administrator turns it off in **Admin → Kassa**
+(stored as the option `Till.RoundCash`), which applies to every till on the
+database and is recorded in the audit log.
+
 #### Voiding a sale
 
 A sale is never deleted. **Myynti → Mitätöi** marks it voided instead —
@@ -743,7 +789,8 @@ summary. Voiding needs a signed-in **manager or administrator**
 
 `AuditLog` records sign-ins (and failed ones), sign-outs, voids, product
 creation, edits and deletion with the before and after of price, offer price,
-VAT and visibility, VAT rate changes, and user account changes — who, when
+VAT, visibility and barcode, VAT rate changes, user account changes and till
+settings such as cash rounding — who, when
 and what. Each change writes its entry in its own transaction, so a change
 cannot be stored without its entry. The log is append-only: nothing in the
 application updates or deletes it. Administrators read it in **Admin →
@@ -984,7 +1031,7 @@ and the model, all described above.
 | Tuotteet, kategoriat, ALV-kannat | | ✓ | ✓ |
 | Myynti, mitätöinti | | ✓ | ✓ |
 | Raportit | | ✓ | ✓ |
-| Admin, Käyttäjät, Tapahtumaloki | | | ✓ |
+| Admin, Käyttäjät, Kassa-asetukset, Tapahtumaloki | | | ✓ |
 
 Opening a view while signed out shows the login prompt with a line saying why,
 rather than simply refusing; signed in as a role that may not, it says so and

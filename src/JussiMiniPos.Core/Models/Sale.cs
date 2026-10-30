@@ -42,6 +42,9 @@ public sealed record SaleVoid(DateTimeOffset At, string By, string Reason)
 }
 
 /// <summary>A completed, paid checkout.</summary>
+/// <param name="Total">
+/// What the customer was charged: the sum of the lines plus <see cref="Rounding"/>.
+/// </param>
 public sealed record Sale(
     DateTimeOffset SoldAt,
     decimal Total,
@@ -65,6 +68,26 @@ public sealed record Sale(
     /// account. Null for sales made before sign-in was required at the till.
     /// </summary>
     public string? SoldBy { get; init; }
+
+    /// <summary>
+    /// What cash rounding added to the lines, from -0,02 to +0,02 €; zero for
+    /// card and for cash when the shop does not round. Kept apart from the
+    /// lines so their VAT stays exactly what was sold.
+    /// </summary>
+    public decimal Rounding { get; init; }
+
+    /// <summary>The cash the customer handed over, or null for a card payment.</summary>
+    public decimal? CashReceived { get; init; }
+
+    /// <summary>Change given back, for a cash sale.</summary>
+    public decimal? Change => CashReceived is { } received ? received - Total : null;
+
+    /// <summary>The lines added up, before any rounding.</summary>
+    public decimal Subtotal => Items.Sum(item => item.LineTotal);
+
+    public bool HasRounding => Rounding != 0m;
+
+    public bool IsCash => CashReceived is not null;
 
     /// <summary>For the void button: a sale is voided once, not twice.</summary>
     public bool CanBeVoided => Void is null;
@@ -95,7 +118,7 @@ public sealed record Sale(
         ? Items.Sum(item => item.VatAmount ?? 0m)
         : null;
 
-    /// <summary>Builds a sale from the current contents of the cart.</summary>
+    /// <summary>Builds a card sale from the current contents of the cart.</summary>
     public static Sale FromCart(IEnumerable<CartLine> cart, PaymentMethod paymentMethod)
     {
         var items = cart
@@ -113,5 +136,32 @@ public sealed record Sale(
             items.Sum(item => item.LineTotal),
             paymentMethod,
             items);
+    }
+
+    /// <summary>
+    /// What a cash customer is asked for: the cart's total, rounded to five
+    /// cents when <paramref name="roundCash"/> is on.
+    /// </summary>
+    public static decimal CashTotal(decimal subtotal, bool roundCash) =>
+        roundCash ? CashRounding.Round(subtotal) : subtotal;
+
+    /// <summary>Builds a cash sale, with its rounding and the cash handed over.</summary>
+    /// <exception cref="ArgumentException">The cash does not cover the total.</exception>
+    public static Sale FromCartForCash(IEnumerable<CartLine> cart, bool roundCash, decimal cashReceived)
+    {
+        var sale = FromCart(cart, PaymentMethod.Cash);
+        var total = CashTotal(sale.Total, roundCash);
+
+        if (cashReceived < total)
+        {
+            throw new ArgumentException("Annettu käteinen ei riitä maksuun.", nameof(cashReceived));
+        }
+
+        return sale with
+        {
+            Total = total,
+            Rounding = total - sale.Total,
+            CashReceived = cashReceived,
+        };
     }
 }

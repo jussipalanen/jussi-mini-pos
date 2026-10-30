@@ -702,7 +702,7 @@ public static class CommandLine
         // Columns named *Cents are rendered as euros by WriteTable.
         WriteTable(connection,
             $"""
-            SELECT p.Id AS "Id", p.Title AS "Title",
+            SELECT p.Id AS "Id", p.Title AS "Title", p.Barcode AS "Barcode",
                    p.PriceCents AS "PriceCents",
                    p.SalePriceCents AS "SalePriceCents",
                    (SELECT v.BasisPoints FROM VatRates v WHERE v.Id = p.VatRateId) AS "VatBasisPoints",

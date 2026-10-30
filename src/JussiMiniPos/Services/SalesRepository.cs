@@ -30,14 +30,17 @@ public sealed class SalesRepository(Database database)
         insertSale.Transaction = transaction;
         insertSale.CommandText =
             """
-            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod, SoldBy)
-            VALUES (@dateTime, @totalCents, @paymentMethod, @soldBy)
+            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod, SoldBy, RoundingCents, CashReceivedCents)
+            VALUES (@dateTime, @totalCents, @paymentMethod, @soldBy, @roundingCents, @cashReceivedCents)
             RETURNING Id;
             """;
         Database.AddParameter(insertSale, "@dateTime", sale.SoldAt.ToString("o", CultureInfo.InvariantCulture));
         Database.AddParameter(insertSale, "@totalCents", ToCents(sale.Total));
         Database.AddParameter(insertSale, "@paymentMethod", sale.PaymentMethod.ToString());
         Database.AddParameter(insertSale, "@soldBy", sale.SoldBy, DbType.String);
+        Database.AddParameter(insertSale, "@roundingCents", Money.ToCents(sale.Rounding));
+        Database.AddParameter(insertSale, "@cashReceivedCents",
+            sale.CashReceived is { } cash ? Money.ToCents(cash) : null, DbType.Int64);
 
         var saleId = Convert.ToInt64(insertSale.ExecuteScalar(), CultureInfo.InvariantCulture);
 
@@ -82,7 +85,8 @@ public sealed class SalesRepository(Database database)
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT Id, "DateTime", TotalCents, PaymentMethod, VoidedAt, VoidedBy, VoidReason, SoldBy
+            SELECT Id, "DateTime", TotalCents, PaymentMethod, VoidedAt, VoidedBy, VoidReason, SoldBy,
+                   RoundingCents, CashReceivedCents
             FROM Sales
             ORDER BY Id DESC;
             """;
@@ -103,6 +107,8 @@ public sealed class SalesRepository(Database database)
                 Id = id,
                 Void = ReadVoid(reader, 4),
                 SoldBy = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Rounding = Money.FromCents(reader.GetInt64(8)),
+                CashReceived = reader.IsDBNull(9) ? null : Money.FromCents(reader.GetInt64(9)),
             });
         }
 
@@ -220,7 +226,7 @@ public sealed class SalesRepository(Database database)
     /// Stored as the enum name. An unknown one means a method this build does
     /// not have; show it as Card rather than failing to list the sale.
     /// </summary>
-    private static PaymentMethod ParsePaymentMethod(string value) =>
+    internal static PaymentMethod ParsePaymentMethod(string value) =>
         Enum.TryParse<PaymentMethod>(value, out var parsed) ? parsed : PaymentMethod.Card;
 
     /// <summary>Compatibility entry point; shared money rules live in Core.</summary>

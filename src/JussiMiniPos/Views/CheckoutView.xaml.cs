@@ -8,6 +8,7 @@ using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using System.Windows.Input;
 using System.Windows.Media;
 using JussiMiniPos.Models;
 using JussiMiniPos.Services;
@@ -29,6 +30,8 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     private ProductRow? _selectedProduct;
     private decimal _total;
     private int _itemCount;
+    private string _scanMessage = string.Empty;
+    private bool _isScanError;
 
     public CheckoutView(CatalogRepository catalog, ImageStore images, ShoppingAssistant assistant)
     {
@@ -80,6 +83,7 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
 
             _searchText = value;
             OnPropertyChanged();
+            ShowScanMessage(string.Empty, isError: false);
             RefreshProducts();
         }
     }
@@ -139,6 +143,14 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
         _productsView.Count == 1 ? "1 tuote" : $"{_productsView.Count} tuotetta";
 
     public bool HasNoSearchResults => _productsView.Count == 0;
+
+    /// <summary>What the last scan did, until the search text changes again.</summary>
+    public string ScanMessage => _scanMessage;
+
+    public bool HasScanMessage => _scanMessage.Length > 0;
+
+    /// <summary>True when the last scan matched nothing, so the message shows in red.</summary>
+    public bool IsScanError => _isScanError;
 
     /// <summary>Sum of every cart line, in euros.</summary>
     public decimal Total
@@ -203,7 +215,80 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
         }
 
         return product.Id.ToString().Contains(search, StringComparison.OrdinalIgnoreCase)
-            || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase);
+            || product.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+            || product.Barcode?.Contains(search, StringComparison.Ordinal) == true;
+    }
+
+    private void ShowScanMessage(string message, bool isError)
+    {
+        _scanMessage = message;
+        _isScanError = isError;
+        OnPropertyChanged(nameof(ScanMessage));
+        OnPropertyChanged(nameof(HasScanMessage));
+        OnPropertyChanged(nameof(IsScanError));
+    }
+
+    /// <summary>
+    /// A scanner types the code into the focused field and presses Enter, so
+    /// Enter in the search box looks the text up as a barcode. A match goes
+    /// straight into the cart, whatever category is selected, and the box is
+    /// emptied for the next scan. Hidden products are not in the till's list,
+    /// so their codes are not found.
+    /// </summary>
+    private void SearchBox_KeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        var code = Barcode.Normalize(SearchText);
+        if (code.Length == 0)
+        {
+            return;
+        }
+
+        e.Handled = true;
+
+        var match = _productsView.SourceCollection
+            .Cast<ProductRow>()
+            .FirstOrDefault(row => row.Product.Barcode == code);
+
+        if (match is { Product: var product })
+        {
+            AddToCart(product);
+            SearchText = string.Empty;
+            ShowScanMessage($"Lisätty: {product.Name}", isError: false);
+            return;
+        }
+
+        // Only something shaped like a barcode is reported, so Enter after
+        // typing part of a name does not claim a scan failed.
+        if (code.All(char.IsAsciiDigit) && Barcode.Lengths.Contains(code.Length))
+        {
+            ShowScanMessage($"Viivakoodilla {code} ei löytynyt tuotetta.", isError: true);
+            SearchBox.SelectAll();
+        }
+    }
+
+    private void UserControl_Loaded(object sender, RoutedEventArgs e) => SearchBox.Focus();
+
+    /// <summary>
+    /// Sends digits typed while a button or list has focus to the search box.
+    /// Without this a scan after clicking, say, Maksa would type into nothing
+    /// and its closing Enter would press the focused button.
+    /// </summary>
+    private void UserControl_PreviewTextInput(object sender, TextCompositionEventArgs e)
+    {
+        if (e.OriginalSource is TextBox || e.Text.Length == 0 || !e.Text.All(char.IsAsciiDigit))
+        {
+            return;
+        }
+
+        e.Handled = true;
+        SearchBox.Focus();
+        SearchText += e.Text;
+        SearchBox.CaretIndex = SearchBox.Text.Length;
     }
 
     private void RefreshProducts()
