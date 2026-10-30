@@ -215,11 +215,17 @@
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                 </ItemsControl>
-                <Button Style="{StaticResource Button.Primary}" Width="140" Margin="0,18,0,0"
-                        HorizontalAlignment="Right"
-                        Content="Sulje" IsCancel="True" IsDefault="True"
-                        AutomationProperties.Name="Sulje"
-                        Click="Close_Click" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                    <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="18,0" Margin="0,0,10,0"
+                            Content="Tulosta kuitti"
+                            AutomationProperties.Name="Tulosta kuitti"
+                            Visibility="{Binding CanPrint, Converter={StaticResource BoolToVis}}"
+                            Click="Print_Click" />
+                    <Button Style="{StaticResource Button.Primary}" Width="140"
+                            Content="Sulje" IsCancel="True" IsDefault="True"
+                            AutomationProperties.Name="Sulje"
+                            Click="Close_Click" />
+                </StackPanel>
             </StackPanel>
         </Grid>
     </Border>

@@ -150,11 +150,22 @@ public partial class RefundWindow : Window, INotifyPropertyChanged
             return false;
         }
 
-        MessageBox.Show(window,
-            refund!.PaymentMethod == PaymentMethod.Cash
-                ? $"Palautus tallennettu.\n\nAnna asiakkaalle {refund.Total:N2} € käteisenä."
-                : $"Palautus tallennettu.\n\nHyvitä {refund.Total:N2} € asiakkaan maksukortille maksupäätteellä.",
-            "Palautus", MessageBoxButton.OK, MessageBoxImage.Information);
+        var told = refund!.PaymentMethod == PaymentMethod.Cash
+            ? $"Palautus tallennettu.\n\nAnna asiakkaalle {refund.Total:N2} € käteisenä."
+            : $"Palautus tallennettu.\n\nHyvitä {refund.Total:N2} € asiakkaan maksukortille maksupäätteellä.";
+
+        var lines = Receipts.ForRefund(sale, refund, settings.Shop);
+        if (settings.AutoPrint)
+        {
+            MessageBox.Show(window, told, "Palautus", MessageBoxButton.OK, MessageBoxImage.Information);
+            ReceiptPrinting.TryPrint(owner, lines, settings, $"Palautuskuitti #{refund.Id}");
+        }
+        else if (MessageBox.Show(window, told + "\n\nTulostetaanko palautuskuitti?", "Palautus",
+            MessageBoxButton.YesNo, MessageBoxImage.Information) == MessageBoxResult.Yes)
+        {
+            ReceiptPrinting.TryPrint(owner, lines, settings, $"Palautuskuitti #{refund.Id}");
+        }
+
         return true;
     }
 

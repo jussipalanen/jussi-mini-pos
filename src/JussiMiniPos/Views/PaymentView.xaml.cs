@@ -30,6 +30,7 @@ public partial class PaymentView : UserControl, INotifyPropertyChanged
     /// <summary>The signed-in seller, recorded on the sale.</summary>
     private readonly string _soldBy;
 
+    private readonly TillSettings _settings;
     private readonly bool _roundCash;
 
     private PaymentState _state = PaymentState.ChoosingMethod;
@@ -38,8 +39,8 @@ public partial class PaymentView : UserControl, INotifyPropertyChanged
     private string _cashReceivedText = string.Empty;
     private Sale? _savedSale;
 
-    /// <param name="roundCash">Round cash totals to five cents; see <see cref="TillSettings"/>.</param>
-    public PaymentView(IReadOnlyList<CartLine> cart, SalesRepository repository, string soldBy, bool roundCash)
+    /// <param name="settings">Cash rounding, and how receipts are printed.</param>
+    public PaymentView(IReadOnlyList<CartLine> cart, SalesRepository repository, string soldBy, TillSettings settings)
     {
         InitializeComponent();
 
@@ -47,7 +48,8 @@ public partial class PaymentView : UserControl, INotifyPropertyChanged
         _cart = [.. cart];
         _repository = repository;
         _soldBy = soldBy;
-        _roundCash = roundCash;
+        _settings = settings;
+        _roundCash = settings.RoundCash;
 
         QuickAmounts = [new QuickAmount(CashTotal, "Tasaraha"), .. Notes
             .Select(note => Math.Ceiling(CashTotal / note) * note)
@@ -253,6 +255,13 @@ public partial class PaymentView : UserControl, INotifyPropertyChanged
             OnPropertyChanged(nameof(SavedChange));
             OnPropertyChanged(nameof(HasSavedChange));
             SetState(PaymentState.Completed);
+
+            // After the state change, so the done screen is up behind the
+            // print dialog, and a printer problem cannot undo the sale.
+            if (_settings.AutoPrint)
+            {
+                PrintReceipt();
+            }
         }
         catch (Exception ex)
         {
@@ -274,6 +283,16 @@ public partial class PaymentView : UserControl, INotifyPropertyChanged
         OnPropertyChanged(nameof(IsFailed));
         OnPropertyChanged(nameof(CanCancel));
     }
+
+    private void PrintReceipt()
+    {
+        if (_savedSale is { } sale)
+        {
+            ReceiptPrinting.TryPrint(this, Receipts.ForSale(sale, _settings.Shop, isCopy: false), _settings, $"Kuitti #{sale.Id}");
+        }
+    }
+
+    private void PrintReceipt_Click(object sender, RoutedEventArgs e) => PrintReceipt();
 
     private void Cancel_Click(object sender, RoutedEventArgs e) => Cancelled?.Invoke();
 

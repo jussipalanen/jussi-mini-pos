@@ -745,6 +745,45 @@ summary. Voiding needs a signed-in **manager or administrator**
 (`User.CanVoidSales`) and a reason, and cannot be undone or repeated. A sale
 that has had money refunded against it can no longer be voided.
 
+#### Receipts and printing
+
+Receipts print through an ordinary **Windows printer**: a thermal receipt
+printer with its Windows driver, an office printer, or *Microsoft Print to
+PDF* to try it out. There is no raw ESC/POS, so the till does not open a cash
+drawer by itself.
+
+Set it up in **Admin → Kassa**:
+
+- **Kauppa:** the business name, Y-tunnus (checked, including its check
+  digit), address, an optional phone number and a footer line. A Finnish
+  receipt has to name the seller and its business ID.
+- **Kuittitulostin:** the printer, the paper width (80 mm or 58 mm), and
+  whether to print automatically after every sale and refund. *Kysy joka
+  kerta* asks for a printer each time; *Tulosta testikuitti* prints a sample.
+
+What prints:
+
+- **After a sale**, automatically when that is on, or with **Tulosta kuitti**
+  on the done screen.
+- **A copy** from **Myynti → Näytä → Tulosta kuitti**, marked *KUITIN KOPIO*
+  and listing any refunds and a void.
+- **A refund receipt** (*PALAUTUSKUITTI*) after each refund, automatically or
+  when the till asks, with the original receipt number, who refunded it and
+  why, and negative amounts.
+
+Each receipt carries the shop's details, the receipt number, date and time as
+the till's clock showed them, the seller, each item (with *quantity × unit
+price* when more than one), cash rounding, the total, how it was paid (cash
+given and change), and the VAT per rate: VAT-free amount, VAT and amount with
+VAT. The content is built in Core (`Receipts`), where it is tested without a
+printer; `ReceiptPrinter` only lays it out. A printer that fails shows a
+message and never undoes the sale.
+
+The shop details and settings are stored in `Options` (`Shop.*`, `Receipt.*`)
+and apply to every till on the database; changes are in the audit log. The
+printer is a name on one computer, so a till that does not have the stored
+printer asks which to use.
+
 #### Returns and refunds
 
 A refund is its own record, linked to the sale and the lines it returns; the

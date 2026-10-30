@@ -125,6 +125,9 @@ follow cash payment. (The audit log shipped with 2.2.)
 - [x] Returns and refunds: a refund linked to the original sale and its lines,
       as its own record, never by editing the sale. Sellers refund their own
       sales of the day; managers any sale.
+- [x] Receipt printing with shop details: business name, Y-tunnus, address and
+      VAT breakdown on every receipt, printed through Windows printers, with
+      copies and refund receipts. No ESC/POS, so no cash-drawer kick.
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 

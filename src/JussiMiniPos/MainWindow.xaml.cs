@@ -321,7 +321,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username, settings.RoundCash);
+        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username, settings);
         view.Cancelled += ShowCheckoutView;
         view.Finished += StartNewSale;
         ViewHost.Content = view;

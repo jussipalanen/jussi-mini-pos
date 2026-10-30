@@ -2,39 +2,106 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Kassan asetukset"
-        Width="560" SizeToContent="Height"
+        Width="620" Height="760" MinHeight="480"
         WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
         FontFamily="Segoe UI"
         Background="{StaticResource Brush.Background}">
 
     <Border Style="{StaticResource Card}" Margin="18" Padding="0">
-        <StackPanel>
-            <StackPanel Margin="22,20,22,0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="22,20,22,0">
                 <TextBlock Text="Kassan asetukset" Style="{StaticResource Text.SectionHeader}" />
                 <TextBlock Style="{StaticResource Text.Muted}" Margin="0,6,0,0" TextWrapping="Wrap"
                            Text="Asetukset koskevat kaikkia samaa tietokantaa käyttäviä kassoja. Muutokset kirjataan tapahtumalokiin." />
                 <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,0" />
             </StackPanel>
 
-            <StackPanel Margin="22,16,22,0">
-                <TextBlock Text="Käteinen" Style="{StaticResource Text.SectionHeader}" FontSize="16" />
-                <CheckBox x:Name="RoundCashBox" Margin="0,10,0,0"
-                          Style="{StaticResource FormCheckBox}"
-                          AutomationProperties.Name="Pyöristä käteismaksut"
-                          Content="Pyöristä käteismaksut lähimpään 5 senttiin" />
-                <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
-                           Text="Korttimaksuja ei pyöristetä. Pyöristys tallennetaan myyntiin omana summanaan, eikä se muuta tuoterivien arvonlisäveroa." />
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="22,16,22,0">
+                <StackPanel>
+                    <!-- ===== Shop details for the receipt ===== -->
+                    <TextBlock Text="Kauppa" Style="{StaticResource Text.SectionHeader}" FontSize="16" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="Kuitissa on oltava myyjän nimi ja Y-tunnus." />
 
-                <TextBlock x:Name="ErrorText"
-                           Style="{StaticResource Text.Muted}"
-                           Foreground="{StaticResource Brush.Danger}"
-                           TextWrapping="Wrap" Margin="0,14,0,0"
-                           Visibility="Collapsed" />
-            </StackPanel>
+                    <TextBlock Text="Nimi" Style="{StaticResource Text.Muted}" Margin="0,12,0,6" />
+                    <TextBox x:Name="ShopNameBox" Style="{StaticResource FormBox}" AutomationProperties.Name="Kaupan nimi" />
 
-            <StackPanel Margin="22,0,22,20">
-                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,18,0,16" />
+                    <Grid Margin="0,12,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="14" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Y-tunnus" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                            <TextBox x:Name="BusinessIdBox" Style="{StaticResource FormBox}" AutomationProperties.Name="Y-tunnus" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="Puhelin (valinnainen)" Style="{StaticResource Text.Muted}" Margin="0,0,0,6" />
+                            <TextBox x:Name="PhoneBox" Style="{StaticResource FormBox}" AutomationProperties.Name="Puhelin" />
+                        </StackPanel>
+                    </Grid>
+
+                    <TextBlock Text="Osoite" Style="{StaticResource Text.Muted}" Margin="0,12,0,6" />
+                    <TextBox x:Name="AddressBox" Style="{StaticResource FormBox}"
+                             Height="58" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"
+                             AutomationProperties.Name="Osoite" />
+
+                    <TextBlock Text="Kuitin alateksti" Style="{StaticResource Text.Muted}" Margin="0,12,0,6" />
+                    <TextBox x:Name="FooterBox" Style="{StaticResource FormBox}"
+                             Height="44" TextWrapping="Wrap" AcceptsReturn="True" VerticalContentAlignment="Top"
+                             AutomationProperties.Name="Kuitin alateksti" />
+
+                    <!-- ===== Cash ===== -->
+                    <TextBlock Text="Käteinen" Style="{StaticResource Text.SectionHeader}" FontSize="16" Margin="0,22,0,0" />
+                    <CheckBox x:Name="RoundCashBox" Margin="0,10,0,0"
+                              Style="{StaticResource FormCheckBox}"
+                              AutomationProperties.Name="Pyöristä käteismaksut"
+                              Content="Pyöristä käteismaksut lähimpään 5 senttiin" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,6,0,0" TextWrapping="Wrap"
+                               Text="Korttimaksuja ei pyöristetä. Pyöristys tallennetaan myyntiin omana summanaan, eikä se muuta tuoterivien arvonlisäveroa." />
+
+                    <!-- ===== Receipt printer ===== -->
+                    <TextBlock Text="Kuittitulostin" Style="{StaticResource Text.SectionHeader}" FontSize="16" Margin="0,22,0,0" />
+                    <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,4,0,0" TextWrapping="Wrap"
+                               Text="Mikä tahansa Windowsiin asennettu tulostin, myös lämpökuittitulostin ajurin kanssa. Kokeile tulostamalla Microsoft Print to PDF -tulostimelle." />
+
+                    <TextBlock Text="Tulostin" Style="{StaticResource Text.Muted}" Margin="0,12,0,6" />
+                    <ComboBox x:Name="PrinterList" Height="38" AutomationProperties.Name="Kuittitulostin" />
+
+                    <TextBlock Text="Paperin leveys" Style="{StaticResource Text.Muted}" Margin="0,12,0,6" />
+                    <ListBox x:Name="WidthList"
+                             Style="{StaticResource ChipList}"
+                             ItemContainerStyle="{StaticResource ChipItem}"
+                             SelectionMode="Single"
+                             AutomationProperties.Name="Paperin leveys" />
+
+                    <CheckBox x:Name="AutoPrintBox" Margin="0,12,0,0"
+                              Style="{StaticResource FormCheckBox}"
+                              AutomationProperties.Name="Tulosta kuitti automaattisesti"
+                              Content="Tulosta kuitti automaattisesti jokaisesta myynnistä ja palautuksesta" />
+
+                    <Button Style="{StaticResource Button.Ghost}" Height="38" Padding="14,0" Margin="0,12,0,0"
+                            HorizontalAlignment="Left"
+                            Content="Tulosta testikuitti" AutomationProperties.Name="Tulosta testikuitti"
+                            Click="TestPrint_Click" />
+
+                    <TextBlock x:Name="ErrorText"
+                               Style="{StaticResource Text.Muted}"
+                               Foreground="{StaticResource Brush.Danger}"
+                               TextWrapping="Wrap" Margin="0,14,0,0"
+                               Visibility="Collapsed" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" Margin="22,0,22,20">
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,16,0,16" />
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
                             Content="Peruuta" IsCancel="True"
@@ -46,6 +113,6 @@
                             Click="Save_Click" />
                 </StackPanel>
             </StackPanel>
-        </StackPanel>
+        </Grid>
     </Border>
 </Window>

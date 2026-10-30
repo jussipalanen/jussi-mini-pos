@@ -90,7 +90,9 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        new SaleDetailsWindow(sale) { Owner = Window.GetWindow(this) }.ShowDialog();
+        var settings = TillSettings.Default;
+        ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options));
+        new SaleDetailsWindow(sale, settings) { Owner = Window.GetWindow(this) }.ShowDialog();
     }
 
     /// <summary>

@@ -249,11 +249,17 @@
 
                     <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,26,0,0" />
 
-                    <Button Style="{StaticResource Button.Primary}"
-                            Margin="0,22,0,0"
-                            Click="Finish_Click"
-                            AutomationProperties.Name="Uusi myynti"
-                            Content="Uusi myynti" />
+                    <DockPanel Margin="0,22,0,0">
+                        <Button DockPanel.Dock="Left" Style="{StaticResource Button.Ghost}"
+                                Height="52" Padding="18,0" Margin="0,0,10,0"
+                                Click="PrintReceipt_Click"
+                                AutomationProperties.Name="Tulosta kuitti"
+                                Content="Tulosta kuitti" />
+                        <Button Style="{StaticResource Button.Primary}"
+                                Click="Finish_Click"
+                                AutomationProperties.Name="Uusi myynti"
+                                Content="Uusi myynti" />
+                    </DockPanel>
                 </StackPanel>
 
                 <!-- ===== 4. Something went wrong ===== -->

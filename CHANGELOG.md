@@ -45,6 +45,17 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
     figure. Myynti's total is net of refunds, and a refunded sale has a
     *Palautettu* badge and lists its refunds on the receipt.
   - Every refund is in the audit log.
+- **Receipt printing with shop details.** Receipts print through any Windows
+  printer: a thermal receipt printer with its driver, an office printer, or
+  Microsoft Print to PDF.
+  - **Admin → Kassa** holds the business name, Y-tunnus (with its check digit
+    verified), address, phone and footer, plus the printer, paper width (80 or
+    58 mm) and automatic printing, and can print a test receipt.
+  - A receipt prints after each sale (automatically, or with *Tulosta kuitti*
+    on the done screen), as a marked copy from Myynti, and as a refund receipt
+    after each refund.
+  - Each receipt shows the shop and Y-tunnus, the items, cash rounding, the
+    total, how it was paid with the change, and the VAT per rate.
 
 ### Changed
 
