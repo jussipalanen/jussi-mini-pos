@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.Common;
 using System.Globalization;
 using Microsoft.Data.Sqlite;
@@ -251,7 +251,11 @@ public sealed class SqliteDialect : SqlDialect
             PriceCents     INTEGER NOT NULL DEFAULT 0,
             SalePriceCents INTEGER     NULL,
             IsPublic       INTEGER NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1)),
-            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT
+            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT,
+            -- EAN or UPC digits as text, so leading zeros survive. NULL when
+            -- the product has none; the unique index on it is created by the
+            -- migrations, after the column is certain to exist.
+            Barcode        TEXT        NULL
         );
 
         -- A product's gallery. FeatureImage above is the single image used in
@@ -471,7 +475,8 @@ public sealed class PostgreSqlDialect : SqlDialect
             PriceCents     BIGINT  NOT NULL DEFAULT 0,
             SalePriceCents BIGINT      NULL,
             IsPublic       BIGINT  NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1)),
-            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT
+            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT,
+            Barcode        TEXT        NULL
         );
 
         CREATE TABLE IF NOT EXISTS ProductImages (

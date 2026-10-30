@@ -61,6 +61,8 @@
 
                             <TextBlock Text="{Binding Product.Id, StringFormat=Tuotenumero {0}}"
                                        Style="{StaticResource Text.Muted}" Margin="0,6,0,0" />
+                            <TextBlock Text="{Binding Product.Barcode, StringFormat=Viivakoodi {0}, TargetNullValue=Ei viivakoodia}"
+                                       Style="{StaticResource Text.Muted}" Margin="0,2,0,0" />
 
                             <StackPanel Orientation="Horizontal" Margin="0,10,0,0" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Product.EffectivePrice, StringFormat={}{0:N2} €}"

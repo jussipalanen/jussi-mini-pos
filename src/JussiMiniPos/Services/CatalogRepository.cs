@@ -93,7 +93,8 @@ public sealed class CatalogRepository(Database database)
         command.CommandText =
             $"""
             SELECT Id, Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic,
-                   COALESCE(VatRateId, (SELECT Id FROM VatRates ORDER BY BasisPoints DESC, Id LIMIT 1))
+                   COALESCE(VatRateId, (SELECT Id FROM VatRates ORDER BY BasisPoints DESC, Id LIMIT 1)),
+                   Barcode
             FROM Products
             {(conditions.Count == 0 ? string.Empty : "WHERE " + string.Join(" AND ", conditions))}
             ORDER BY Id;
@@ -118,6 +119,7 @@ public sealed class CatalogRepository(Database database)
             {
                 Images = imagesByProduct.TryGetValue(id, out var images) ? images : [],
                 Vat = vatRates[reader.GetInt32(7)],
+                Barcode = reader.IsDBNull(8) ? null : reader.GetString(8),
             });
         }
 
@@ -232,6 +234,7 @@ public sealed class CatalogRepository(Database database)
     }
 
     /// <summary>The values a product edit or insert writes.</summary>
+    /// <param name="Barcode">A validated EAN or UPC code, or null for none.</param>
     public sealed record ProductDraft(
         string Title,
         string Description,
@@ -241,7 +244,27 @@ public sealed class CatalogRepository(Database database)
         bool IsPublic,
         string? FeatureImage,
         IReadOnlyList<int> CategoryIds,
-        IReadOnlyList<string> Images);
+        IReadOnlyList<string> Images,
+        string? Barcode = null);
+
+    /// <summary>The product already carrying a barcode, for the duplicate check.</summary>
+    public sealed record BarcodeOwner(int Id, string Title);
+
+    /// <summary>
+    /// Which product has <paramref name="barcode"/>, hidden ones included, or
+    /// null when none does. The unique index refuses a duplicate anyway; this
+    /// lets the editor say which product already has it.
+    /// </summary>
+    public BarcodeOwner? FindBarcodeOwner(string barcode)
+    {
+        using var connection = database.OpenConnection();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id, Title FROM Products WHERE Barcode = @barcode;";
+        Database.AddParameter(command, "@barcode", barcode);
+
+        using var reader = command.ExecuteReader();
+        return reader.Read() ? new BarcodeOwner(reader.GetInt32(0), reader.GetString(1)) : null;
+    }
 
     /// <summary>Adds a product and returns the id SQLite assigned.</summary>
     public int InsertProduct(ProductDraft draft)
@@ -253,8 +276,8 @@ public sealed class CatalogRepository(Database database)
         insert.Transaction = transaction;
         insert.CommandText =
             """
-            INSERT INTO Products (Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic, VatRateId)
-            VALUES (@title, @description, @priceCents, @salePriceCents, @featureImage, @isPublic, @vatRateId)
+            INSERT INTO Products (Title, Description, PriceCents, SalePriceCents, FeatureImage, IsPublic, VatRateId, Barcode)
+            VALUES (@title, @description, @priceCents, @salePriceCents, @featureImage, @isPublic, @vatRateId, @barcode)
             RETURNING Id;
             """;
         AddProductParameters(insert, draft);
@@ -268,14 +291,16 @@ public sealed class CatalogRepository(Database database)
         database.Audit.Record(connection, transaction, AuditActions.ProductCreated,
             $"{created.Title} ({id}): {AuditLog.Money(created.Price)}"
             + (created.SalePrice is { } sale ? $", tarjous {AuditLog.Money(sale)}" : string.Empty)
-            + $", ALV {created.VatText}");
+            + $", ALV {created.VatText}"
+            + (created.Barcode is { } barcode ? $", viivakoodi {barcode}" : string.Empty));
 
         transaction.Commit();
         return id;
     }
 
     /// <summary>The fields an audit entry about a product mentions, as stored.</summary>
-    private sealed record AuditSnapshot(string Title, decimal Price, decimal? SalePrice, int? VatBasisPoints, bool IsPublic)
+    private sealed record AuditSnapshot(
+        string Title, decimal Price, decimal? SalePrice, int? VatBasisPoints, bool IsPublic, string? Barcode)
     {
         public string VatText => VatBasisPoints is { } rate ? Vat.FormatPercent(rate) : "–";
 
@@ -288,7 +313,7 @@ public sealed class CatalogRepository(Database database)
         command.Transaction = transaction;
         command.CommandText =
             """
-            SELECT p.Title, p.PriceCents, p.SalePriceCents, v.BasisPoints, p.IsPublic
+            SELECT p.Title, p.PriceCents, p.SalePriceCents, v.BasisPoints, p.IsPublic, p.Barcode
             FROM Products p LEFT JOIN VatRates v ON v.Id = p.VatRateId
             WHERE p.Id = @id;
             """;
@@ -305,7 +330,8 @@ public sealed class CatalogRepository(Database database)
             SalesRepository.FromCents(reader.GetInt64(1)),
             reader.IsDBNull(2) ? null : SalesRepository.FromCents(reader.GetInt64(2)),
             reader.IsDBNull(3) ? null : reader.GetInt32(3),
-            reader.GetInt64(4) != 0);
+            reader.GetInt64(4) != 0,
+            reader.IsDBNull(5) ? null : reader.GetString(5));
     }
 
     /// <summary>"hinta 2,50 € → 2,80 €; ALV 13,5 % → 25,5 %", or what else changed.</summary>
@@ -337,6 +363,11 @@ public sealed class CatalogRepository(Database database)
             changes.Add(after.IsPublic ? "näytetään kassassa" : "piilotettu kassasta");
         }
 
+        if (before.Barcode != after.Barcode)
+        {
+            changes.Add($"viivakoodi {before.Barcode ?? "–"} → {after.Barcode ?? "–"}");
+        }
+
         return changes.Count == 0 ? "kuvaus, kuvat tai kategoriat" : string.Join("; ", changes);
     }
 
@@ -364,7 +395,8 @@ public sealed class CatalogRepository(Database database)
                        SalePriceCents = @salePriceCents,
                        FeatureImage = @featureImage,
                        IsPublic = @isPublic,
-                       VatRateId = @vatRateId
+                       VatRateId = @vatRateId,
+                       Barcode = @barcode
                  WHERE Id = @id;
                 """;
             Database.AddParameter(command, "@id", id);
@@ -506,6 +538,9 @@ public sealed class CatalogRepository(Database database)
         Database.AddParameter(command, "@featureImage", (object?)draft.FeatureImage ?? DBNull.Value);
         Database.AddParameter(command, "@isPublic", draft.IsPublic ? 1 : 0);
         Database.AddParameter(command, "@vatRateId", draft.VatRateId);
+
+        // Typed, because PostgreSQL refuses an untyped NULL.
+        Database.AddParameter(command, "@barcode", draft.Barcode, System.Data.DbType.String);
     }
 
     private static void WriteCategories(

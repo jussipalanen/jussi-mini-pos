@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -28,6 +29,7 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
 {
     private readonly ImageStore _images;
     private readonly Product? _product;
+    private readonly Func<string, CatalogRepository.BarcodeOwner?> _findBarcodeOwner;
 
     /// <summary>Files copied in during this session, to undo on cancel.</summary>
     private readonly List<string> _imported = [];
@@ -41,12 +43,14 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
         Product? product,
         IReadOnlyList<Category> categories,
         IReadOnlyList<VatRate> vatRates,
-        ImageStore images)
+        ImageStore images,
+        Func<string, CatalogRepository.BarcodeOwner?> findBarcodeOwner)
     {
         InitializeComponent();
 
         _product = product;
         _images = images;
+        _findBarcodeOwner = findBarcodeOwner;
 
         IsNew = product is null;
         WindowTitle = IsNew ? "Uusi tuote" : "Muokkaa tuotetta";
@@ -58,6 +62,7 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
         DescriptionBox.Text = product?.Description ?? string.Empty;
         PriceBox.Text = product?.Price.ToString("N2", CultureInfo.CurrentCulture) ?? string.Empty;
         SalePriceBox.Text = product?.SalePrice?.ToString("N2", CultureInfo.CurrentCulture) ?? string.Empty;
+        BarcodeBox.Text = product?.Barcode ?? string.Empty;
         PublicBox.IsChecked = product?.IsPublic ?? true;
 
         FeatureImage = product?.FeatureImage is { } feature ? Entry(feature) : null;
@@ -330,6 +335,35 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
             return false;
         }
 
+        var barcode = Barcode.Normalize(BarcodeBox.Text);
+        if (barcode.Length > 0)
+        {
+            if (Barcode.Validate(barcode) is { } invalid)
+            {
+                error = invalid;
+                return false;
+            }
+
+            // Asked here so the message can name the other product; the
+            // unique index would refuse the save anyway.
+            CatalogRepository.BarcodeOwner? owner;
+            try
+            {
+                owner = _findBarcodeOwner(barcode);
+            }
+            catch (DbException ex)
+            {
+                error = $"Viivakoodia ei voitu tarkistaa: {ex.Message}";
+                return false;
+            }
+
+            if (owner is not null && owner.Id != _product?.Id)
+            {
+                error = $"Viivakoodi on jo tuotteella {owner.Title} ({owner.Id}).";
+                return false;
+            }
+        }
+
         Draft = new CatalogRepository.ProductDraft(
             title,
             DescriptionBox.Text.Trim(),
@@ -339,7 +373,8 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
             PublicBox.IsChecked == true,
             _featureImage?.RelativePath,
             categoryIds,
-            [.. GalleryImages.Select(i => i.RelativePath)]);
+            [.. GalleryImages.Select(i => i.RelativePath)],
+            barcode.Length > 0 ? barcode : null);
 
         return true;
     }

@@ -7,6 +7,19 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **Barcodes.** A product can have an EAN-13, EAN-8 or UPC-A code, entered in
+  the product editor by typing or scanning. The check digit is verified, and a
+  code already on another product is refused with that product's name.
+  - In Kassa, scanning a code adds the product to the cart straight away, in
+    any category view, and empties the search for the next scan. An unknown
+    code says so. Digits typed while a button has focus go to the search box,
+    so a scan's closing Enter never presses a button.
+  - Kassa and Tuotteet also find products by part of their barcode; the product
+    view shows it, `--dump` lists it, and barcode changes are in the audit log.
+  - Upgrading adds an empty barcode to every existing product.
+
 ## [1.0.0-beta.5] - 2026-10-29
 
 ### Added
