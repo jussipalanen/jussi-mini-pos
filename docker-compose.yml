@@ -1,23 +1,44 @@
-# A PostgreSQL server for developing and testing the PostgreSQL driver, and
-# pgAdmin to look inside it from a browser.
+# Local development API, PostgreSQL and pgAdmin.
 #
 # This is a development convenience, not how the till is deployed. A real
 # installation points at a PostgreSQL server that is already running
 # somewhere; nothing in the application knows or cares that this one is a
 # container.
 #
-#   ./dev up                      start both (or: docker compose up -d)
+#   ./dev up                      build the API and start all services
 #   ./dev down                    stop them, keeping the data
 #   ./dev restart                 recreate the containers, keeping the data
 #   ./dev reset                   stop them and throw the data away
 #
 # pgAdmin is at http://localhost:5050, already connected to the server.
+# API docs are at https://localhost:7240/docs (local self-signed certificate).
 #
-# The credentials here are deliberately trivial: both services listen on
-# localhost only and hold nothing but demo data. Do not reuse them anywhere
-# that matters.
+# The database credentials here are deliberately trivial. All published ports
+# listen on localhost only; do not reuse these credentials anywhere that matters.
 
 services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: https://+:8443
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /https/localhost.crt
+      ASPNETCORE_Kestrel__Certificates__Default__KeyPath: /https/localhost.key
+    ports:
+      - "127.0.0.1:${JUSSIMINIPOS_API_PORT:-7240}:8443"
+    volumes:
+      - api-https:/https
+    healthcheck:
+      # A local self-signed certificate is intentional for this dev service.
+      test: ["CMD", "curl", "--fail", "--silent", "--insecure", "https://localhost:8443/api/v1/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+
   postgres:
     image: postgres:17
     container_name: jussipos-pg
@@ -77,5 +98,6 @@ services:
       - ./docker/pgadmin/pgpass:/pgpass:ro
 
 volumes:
+  api-https:
   postgres-data:
   pgadmin-data:

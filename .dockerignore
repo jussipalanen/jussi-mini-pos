@@ -1,0 +1,21 @@
+# Only the API, Core and development image tooling belong in this context.
+**
+!src/
+!src/JussiMiniPos.Api/
+!src/JussiMiniPos.Api/**
+!src/JussiMiniPos.Core/
+!src/JussiMiniPos.Core/**
+!docker/
+!docker/api/
+!docker/api/**
+**/bin/
+**/obj/
+**/database.env
+**/.env
+**/.env.*
+**/*.local.json
+**/appsettings.*.Local.json
+**/*.pfx
+**/*.key
+**/*.pem
+**/*.p12

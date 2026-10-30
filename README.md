@@ -251,7 +251,28 @@ shared persistence, demo mode, catalogue routes and authentication follow in
 later slices. It does not open a database, read `database.env` or access the
 desktop application's data folder.
 
-For local development, set up the SDK's HTTPS development certificate once:
+Start the backend with PostgreSQL and pgAdmin in Docker:
+
+```powershell
+./dev up
+```
+
+This builds the API from the current source and waits for all three services
+to become healthy. Docs are at `https://localhost:7240/docs`, and health is at
+`https://localhost:7240/api/v1/health`. Use `./dev logs api` for backend logs,
+`./dev restart` to rebuild after code changes, and `./dev down` to stop the
+stack while keeping its volumes. The host only needs Docker for this flow.
+
+The API creates a self-signed localhost certificate inside the `api-https`
+volume on first start. Your browser may ask you to accept it. The certificate
+survives rebuilds and normal shutdowns; `./dev reset` removes it together with
+the development database volumes after confirmation. No host certificate
+store or desktop keys are used. Set `JUSSIMINIPOS_API_PORT` before starting
+to use a port other than 7240.
+
+To run the backend directly with the .NET SDK instead, first stop the Docker
+API with `docker compose stop api`, then set up the SDK's development
+certificate once and start the host:
 
 ```powershell
 dotnet dev-certs https --trust
@@ -273,7 +294,8 @@ HTTP requests receive a Finnish `400` response asking for HTTPS.
 Outside Development, `/docs` and `/openapi/v1.json` return `404`. Hosting
 without the launch profile requires an explicitly configured HTTPS listener
 and certificate through the standard ASP.NET Core/Kestrel configuration.
-TLS termination at a reverse proxy is not configured in this slice.
+TLS termination at a reverse proxy is not configured in this slice. The
+Dockerfile under `docker/api` is for local development, not production hosting.
 
 Run only the API endpoint tests (also run on Linux in CI):
 
@@ -300,9 +322,10 @@ The repository root holds the solution, documentation and tooling:
 | `global.json`          | Selects Microsoft.Testing.Platform for `dotnet test`   |
 | `installer/`           | Inno Setup script and `build.ps1`; output is not tracked |
 | `.github/`             | CI, CodeQL, dependency review, the release workflow and Dependabot |
-| `docker-compose.yml`   | A local PostgreSQL and pgAdmin for development        |
+| `docker-compose.yml`   | Local development API, PostgreSQL and pgAdmin        |
 | `dev`, `dev.ps1`       | `./dev up`, `down`, `restart` … for those containers; `dev.ps1` runs `dev` from PowerShell |
 | `docker/pgadmin/`      | pgAdmin's server registration and password file        |
+| `docker/api/`          | API development image and local HTTPS certificate setup |
 | `.gitattributes`       | Keeps `dev` and `docker/` files LF on Windows checkouts |
 | `database.env.example` | Template for choosing and configuring the database     |
 | `CHANGELOG.md`, `ROADMAP.md` | What changed in each release, and what comes next |
@@ -444,8 +467,8 @@ Point it somewhere else — a shared folder, a different drive — with
 #### PostgreSQL, locally
 
 A [`docker-compose.yml`](docker-compose.yml) is included for development: a
-PostgreSQL server and **pgAdmin**, a web UI for looking inside it, much like
-phpMyAdmin is for MySQL. It is a convenience for working on the PostgreSQL
+PostgreSQL server, the development API and **pgAdmin**, a web UI for looking
+inside it, much like phpMyAdmin is for MySQL. It is a convenience for working on the PostgreSQL
 driver and for the tests, **not** how the till is deployed — nothing in the
 application knows it is talking to a container.
 
@@ -455,11 +478,11 @@ bash script; in PowerShell, `./dev` picks [`dev.ps1`](dev.ps1) instead, which
 runs `dev` through Git Bash — so Git for Windows has to be installed.
 
 ```bash
-./dev up         # start PostgreSQL and pgAdmin, and wait until both are ready
+./dev up         # build the API and start all containers; wait until ready
 ./dev down       # stop them; the data is kept
-./dev restart    # recreate both containers (force), keeping the data
+./dev restart    # rebuild the API and recreate containers, keeping the data
 ./dev status     # the containers and their health
-./dev logs       # follow the logs; ./dev logs pgadmin for one service
+./dev logs       # follow the logs; ./dev logs api for only the backend
 ./dev reset      # delete the development data, after asking
 ```
 
@@ -467,12 +490,18 @@ runs `dev` through Git Bash — so Git for Windows has to be installed.
 | ---------- | ----------------------- | ------- |
 | PostgreSQL | `localhost:5432`        | database `jussiminipos`, user `jussipos`, password `jussipos` |
 | pgAdmin    | <http://localhost:5050> | none — opens straight in, with the server already connected |
+| API docs   | <https://localhost:7240/docs> | none — local development documentation |
+| API health | <https://localhost:7240/api/v1/health> | none — process liveness |
 
-Both listen on localhost only, and the credentials are deliberately trivial:
-this is demo data on a developer's machine. pgAdmin runs in its single-user
+All published ports listen on localhost only. The database credentials are
+deliberately trivial: this is demo data on a developer's machine. pgAdmin runs in its single-user
 desktop mode and gets the database password from
 [`docker/pgadmin/pgpass`](docker/pgadmin/pgpass); never expose either service
 on a network like this.
+
+The API's self-signed HTTPS certificate and development commands are described
+in [REST API foundation](#rest-api-foundation). Stop a manually started backend
+before `./dev up` so port 7240 is free. The API currently has no database access.
 
 Then write `database.env`:
 

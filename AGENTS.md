@@ -15,7 +15,7 @@ between the two engines belongs in `Services/SqlDialect.cs` rather than in a
 repository.
 
 The repository root holds `JussiMiniPos.slnx`, documentation, `installer/`,
-`.github/`, `docker-compose.yml` (development PostgreSQL and pgAdmin) and the
+`.github/`, `docker-compose.yml` (development API, PostgreSQL and pgAdmin) and the
 bash `dev` script that wraps it (`./dev up`, `down`, `restart`, `reset`; keep
 `dev` and `docker/` LF-only, see `.gitattributes`). `dev.ps1` only forwards to
 `dev` through Git Bash so `./dev` also works in PowerShell; put new commands in
@@ -23,6 +23,13 @@ bash `dev` script that wraps it (`./dev up`, `down`, `restart`, `reset`; keep
 `src/JussiMiniPos/`; the paths below are relative to it. New projects go under
 `src/` (and tests under `tests/`) and are added to the solution, never placed
 at the root, because an SDK-style project compiles every `.cs` file beneath it.
+
+`./dev up` and `restart` build the API image under `docker/api/` and wait for
+all three containers to be healthy. The local API uses HTTPS on port 7240
+(`JUSSIMINIPOS_API_PORT` overrides it) and creates its certificate in the
+`api-https` Docker volume. Normal shutdown preserves it; reset removes it
+along with development data after confirmation. Never copy host keys into
+the image or expose these development services beyond localhost.
 
 The application is intentionally small and direct:
 

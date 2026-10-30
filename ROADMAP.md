@@ -288,6 +288,8 @@ docker compose --profile demo up
    - [x] API project referencing Core, health check, OpenAPI document,
          development Scalar at `/docs`, Finnish `ProblemDetails` and endpoint
          tests, including a Linux CI job.
+   - [x] Local development API container managed by `./dev`, with HTTPS and a
+         health check. This is separate from the data-backed demo profile.
    - [ ] Demo mode and the demo Compose profile. First share persistence with
          the API after the Phase 2 schema and sale changes settle.
 2. [ ] Read-only catalogue: products, categories and images.
