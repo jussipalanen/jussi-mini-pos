@@ -187,6 +187,24 @@ public sealed class Database
         AddColumnIfMissing(connection, "Sales", "RoundingCents", $"{money} NOT NULL DEFAULT 0");
         AddColumnIfMissing(connection, "Sales", "CashReceivedCents", $"{money} NULL");
 
+        // Added with till sessions. Sales and refunds from before belong to
+        // no session; the indexes are here because the columns may be new.
+        var sessionKey = _settings.Provider == DatabaseProvider.Sqlite ? "INTEGER" : "BIGINT";
+        AddColumnIfMissing(connection, "Sales", "TillSessionId",
+            $"{sessionKey} NULL REFERENCES TillSessions(Id) ON DELETE RESTRICT");
+        AddColumnIfMissing(connection, "Refunds", "TillSessionId",
+            $"{sessionKey} NULL REFERENCES TillSessions(Id) ON DELETE RESTRICT");
+
+        using (var sessionIndexes = connection.CreateCommand())
+        {
+            sessionIndexes.CommandText =
+                """
+                CREATE INDEX IF NOT EXISTS IX_Sales_TillSessionId ON Sales(TillSessionId);
+                CREATE INDEX IF NOT EXISTS IX_Refunds_TillSessionId ON Refunds(TillSessionId);
+                """;
+            sessionIndexes.ExecuteNonQuery();
+        }
+
         // Added with barcodes. The index lives here rather than in the schema
         // because the schema runs first, before an older Products table has
         // the column to index. Both engines let any number of rows share NULL.

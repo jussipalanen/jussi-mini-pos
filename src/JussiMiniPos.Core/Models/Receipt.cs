@@ -183,6 +183,82 @@ public static class Receipts
         return lines;
     }
 
+    /// <summary>
+    /// The end-of-day report for a till session: who opened and closed it, the
+    /// takings per payment method with refunds, voids and rounding, VAT per
+    /// rate, and the cash count. Printed on the receipt printer, so it lives
+    /// with the receipts.
+    /// </summary>
+    public static IReadOnlyList<ReceiptLine> ForTillReport(TillReport report, ShopDetails shop)
+    {
+        var session = report.Session;
+        var lines = Header(shop);
+        lines.Add(new(ReceiptLineKind.Banner, session.IsOpen ? "VÄLIRAPORTTI" : "PÄIVÄN RAPORTTI"));
+        lines.Add(new(ReceiptLineKind.Row, "Kassa", session.Till));
+        lines.Add(new(ReceiptLineKind.Row, $"Avattu ({session.OpenedBy})", Date(session.OpenedAt)));
+        if (session.ClosedAt is { } closedAt)
+        {
+            lines.Add(new(ReceiptLineKind.Row, $"Suljettu ({session.ClosedBy})", Date(closedAt)));
+        }
+        else
+        {
+            lines.Add(new(ReceiptLineKind.Row, "Tulostettu", Date(report.GeneratedAt)));
+        }
+
+        lines.Add(new(ReceiptLineKind.Separator));
+        lines.Add(new(ReceiptLineKind.Row, "Myyntejä", $"{report.SaleCount}"));
+        lines.Add(new(ReceiptLineKind.Row, "Tuotteita", $"{report.ItemCount}"));
+
+        foreach (var payment in report.Payments)
+        {
+            lines.Add(new(ReceiptLineKind.Separator));
+            lines.Add(new(ReceiptLineKind.Row, $"{payment.Name} ({payment.SaleCount})", Amount(payment.Sales)));
+            if (payment.RefundCount > 0)
+            {
+                lines.Add(new(ReceiptLineKind.Row, $"Palautukset ({payment.RefundCount})", Amount(-payment.Refunds)));
+            }
+
+            lines.Add(new(ReceiptLineKind.Detail, $"Netto {Amount(payment.Net)}"));
+        }
+
+        lines.Add(new(ReceiptLineKind.Separator));
+        lines.Add(new(ReceiptLineKind.Total, "YHTEENSÄ", Euros(report.NetTotal)));
+        if (report.RefundCount > 0)
+        {
+            lines.Add(new(ReceiptLineKind.Detail, $"Myynti {Amount(report.GrossSales)}, palautukset {Amount(-report.RefundTotal)}"));
+        }
+
+        if (report.Rounding != 0m)
+        {
+            lines.Add(new(ReceiptLineKind.Row, "Käteisen pyöristykset", Signed(report.Rounding)));
+        }
+
+        if (report.VoidCount > 0)
+        {
+            lines.Add(new(ReceiptLineKind.Row, $"Mitätöidyt ({report.VoidCount}), ei summissa", Amount(report.Voided)));
+        }
+
+        AddVat(lines, report.Vat);
+
+        lines.Add(new(ReceiptLineKind.Separator));
+        lines.Add(new(ReceiptLineKind.Row, "Aloituskassa", Amount(session.OpeningFloat)));
+        lines.Add(new(ReceiptLineKind.Row, "Käteisellä sisään", Amount(report.Payments.FirstOrDefault(p => p.Method == PaymentMethod.Cash)?.Sales ?? 0m)));
+        lines.Add(new(ReceiptLineKind.Row, "Käteisellä ulos", Amount(-(report.Payments.FirstOrDefault(p => p.Method == PaymentMethod.Cash)?.Refunds ?? 0m))));
+        lines.Add(new(ReceiptLineKind.Total, "Kassassa pitäisi olla", Euros(session.ExpectedCash ?? report.ExpectedCash)));
+        if (session.CountedCash is { } counted)
+        {
+            lines.Add(new(ReceiptLineKind.Row, "Laskettu", Amount(counted)));
+            lines.Add(new(ReceiptLineKind.Row, "Erotus", Signed(session.Difference ?? 0m)));
+        }
+
+        if (session.Note is { Length: > 0 } note)
+        {
+            lines.Add(new(ReceiptLineKind.Detail, $"Huomautus: {note}"));
+        }
+
+        return lines;
+    }
+
     private static List<ReceiptLine> Header(ShopDetails shop)
     {
         var lines = new List<ReceiptLine>

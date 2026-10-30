@@ -79,6 +79,9 @@ public sealed record Sale(
     /// </summary>
     public decimal Rounding { get; init; }
 
+    /// <summary>The till session it was rung up in; null for sales from before sessions.</summary>
+    public long? TillSessionId { get; init; }
+
     /// <summary>The cash the customer handed over, or null for a card payment.</summary>
     public decimal? CashReceived { get; init; }
 

@@ -97,6 +97,58 @@ public sealed class ReceiptTests
         Assert.True(Shop.IsComplete);
     }
 
+    [Fact]
+    public void The_end_of_day_report_shows_takings_refunds_vat_and_the_cash_count()
+    {
+        var session = new TillSession(4, "KASSA-1", SoldAt.AddHours(-4), "matti", 100m)
+        {
+            ClosedAt = SoldAt.AddHours(6),
+            ClosedBy = "liisa",
+            ExpectedCash = 102.65m,
+            CountedCash = 102.15m,
+            Note = "Kolikko lattialla",
+        };
+        var report = new TillReport(session,
+            [new PaymentTotal(PaymentMethod.Card, 1, 9.20m, 0, 0m), new PaymentTotal(PaymentMethod.Cash, 1, 5.00m, 1, 2.35m)],
+            [new VatLine(1350, 11.83m, 1.41m)],
+            SaleCount: 2, ItemCount: 4, VoidCount: 1, Voided: 3.00m, Rounding: 0.02m, GeneratedAt: SoldAt);
+
+        var text = Text(Receipts.ForTillReport(report, Shop));
+
+        Assert.Contains("PÄIVÄN RAPORTTI", text);
+        Assert.Contains("Kassa | KASSA-1", text);
+        Assert.Contains("Avattu (matti) | 04.05.2026 08.30", text);
+        Assert.Contains("Suljettu (liisa) | 04.05.2026 18.30", text);
+        Assert.Contains("Myyntejä | 2", text);
+        Assert.Contains("Maksukortti (1) | 9,20", text);
+        Assert.Contains("Käteinen (1) | 5,00", text);
+        Assert.Contains("Palautukset (1) | -2,35", text);
+        Assert.Contains("Netto 2,65", text);
+        Assert.Contains("YHTEENSÄ | 11,85 €", text);
+        Assert.Contains("Käteisen pyöristykset | +0,02", text);
+        Assert.Contains("Mitätöidyt (1), ei summissa | 3,00", text);
+        Assert.Contains("13,5 % | 10,42 | 1,41 | 11,83", text);
+        Assert.Contains("Aloituskassa | 100,00", text);
+        Assert.Contains("Kassassa pitäisi olla | 102,65 €", text);
+        Assert.Contains("Laskettu | 102,15", text);
+        Assert.Contains("Erotus | -0,50", text);
+        Assert.Contains("Huomautus: Kolikko lattialla", text);
+    }
+
+    [Fact]
+    public void A_report_of_an_open_till_is_an_interim_one()
+    {
+        var report = new TillReport(new TillSession(1, "KASSA-1", SoldAt, "matti", 50m),
+            [new PaymentTotal(PaymentMethod.Cash, 0, 0m, 0, 0m)], [], 0, 0, 0, 0m, 0m, SoldAt.AddHours(1));
+
+        var text = Text(Receipts.ForTillReport(report, Shop));
+
+        Assert.Contains("VÄLIRAPORTTI", text);
+        Assert.Contains("Tulostettu | 04.05.2026 13.30", text);
+        Assert.Contains("Kassassa pitäisi olla | 50,00 €", text);
+        Assert.DoesNotContain("Laskettu", text);
+    }
+
     private static readonly DateTimeOffset SoldAt = new(2026, 5, 4, 12, 30, 0, TimeSpan.FromHours(3));
 
     /// <summary>Kahvi 4,50 and two Pulla at 2,48, at 13,5 %, paid with 20 € in cash and rounded to 9,45.</summary>

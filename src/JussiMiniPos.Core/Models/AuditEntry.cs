@@ -43,6 +43,8 @@ public static class AuditActions
     public const string SettingsChanged = "settings-changed";
     public const string BackupCreated = "backup-created";
     public const string BackupRestored = "backup-restored";
+    public const string TillOpened = "till-opened";
+    public const string TillClosed = "till-closed";
 
     public static string Finnish(string action) => action switch
     {
@@ -64,6 +66,8 @@ public static class AuditActions
         SettingsChanged => "Kassan asetuksia muutettu",
         BackupCreated => "Varmuuskopio otettu",
         BackupRestored => "Varmuuskopio palautettu",
+        TillOpened => "Kassa avattu",
+        TillClosed => "Kassa suljettu",
         _ => action,
     };
 }

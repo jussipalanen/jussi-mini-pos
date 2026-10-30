@@ -31,8 +31,8 @@ public sealed class SalesRepository(Database database)
         insertSale.Transaction = transaction;
         insertSale.CommandText =
             """
-            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod, SoldBy, RoundingCents, CashReceivedCents)
-            VALUES (@dateTime, @totalCents, @paymentMethod, @soldBy, @roundingCents, @cashReceivedCents)
+            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod, SoldBy, RoundingCents, CashReceivedCents, TillSessionId)
+            VALUES (@dateTime, @totalCents, @paymentMethod, @soldBy, @roundingCents, @cashReceivedCents, @tillSessionId)
             RETURNING Id;
             """;
         Database.AddParameter(insertSale, "@dateTime", sale.SoldAt.ToString("o", CultureInfo.InvariantCulture));
@@ -42,6 +42,7 @@ public sealed class SalesRepository(Database database)
         Database.AddParameter(insertSale, "@roundingCents", Money.ToCents(sale.Rounding));
         Database.AddParameter(insertSale, "@cashReceivedCents",
             sale.CashReceived is { } cash ? Money.ToCents(cash) : null, DbType.Int64);
+        Database.AddParameter(insertSale, "@tillSessionId", sale.TillSessionId, DbType.Int64);
 
         var saleId = Convert.ToInt64(insertSale.ExecuteScalar(), CultureInfo.InvariantCulture);
 
@@ -284,6 +285,10 @@ public sealed class SalesRepository(Database database)
     /// to zero VAT; a partial return works its VAT out of its own amount.
     /// </remarks>
     /// <param name="roundCash">Round a cash refund to five cents, as the sale would have been.</param>
+    /// <param name="tillSessionId">
+    /// The till session the money leaves from, so a cash refund comes out of
+    /// that drawer's count; null when no till is open here.
+    /// </param>
     /// <exception cref="ArgumentException">No lines, or no reason.</exception>
     /// <exception cref="InvalidOperationException">
     /// The sale is missing or voided, a line is not the sale's, or more is
@@ -295,7 +300,8 @@ public sealed class SalesRepository(Database database)
         PaymentMethod method,
         bool roundCash,
         string refundedBy,
-        string reason)
+        string reason,
+        long? tillSessionId = null)
     {
         reason = reason.Trim();
         if (reason.Length == 0)
@@ -371,8 +377,8 @@ public sealed class SalesRepository(Database database)
         insertRefund.Transaction = transaction;
         insertRefund.CommandText =
             """
-            INSERT INTO Refunds (SaleId, "DateTime", RefundedBy, Reason, PaymentMethod, TotalCents, RoundingCents)
-            VALUES (@saleId, @dateTime, @refundedBy, @reason, @paymentMethod, @totalCents, @roundingCents)
+            INSERT INTO Refunds (SaleId, "DateTime", RefundedBy, Reason, PaymentMethod, TotalCents, RoundingCents, TillSessionId)
+            VALUES (@saleId, @dateTime, @refundedBy, @reason, @paymentMethod, @totalCents, @roundingCents, @tillSessionId)
             RETURNING Id;
             """;
         Database.AddParameter(insertRefund, "@saleId", saleId);
@@ -382,6 +388,7 @@ public sealed class SalesRepository(Database database)
         Database.AddParameter(insertRefund, "@paymentMethod", method.ToString());
         Database.AddParameter(insertRefund, "@totalCents", Money.ToCents(total));
         Database.AddParameter(insertRefund, "@roundingCents", Money.ToCents(total - subtotal));
+        Database.AddParameter(insertRefund, "@tillSessionId", tillSessionId, DbType.Int64);
         var refundId = Convert.ToInt64(insertRefund.ExecuteScalar(), CultureInfo.InvariantCulture);
 
         for (var i = 0; i < refundLines.Count; i++)
