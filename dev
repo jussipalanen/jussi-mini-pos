@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #
-# Short commands for the development containers: PostgreSQL and pgAdmin.
+# Short commands for the development containers: API, PostgreSQL and pgAdmin.
 #
-#   ./dev up              start PostgreSQL and pgAdmin, and wait until both are ready
+#   ./dev up              build the API and start all containers; wait until ready
 #   ./dev down            stop them; the data is kept
-#   ./dev restart         recreate both containers (force), keeping the data
+#   ./dev restart         rebuild the API and recreate containers, keeping the data
 #   ./dev status          show the containers and their health
 #   ./dev logs [service]  follow the logs (Ctrl+C to stop), e.g. ./dev logs pgadmin
 #   ./dev reset [--force] stop them and DELETE the data volumes, after asking
@@ -27,6 +27,8 @@ endpoints() {
     echo
     echo "PostgreSQL  localhost:5432   database jussiminipos, user jussipos, password jussipos"
     echo "pgAdmin     http://localhost:5050"
+    echo "API docs    https://localhost:${JUSSIMINIPOS_API_PORT:-7240}/docs"
+    echo "API health  https://localhost:${JUSSIMINIPOS_API_PORT:-7240}/api/v1/health"
 }
 
 if ! command -v docker > /dev/null 2>&1; then
@@ -39,16 +41,15 @@ shift || true
 
 case "$command" in
     up)
-        # --wait returns once the health checks pass, so the database accepts
-        # connections and pgAdmin answers when this finishes.
-        docker compose up --detach --wait
+        # Build changed API sources, then wait for every service's health check.
+        docker compose up --build --detach --wait
         endpoints
         ;;
     down)
         docker compose down
         ;;
     restart)
-        docker compose up --detach --force-recreate --wait
+        docker compose up --build --detach --force-recreate --wait
         endpoints
         ;;
     status)
@@ -59,7 +60,7 @@ case "$command" in
         ;;
     reset)
         if [[ "${1:-}" != "--force" ]]; then
-            read -r -p "Delete the development PostgreSQL and pgAdmin data? Type yes to continue: " answer
+            read -r -p "Delete the development PostgreSQL, pgAdmin and API HTTPS certificate volumes? Type yes to continue: " answer
             if [[ "$answer" != "yes" ]]; then
                 echo "Nothing was deleted."
                 exit 0

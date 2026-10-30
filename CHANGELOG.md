@@ -9,6 +9,12 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Backend in the development stack.** `./dev up` now builds and starts the
+  API alongside PostgreSQL and pgAdmin, waits for their health checks and
+  prints the backend's HTTPS docs and health URLs. `restart` rebuilds the API;
+  `down`, `status` and `logs api` cover it as well. The container creates its
+  local HTTPS certificate in a persistent development volume, which reset
+  removes after confirmation. Added a container lifecycle check in CI.
 - **REST API foundation** in `src/JussiMiniPos.Api`, targeting plain .NET 10
   and referencing Core. Includes an anonymous `GET /api/v1/health` liveness
   check, development OpenAPI and Scalar documentation at `/docs`, and Finnish
