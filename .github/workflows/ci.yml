@@ -44,6 +44,27 @@ jobs:
       - name: Build with warnings as errors
         run: dotnet build JussiMiniPos.slnx --configuration Release --no-restore --property:ContinuousIntegrationBuild=true --warnaserror
 
+  api-tests:
+    name: API tests on Linux
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      # Build only the API and Core dependency graph; WPF stays Windows-only.
+      - name: Restore API test dependencies
+        run: dotnet restore tests/JussiMiniPos.Api.Tests/JussiMiniPos.Api.Tests.csproj
+
+      - name: Run API tests
+        run: dotnet test --project tests/JussiMiniPos.Api.Tests/JussiMiniPos.Api.Tests.csproj --configuration Release --no-restore
+
   tests:
     name: Tests on SQLite and PostgreSQL
     runs-on: windows-latest
