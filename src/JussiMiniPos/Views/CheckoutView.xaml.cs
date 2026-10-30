@@ -65,6 +65,9 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     /// <summary>Raised when the user is ready to pay for the current cart.</summary>
     public event Action? PayRequested;
 
+    /// <summary>Raised when a customer brings something back; the cart is left as it is.</summary>
+    public event Action? RefundRequested;
+
     public ICollectionView ProductsView => _productsView;
 
     public IReadOnlyList<Category> Categories { get; }
@@ -414,6 +417,8 @@ public partial class CheckoutView : UserControl, INotifyPropertyChanged
     }
 
     private void Pay_Click(object sender, RoutedEventArgs e) => PayRequested?.Invoke();
+
+    private void Refund_Click(object sender, RoutedEventArgs e) => RefundRequested?.Invoke();
 
     private void Back_Click(object sender, RoutedEventArgs e) => Back?.Invoke();
 

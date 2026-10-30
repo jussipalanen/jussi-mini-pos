@@ -152,6 +152,21 @@
                                VerticalAlignment="Bottom" Margin="0,0,0,3" />
                 </DockPanel>
 
+                <!-- Money given back against this sale, each refund on its own -->
+                <ItemsControl ItemsSource="{Binding Sale.Refunds}" Margin="0,6,0,0"
+                              AutomationProperties.Name="Palautukset"
+                              Visibility="{Binding Sale.HasRefunds, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Badge}" Margin="0,4,0,0" Padding="10,6"
+                                    HorizontalAlignment="Stretch">
+                                <TextBlock Text="{Binding Display}" TextWrapping="Wrap"
+                                           Style="{StaticResource Text.Muted}" FontSize="12" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
                 <StackPanel Visibility="{Binding Sale.IsCash, Converter={StaticResource BoolToVis}}"
                             Margin="0,6,0,0">
                     <DockPanel>

@@ -29,6 +29,22 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
     **Admin → Kassa** settings; the change is recorded in the audit log.
   - Upgrading records every earlier sale as an unrounded card payment, which is
     what they were.
+- **Returns and refunds.** A refund is its own record linked to the sale and the
+  lines it returns; the sale is never edited.
+  - **Kassa → Palautus** lists today's sales with something left to return, and
+    **Myynti** has a *Palautus* button on every sale. Choose how many of each
+    line come back, card or cash, and a reason; the till then says what to
+    hand back. A sale can be refunded in parts until everything is back.
+  - A seller may refund only their own sales of the day; managers and
+    administrators any sale. Voided sales cannot be refunded, and a refunded
+    sale cannot be voided.
+  - VAT goes back to the cent: a fully returned line nets to zero VAT. Cash
+    refunds are rounded like cash sales.
+  - Raportit takes refunds off the day they were made, in the total and in the
+    product, category and VAT breakdowns, and shows **Palautukset** as its own
+    figure. Myynti's total is net of refunds, and a refunded sale has a
+    *Palautettu* badge and lists its refunds on the receipt.
+  - Every refund is in the audit log.
 
 ## [1.0.0-beta.5] - 2026-10-29
 

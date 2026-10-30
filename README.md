@@ -736,14 +736,60 @@ keeps the sale and its lines. A voided sale stays in the Myynti list, dimmed
 with a *Mitätöity* badge, and its receipt shows who voided it and why; it is
 left out of Myynti's totals, every Raportit figure and a product's sales
 summary. Voiding needs a signed-in **manager or administrator**
-(`User.CanVoidSales`) and a reason, and cannot be undone or repeated.
+(`User.CanVoidSales`) and a reason, and cannot be undone or repeated. A sale
+that has had money refunded against it can no longer be voided.
+
+#### Returns and refunds
+
+A refund is its own record, linked to the sale and the lines it returns; the
+sale is never edited. It is made from **Kassa → Palautus**, which lists today's
+sales that still have something to return, or from **Myynti → Palautus** on any
+sale. The dialog lists each line with how many can still come back, a way to
+give the money back (*Maksukortti* or *Käteinen*, the sale's own method to
+begin with), and a required reason; the button shows the amount, and afterwards
+the till says what to hand back or credit to the card. Several partial refunds
+can be made against one sale until every line is back.
+
+```
+Refunds                        RefundItems
+├── Id                         ├── Id
+├── SaleId → Sales.Id          ├── RefundId   → Refunds.Id
+├── DateTime                   ├── SaleItemId → SaleItems.Id
+├── RefundedBy                 ├── Quantity   (> 0)
+├── Reason                     ├── AmountCents
+├── PaymentMethod              └── VatCents   (NULL when the line's VAT is unknown)
+├── TotalCents
+└── RoundingCents
+```
+
+- **Who:** a manager or administrator may refund any sale; a seller only their
+  own sales of the day (`User.CanRefund`). Kassa's list shows a seller only
+  those.
+- **How much:** never more of a line than was sold less what earlier refunds
+  took, checked inside the write's transaction, which first locks the sale's
+  row so two tills cannot both return the last item.
+- **VAT:** a partial return works its VAT out of its own amount; returning a
+  line's last unit gives back exactly what the line recorded less what earlier
+  refunds took, so a fully returned line nets to zero VAT to the cent.
+- **Cash** refunds are rounded to five cents like cash sales, when rounding is
+  on; card refunds are exact.
+- **Voided** sales cannot be refunded, and refunded sales cannot be voided.
+- Every refund writes an audit entry in its own transaction.
+
+Refunds count on the **day they were made**, not the day of the sale, so a
+closed day's figures never change afterwards. Raportit takes them off that
+day's total and off the product, category and VAT breakdowns (by the product,
+category and rate each line was sold under), shows **Palautukset** as its own
+figure, and keeps the average sale on the sales themselves. Myynti's total is
+net of refunds too, and a refunded sale carries a *Palautettu* badge; its
+receipt lists each refund with when, by whom, how and why.
 
 #### Audit log
 
 `AuditLog` records sign-ins (and failed ones), sign-outs, voids, product
 creation, edits and deletion with the before and after of price, offer price,
-VAT, visibility and barcode, VAT rate changes, user account changes and till
-settings such as cash rounding — who, when
+VAT, visibility and barcode, refunds, VAT rate changes, user account changes
+and till settings such as cash rounding — who, when
 and what. Each change writes its entry in its own transaction, so a change
 cannot be stored without its entry. The log is append-only: nothing in the
 application updates or deletes it. Administrators read it in **Admin →
@@ -978,9 +1024,9 @@ and the model, all described above.
 
 | View | Myyjä (`seller`) | Esimies (`manager`) | Ylläpitäjä (`admin`) |
 | ---- | :--------------: | :-----------------: | :------------------: |
-| Kassa | ✓ | ✓ | ✓ |
+| Kassa, palautus omista päivän myynneistä | ✓ | ✓ | ✓ |
 | Tuotteet, kategoriat, ALV-kannat | | ✓ | ✓ |
-| Myynti, mitätöinti | | ✓ | ✓ |
+| Myynti, mitätöinti, palautus mistä tahansa myynnistä | | ✓ | ✓ |
 | Raportit | | ✓ | ✓ |
 | Admin, Käyttäjät, Kassa-asetukset, Tapahtumaloki | | | ✓ |
 

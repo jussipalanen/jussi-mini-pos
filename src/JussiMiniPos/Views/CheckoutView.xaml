@@ -34,6 +34,19 @@
             </Button>
             <TextBlock Text="Kassa" Style="{StaticResource Text.SectionHeader}"
                        FontSize="26" Margin="16,0,0,0" VerticalAlignment="Center" />
+            <Button Style="{StaticResource Button.Ghost}" Click="Refund_Click" Padding="12,0" Margin="24,0,0,0"
+                    VerticalAlignment="Center"
+                    ToolTip="Palauta tuotteita päivän myynnistä"
+                    AutomationProperties.Name="Palautus">
+                <StackPanel Orientation="Horizontal">
+                    <ContentControl Style="{StaticResource Icon}"
+                                    Tag="{StaticResource Icon.Undo}"
+                                    Width="16" Height="16"
+                                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                                    VerticalAlignment="Center" />
+                    <TextBlock Text="Palautus" Margin="7,0,0,0" VerticalAlignment="Center" />
+                </StackPanel>
+            </Button>
         </StackPanel>
 
         <!-- ============ Two columns ============ -->

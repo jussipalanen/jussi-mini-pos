@@ -29,6 +29,7 @@ public static class AuditActions
     public const string SignInFailed = "sign-in-failed";
     public const string SignOut = "sign-out";
     public const string SaleVoided = "sale-voided";
+    public const string RefundCreated = "refund-created";
     public const string ProductCreated = "product-created";
     public const string ProductUpdated = "product-updated";
     public const string ProductDeleted = "product-deleted";
@@ -47,6 +48,7 @@ public static class AuditActions
         SignInFailed => "Epäonnistunut kirjautuminen",
         SignOut => "Uloskirjautuminen",
         SaleVoided => "Myynnin mitätöinti",
+        RefundCreated => "Palautus",
         ProductCreated => "Tuote lisätty",
         ProductUpdated => "Tuotetta muutettu",
         ProductDeleted => "Tuote poistettu",

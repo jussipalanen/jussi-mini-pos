@@ -1,4 +1,4 @@
-<Window x:Class="JussiMiniPos.Views.TillSettingsWindow"
+﻿<Window x:Class="JussiMiniPos.Views.TillSettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Kassan asetukset"
@@ -38,7 +38,8 @@
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                     <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
                             Content="Peruuta" IsCancel="True"
-                            AutomationProperties.Name="Peruuta" />
+                            AutomationProperties.Name="Peruuta"
+                            Click="Cancel_Click" />
                     <Button Style="{StaticResource Button.Primary}" Width="140" Margin="10,0,0,0"
                             Content="Tallenna" IsDefault="True"
                             AutomationProperties.Name="Tallenna"

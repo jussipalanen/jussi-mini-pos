@@ -23,6 +23,9 @@ public sealed record SaleItem(
     int? VatBasisPoints = null,
     decimal? VatAmount = null)
 {
+    /// <summary>Database row id, which a refund points back at; zero until saved.</summary>
+    public long Id { get; init; }
+
     public decimal LineTotal => UnitPrice * Quantity;
 
     /// <summary>A line taxed at <paramref name="basisPoints"/>, with its VAT worked out.</summary>
@@ -89,8 +92,33 @@ public sealed record Sale(
 
     public bool IsCash => CashReceived is not null;
 
-    /// <summary>For the void button: a sale is voided once, not twice.</summary>
-    public bool CanBeVoided => Void is null;
+    /// <summary>Money given back against this sale, oldest first.</summary>
+    public IReadOnlyList<Refund> Refunds { get; init; } = [];
+
+    public bool HasRefunds => Refunds.Count > 0;
+
+    /// <summary>Everything paid back so far.</summary>
+    public decimal RefundedTotal => Refunds.Sum(refund => refund.Total);
+
+    /// <summary>How many of a sold line have come back already.</summary>
+    public int RefundedQuantity(long saleItemId) =>
+        Refunds.SelectMany(refund => refund.Lines).Where(line => line.SaleItemId == saleItemId).Sum(line => line.Quantity);
+
+    /// <summary>How many of a sold line can still be returned.</summary>
+    public int RefundableQuantity(SaleItem item) => item.Quantity - RefundedQuantity(item.Id);
+
+    /// <summary>
+    /// A sale can take a refund while it stands and something is left to
+    /// return. A voided sale never happened, so nothing can come back from it.
+    /// </summary>
+    public bool CanBeRefunded => Void is null && Items.Any(item => RefundableQuantity(item) > 0);
+
+    /// <summary>
+    /// For the void button: a sale is voided once, not twice, and not after
+    /// money has been given back against it — voiding would leave the refund
+    /// paying out for a sale that no longer counts.
+    /// </summary>
+    public bool CanBeVoided => Void is null && Refunds.Count == 0;
 
     /// <summary>Number of individual items across all lines.</summary>
     public int ItemCount => Items.Sum(item => item.Quantity);

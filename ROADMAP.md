@@ -122,6 +122,9 @@ follow cash payment. (The audit log shipped with 2.2.)
 - [x] Cash payment: amount given, change due, and rounding to 5 cents as an
       Admin setting that is on by default. Card stays exact; the rounding is
       stored on the sale.
+- [x] Returns and refunds: a refund linked to the original sale and its lines,
+      as its own record, never by editing the sale. Sellers refund their own
+      sales of the day; managers any sale.
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 

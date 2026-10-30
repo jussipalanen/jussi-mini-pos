@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using JussiMiniPos.Services;
 
 namespace JussiMiniPos.Views;
@@ -21,6 +21,8 @@ public partial class TillSettingsWindow : Window
 
         RoundCashBox.IsChecked = settings.RoundCash;
     }
+
+    private void Cancel_Click(object sender, RoutedEventArgs e) => DialogResult = false;
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
