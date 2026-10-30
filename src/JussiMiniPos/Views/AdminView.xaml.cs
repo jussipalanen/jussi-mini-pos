@@ -85,9 +85,14 @@ public partial class AdminView : UserControl, INotifyPropertyChanged
     /// <summary>Raised when the administrator opens user management.</summary>
     public event Action? UsersRequested;
 
+    /// <summary>Raised to open backups, which need the database itself rather than just its options.</summary>
+    public event Action? BackupsRequested;
+
     private void AuditLog_Click(object sender, RoutedEventArgs e) => AuditLogRequested?.Invoke();
 
     private void Users_Click(object sender, RoutedEventArgs e) => UsersRequested?.Invoke();
+
+    private void Backups_Click(object sender, RoutedEventArgs e) => BackupsRequested?.Invoke();
 
     private void TillSettings_Click(object sender, RoutedEventArgs e)
     {

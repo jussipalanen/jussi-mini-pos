@@ -41,6 +41,8 @@ public static class AuditActions
     public const string PasswordChanged = "password-changed";
     public const string UserUnlocked = "user-unlocked";
     public const string SettingsChanged = "settings-changed";
+    public const string BackupCreated = "backup-created";
+    public const string BackupRestored = "backup-restored";
 
     public static string Finnish(string action) => action switch
     {
@@ -60,6 +62,8 @@ public static class AuditActions
         PasswordChanged => "Salasana vaihdettu",
         UserUnlocked => "Tilin lukitus avattu",
         SettingsChanged => "Kassan asetuksia muutettu",
+        BackupCreated => "Varmuuskopio otettu",
+        BackupRestored => "Varmuuskopio palautettu",
         _ => action,
     };
 }

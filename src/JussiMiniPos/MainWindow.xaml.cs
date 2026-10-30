@@ -1,4 +1,7 @@
-﻿using System.Windows;
+﻿using System.Data.Common;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using JussiMiniPos.Models;
@@ -97,6 +100,31 @@ public partial class MainWindow : Window
         }
 
         ShowStartView();
+        _ = RunScheduledBackupAsync();
+    }
+
+    /// <summary>
+    /// Takes the daily automatic backup when one is due, off the UI thread so
+    /// the till is usable at once. A failure is shown, because a till that
+    /// silently stopped backing up is worse than one that says so.
+    /// </summary>
+    private async Task RunScheduledBackupAsync()
+    {
+        try
+        {
+            var settings = BackupSettings.Load(_options);
+            if (settings.Automatic)
+            {
+                var backups = new BackupService(_database);
+                await Task.Run(() => backups.RunScheduled(settings.Folder, settings.Keep, DateTimeOffset.Now));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbException or InvalidOperationException)
+        {
+            MessageBox.Show(this,
+                $"Automaattinen varmuuskopio epäonnistui:\n\n{ex.Message}\n\nTarkista kansio kohdassa Admin → Varmuuskopiot.",
+                "JussiMiniPos", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void ShowStartView()
@@ -270,6 +298,7 @@ public partial class MainWindow : Window
         view.Back += ShowStartView;
         view.AuditLogRequested += () => new AuditLogWindow(_database.Audit) { Owner = this }.ShowDialog();
         view.UsersRequested += ShowUsersWindow;
+        view.BackupsRequested += () => new BackupWindow(_database, _options) { Owner = this }.ShowDialog();
         ViewHost.Content = view;
     }
 

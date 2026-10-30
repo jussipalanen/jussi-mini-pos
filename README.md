@@ -532,6 +532,43 @@ UI treats a missing image as a placeholder rather than an error. Deleting a
 product removes its files; `--seed --reset` and `--clear` sweep up anything left
 unreferenced.
 
+### Backup and restore
+
+**Admin → Varmuuskopiot** backs up a SQLite till into one zip file: the
+database, the product images and a `backup.json` describing it. The database
+is copied with SQLite's online backup API, so a backup taken mid-sale is still
+consistent; the Gemini key is left out on purpose.
+
+- **Varmuuskopioi…** saves a backup wherever you choose.
+- **Automatic backups** are **on by default**: when the till starts and the
+  last automatic backup is a day old, it takes another into
+  `Documents\JussiMiniPos-varmuuskopiot` and keeps the newest 14. Change the
+  folder (ideally another disk, a USB stick or a synced cloud folder) and the
+  count in the same window. A failed automatic backup says so on screen.
+- **Palauta varmuuskopiosta…** checks the file first (it must be a
+  JussiMiniPos backup that passes SQLite's integrity check), says what it
+  holds, and asks. It then backs up the current state as
+  `ennen-palautusta-….zip`, writes the backup into the database, adds its
+  images, brings the schema up to date and restarts the application. The
+  restore is in the audit log.
+
+If the till will not start at all, restore by hand: close it, unzip the backup,
+and copy `jussiminipos.db` over `%LOCALAPPDATA%\JussiMiniPos\jussiminipos.db`
+and the `images` folder into `%LOCALAPPDATA%\JussiMiniPos\images`.
+
+**PostgreSQL** is backed up on the server, not from a till, for example nightly
+with `pg_dump`:
+
+```bash
+pg_dump --format=custom --file=jussiminipos-$(date +%F).dump \
+        --host=db.example.com --username=jussiminipos jussiminipos
+# restore into an empty database:
+pg_restore --clean --if-exists --dbname=jussiminipos jussiminipos-2026-10-30.dump
+```
+
+Product images live in each till's own data folder under PostgreSQL, so copy
+those too.
+
 ### Command line
 
 The same exe doubles as a catalogue tool. It has no console of its own, so it
@@ -1075,7 +1112,7 @@ and the model, all described above.
 | Tuotteet, kategoriat, ALV-kannat | | ✓ | ✓ |
 | Myynti, mitätöinti, palautus mistä tahansa myynnistä | | ✓ | ✓ |
 | Raportit | | ✓ | ✓ |
-| Admin, Käyttäjät, Kassa-asetukset, Tapahtumaloki | | | ✓ |
+| Admin, Käyttäjät, Kassa-asetukset, Varmuuskopiot, Tapahtumaloki | | | ✓ |
 
 Opening a view while signed out shows the login prompt with a line saying why,
 rather than simply refusing; signed in as a role that may not, it says so and

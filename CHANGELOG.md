@@ -56,6 +56,14 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
     after each refund.
   - Each receipt shows the shop and Y-tunnus, the items, cash rounding, the
     total, how it was paid with the change, and the VAT per rate.
+- **Backup and restore** in **Admin → Varmuuskopiot** for SQLite tills: the
+  database and product images in one zip, copied consistently even mid-sale.
+  - **Automatic daily backups are on by default**, into
+    `Documents\JussiMiniPos-varmuuskopiot`, keeping the newest 14; the folder
+    and count can be changed.
+  - Restoring checks the file, asks, keeps a backup of the current state,
+    and restarts the till. Backups and restores are in the audit log.
+  - PostgreSQL is backed up on the server with `pg_dump`; the README says how.
 
 ### Changed
 

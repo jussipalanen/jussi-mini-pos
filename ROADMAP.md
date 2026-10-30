@@ -128,6 +128,8 @@ follow cash payment. (The audit log shipped with 2.2.)
 - [x] Receipt printing with shop details: business name, Y-tunnus, address and
       VAT breakdown on every receipt, printed through Windows printers, with
       copies and refund receipts. No ESC/POS, so no cash-drawer kick.
+- [x] Backup and restore from the app: a consistent SQLite copy on demand and
+      daily, restore with a safety copy, and guidance for PostgreSQL.
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 
