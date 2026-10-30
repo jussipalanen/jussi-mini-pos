@@ -9,6 +9,42 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Barcodes.** A product can have an EAN-13, EAN-8 or UPC-A code, entered in
+  the product editor by typing or scanning. The check digit is verified, and a
+  code already on another product is refused with that product's name.
+  - In Kassa, scanning a code adds the product to the cart straight away, in
+    any category view, and empties the search for the next scan. An unknown
+    code says so. Digits typed while a button has focus go to the search box,
+    so a scan's closing Enter never presses a button.
+  - Kassa and Tuotteet also find products by part of their barcode; the product
+    view shows it, `--dump` lists it, and barcode changes are in the audit log.
+  - Upgrading adds an empty barcode to every existing product.
+- **Cash payment.** Maksa offers *Käteinen* beside the card. The seller types
+  the cash handed over or picks *Tasaraha* or the next note, sees the change as
+  they type, and the done screen shows the change to hand back.
+  - Cash totals are rounded to the nearest 5 cents; card payments never are.
+    The rounding is stored on the sale as its own amount, so the lines and their
+    VAT stay as sold, and the receipt shows it with the cash given and change.
+  - Rounding is on by default and can be turned off in the new
+    **Admin → Kassa** settings; the change is recorded in the audit log.
+  - Upgrading records every earlier sale as an unrounded card payment, which is
+    what they were.
+- **Returns and refunds.** A refund is its own record linked to the sale and the
+  lines it returns; the sale is never edited.
+  - **Kassa → Palautus** lists today's sales with something left to return, and
+    **Myynti** has a *Palautus* button on every sale. Choose how many of each
+    line come back, card or cash, and a reason; the till then says what to
+    hand back. A sale can be refunded in parts until everything is back.
+  - A seller may refund only their own sales of the day; managers and
+    administrators any sale. Voided sales cannot be refunded, and a refunded
+    sale cannot be voided.
+  - VAT goes back to the cent: a fully returned line nets to zero VAT. Cash
+    refunds are rounded like cash sales.
+  - Raportit takes refunds off the day they were made, in the total and in the
+    product, category and VAT breakdowns, and shows **Palautukset** as its own
+    figure. Myynti's total is net of refunds, and a refunded sale has a
+    *Palautettu* badge and lists its refunds on the receipt.
+  - Every refund is in the audit log.
 - **REST API foundation** in `src/JussiMiniPos.Api`, targeting plain .NET 10
   and referencing Core. Includes an anonymous `GET /api/v1/health` liveness
   check, development OpenAPI and Scalar documentation at `/docs`, and Finnish

@@ -150,7 +150,8 @@ public sealed class VatTests
         sales.Save(sale);
 
         var stored = Assert.Single(sales.GetSales());
-        Assert.Equal(sale.Items, stored.Items);
+        // Ids are assigned on save, so compare what was sold, not which row it landed in.
+        Assert.Equal(sale.Items, stored.Items.Select(item => item with { Id = 0 }));
         Assert.Equal(2.60m, stored.VatTotal);
     }
 

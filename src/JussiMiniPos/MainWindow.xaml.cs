@@ -214,6 +214,7 @@ public partial class MainWindow : Window
             _checkoutView = new CheckoutView(_catalogRepository, _imageStore, _assistant);
             _checkoutView.Back += ShowStartView;
             _checkoutView.PayRequested += ShowPaymentView;
+            _checkoutView.RefundRequested += ShowRefundPicker;
         }
 
         ViewHost.Content = _checkoutView;
@@ -239,7 +240,7 @@ public partial class MainWindow : Window
 
     private void ShowSalesView()
     {
-        var view = new SalesView(_salesRepository, RequireUser);
+        var view = new SalesView(_salesRepository, _options, RequireUser);
         view.Back += ShowStartView;
         ViewHost.Content = view;
     }
@@ -314,10 +315,34 @@ public partial class MainWindow : Window
             return;
         }
 
-        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username);
+        var settings = TillSettings.Default;
+        if (!ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options)))
+        {
+            return;
+        }
+
+        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username, settings.RoundCash);
         view.Cancelled += ShowCheckoutView;
         view.Finished += StartNewSale;
         ViewHost.Content = view;
+    }
+
+    /// <summary>
+    /// Today's sales to refund from, opened from Kassa. Whoever is signed in
+    /// when the refund is made is the one recorded on it.
+    /// </summary>
+    private void ShowRefundPicker()
+    {
+        if (RequireUser("Kirjaudu sisään tehdäksesi palautuksen.") is not { } user)
+        {
+            return;
+        }
+
+        var settings = TillSettings.Default;
+        if (ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options)))
+        {
+            new RefundPickerWindow(_salesRepository, user, settings) { Owner = this }.ShowDialog();
+        }
     }
 
     /// <summary>After a paid sale the next customer starts from an empty cart.</summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 
 namespace JussiMiniPos.Models;
@@ -62,6 +62,17 @@ public sealed record User(
     /// people who answer for them: administrators and managers.
     /// </summary>
     public bool CanVoidSales => Role is UserRole.Admin or UserRole.Manager;
+
+    /// <summary>
+    /// Who may give money back against a sale. Administrators and managers
+    /// may refund any sale; a seller only their own sales of the day, which is
+    /// what a customer returning to the till needs and no more.
+    /// </summary>
+    /// <param name="soldBy">The username recorded on the sale.</param>
+    /// <param name="soldToday">Whether the sale was made today, Finnish time.</param>
+    public bool CanRefund(string? soldBy, bool soldToday) =>
+        Role is UserRole.Admin or UserRole.Manager
+        || (soldToday && string.Equals(soldBy, Username, StringComparison.OrdinalIgnoreCase));
 
     /// <summary>
     /// "Matti Meikäläinen", or as much of it as has been filled in. Empty when

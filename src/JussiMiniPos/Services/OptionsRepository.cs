@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Data.Common;
 
@@ -51,6 +51,34 @@ public sealed class OptionsRepository(Database database)
         Database.AddParameter(command, "@name", name);
         Database.AddParameter(command, "@value", value);
         command.ExecuteNonQuery();
+    }
+
+    /// <summary>
+    /// Stores several values and an audit entry about them in one
+    /// transaction, for settings whose change matters afterwards — how cash
+    /// is rounded, what a receipt says.
+    /// </summary>
+    public void SetAudited(IReadOnlyDictionary<string, string> values, string auditAction, string auditDetails)
+    {
+        using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        foreach (var (name, value) in values)
+        {
+            using var command = connection.CreateCommand();
+            command.Transaction = transaction;
+            command.CommandText =
+                """
+                INSERT INTO Options (OptionName, OptionValue) VALUES (@name, @value)
+                ON CONFLICT(OptionName) DO UPDATE SET OptionValue = excluded.OptionValue;
+                """;
+            Database.AddParameter(command, "@name", name);
+            Database.AddParameter(command, "@value", value);
+            command.ExecuteNonQuery();
+        }
+
+        database.Audit.Record(connection, transaction, auditAction, auditDetails);
+        transaction.Commit();
     }
 
     /// <summary>Stores a flag as the 0/1 the rest of the schema uses.</summary>

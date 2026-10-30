@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Data.Common;
 using System.IO;
@@ -180,6 +180,22 @@ public sealed class Database
                  WHERE VatRateId IS NULL;
                 """;
             assign.ExecuteNonQuery();
+        }
+
+        // Added with cash payment. Earlier sales were all card, so zero
+        // rounding and no cash received is exactly what they were.
+        AddColumnIfMissing(connection, "Sales", "RoundingCents", $"{money} NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Sales", "CashReceivedCents", $"{money} NULL");
+
+        // Added with barcodes. The index lives here rather than in the schema
+        // because the schema runs first, before an older Products table has
+        // the column to index. Both engines let any number of rows share NULL.
+        AddColumnIfMissing(connection, "Products", "Barcode", "TEXT NULL");
+
+        using (var index = connection.CreateCommand())
+        {
+            index.CommandText = "CREATE UNIQUE INDEX IF NOT EXISTS UX_Products_Barcode ON Products(Barcode);";
+            index.ExecuteNonQuery();
         }
     }
 

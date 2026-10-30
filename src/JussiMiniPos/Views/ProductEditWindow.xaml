@@ -56,6 +56,12 @@
                         </StackPanel>
                     </Grid>
 
+                    <TextBlock Text="Viivakoodi (EAN-13, EAN-8 tai UPC-A, valinnainen)"
+                               Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <TextBox x:Name="BarcodeBox" Style="{StaticResource FormBox}"
+                             AutomationProperties.Name="Viivakoodi"
+                             ToolTip="Kirjoita numerot tai lue koodi viivakoodinlukijalla." />
+
                     <TextBlock Text="ALV-kanta (hinnat sisältävät arvonlisäveron)"
                                Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
                     <ListBox x:Name="VatList"

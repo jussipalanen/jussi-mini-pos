@@ -126,6 +126,22 @@
             <!-- ===== Total, VAT breakdown and close ===== -->
             <StackPanel Grid.Row="2" Margin="24,0,24,20">
                 <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,14,0,14" />
+
+                <!-- Cash rounding is its own line, so the lines above still add up -->
+                <StackPanel Visibility="{Binding Sale.HasRounding, Converter={StaticResource BoolToVis}}"
+                            Margin="0,0,0,8">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Muted}"
+                                   Text="{Binding Sale.Subtotal, StringFormat={}{0:N2} €}" />
+                        <TextBlock Text="Välisumma" Style="{StaticResource Text.Muted}" />
+                    </DockPanel>
+                    <DockPanel Margin="0,2,0,0">
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Muted}"
+                                   Text="{Binding Sale.Rounding, StringFormat={}{0:+0.00;−0.00} €}" />
+                        <TextBlock Text="Pyöristys" Style="{StaticResource Text.Muted}" />
+                    </DockPanel>
+                </StackPanel>
+
                 <DockPanel>
                     <TextBlock DockPanel.Dock="Right"
                                Text="{Binding Sale.Total, StringFormat={}{0:N2} €}"
@@ -135,6 +151,35 @@
                                Foreground="{StaticResource Brush.TextMuted}"
                                VerticalAlignment="Bottom" Margin="0,0,0,3" />
                 </DockPanel>
+
+                <!-- Money given back against this sale, each refund on its own -->
+                <ItemsControl ItemsSource="{Binding Sale.Refunds}" Margin="0,6,0,0"
+                              AutomationProperties.Name="Palautukset"
+                              Visibility="{Binding Sale.HasRefunds, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource Badge}" Margin="0,4,0,0" Padding="10,6"
+                                    HorizontalAlignment="Stretch">
+                                <TextBlock Text="{Binding Display}" TextWrapping="Wrap"
+                                           Style="{StaticResource Text.Muted}" FontSize="12" />
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <StackPanel Visibility="{Binding Sale.IsCash, Converter={StaticResource BoolToVis}}"
+                            Margin="0,6,0,0">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Muted}"
+                                   Text="{Binding Sale.CashReceived, StringFormat={}{0:N2} €}" />
+                        <TextBlock Text="Käteinen" Style="{StaticResource Text.Muted}" />
+                    </DockPanel>
+                    <DockPanel Margin="0,2,0,0">
+                        <TextBlock DockPanel.Dock="Right" Style="{StaticResource Text.Muted}"
+                                   Text="{Binding Sale.Change, StringFormat={}{0:N2} €}" />
+                        <TextBlock Text="Takaisin" Style="{StaticResource Text.Muted}" />
+                    </DockPanel>
+                </StackPanel>
 
                 <!-- Per rate: the VAT-free amount, the VAT, and the total with
                      VAT, as a Finnish receipt shows them. -->
