@@ -123,10 +123,10 @@ follow cash payment. (The audit log shipped with 2.2.)
 
 ## Phase 3 — Shared core library
 
-- [ ] Extract `src/JussiMiniPos.Core`: models, money in cents, VAT, and domain
+- [x] Extract `src/JussiMiniPos.Core`: models, money in cents, VAT, and domain
       rules such as `CanOpenAdmin`, `CanOpenReports` and the public-product
       filter. No WPF and no database code in it.
-- [ ] The WPF application references Core; behaviour is unchanged and the tests
+- [x] The WPF application references Core; behaviour is unchanged and the tests
       from Phase 1 still pass.
 
 This is what lets the REST API and the tills enforce the same rules from the

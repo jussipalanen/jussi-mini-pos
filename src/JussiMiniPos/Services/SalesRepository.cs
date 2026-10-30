@@ -223,9 +223,9 @@ public sealed class SalesRepository(Database database)
     private static PaymentMethod ParsePaymentMethod(string value) =>
         Enum.TryParse<PaymentMethod>(value, out var parsed) ? parsed : PaymentMethod.Card;
 
-    public static long ToCents(decimal amount) =>
-        (long)decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero);
+    /// <summary>Compatibility entry point; shared money rules live in Core.</summary>
+    public static long ToCents(decimal amount) => Money.ToCents(amount);
 
-    /// <summary>Kept next to <see cref="ToCents"/> so the two stay in step when reading rows back.</summary>
-    public static decimal FromCents(long cents) => cents / 100m;
+    /// <summary>Compatibility entry point; shared money rules live in Core.</summary>
+    public static decimal FromCents(long cents) => Money.FromCents(cents);
 }

@@ -34,8 +34,12 @@ The application is intentionally small and direct:
 - `Views/` contains paired WPF XAML/code-behind screens and dialogs. Views use
   events for navigation and implement `INotifyPropertyChanged` where binding
   state requires it.
-- `Models/` contains domain records/classes such as products, sales, users, and
-  cart lines.
+- `src/JussiMiniPos.Core/` targets plain `net10.0` and owns the domain models
+  (under `Models/`), money/VAT, role and public-product rules, and the pure
+  `IdleSession` rule. It has no WPF, database or package dependencies. Existing
+  `JussiMiniPos.Models` and `JussiMiniPos.Services` namespaces are preserved;
+  the WPF application references Core. `tests/JussiMiniPos.Core.Tests` tests
+  it directly without referencing the desktop application.
 - `Services/` contains SQLite schema/repositories, image storage, authentication,
   application settings, catalogue search, and Gemini integration.
 - `CommandLine.cs` provides non-UI catalogue, user, assistant, and version
@@ -177,7 +181,8 @@ metadata, local databases, image stores, key files, or `.env` files.
 ## Data and domain invariants
 
 - Store money in SQLite as integer cents, never `REAL`. Use
-  `SalesRepository.ToCents` and `SalesRepository.FromCents`; use `decimal` in
+  `Money.ToCents` and `Money.FromCents` from Core (the `SalesRepository`
+  helpers forward to them for compatibility); use `decimal` in
   the domain and UI.
 - Store timestamps in invariant ISO 8601 round-trip form. Keep database column
   names PascalCase, booleans as checked `INTEGER` values `0`/`1`, and foreign
