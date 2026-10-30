@@ -1,4 +1,4 @@
-<h1 align="center">
+﻿<h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo-dark.svg">
     <img src="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo.svg" width="340" alt="Jussi mini-POS">
@@ -687,8 +687,9 @@ Sales                         SaleItems
 ├── Id                        ├── Id
 ├── DateTime   (ISO 8601)     ├── SaleId  → Sales.Id
 ├── TotalCents (integer)      ├── ProductId
-└── PaymentMethod             ├── Name
-                              ├── Category
+├── PaymentMethod (Card/Cash) ├── Name
+├── RoundingCents  (cash)     ├── Category
+└── CashReceivedCents         │
                               ├── UnitPriceCents
                               ├── Quantity
                               ├── VatRateBasisPoints  (NULL = sold before VAT was recorded)
@@ -704,6 +705,29 @@ VAT-inclusive total and rounded to the cent; the receipt and Raportit's
 recorded keep `NULL` and are listed as *ALV ei tiedossa* rather than given an
 invented figure.
 
+#### Cash payment
+
+**Maksa** offers *Maksukortti* and *Käteinen*. Cash opens a step where the
+seller types what the customer handed over, or picks *Tasaraha* or the next
+note up. The change is shown as it is typed, *Vastaanota käteinen* (or Enter)
+stores the sale, and the done screen shows **Anna takaisin** in large type.
+The amount must cover the total; the button stays disabled until it does.
+
+Cash totals are rounded to the nearest five cents, as Finnish shops do: endings
+1–2 and 6–7 round down, 3–4 and 8–9 up. Card payments are never rounded. The
+lines and their VAT stay exactly as sold, and the difference is stored as
+`Sales.RoundingCents`, so `TotalCents` is what was actually charged (lines plus
+rounding). Raportit's totals are that charged amount; its product, category and
+VAT breakdowns are line amounts, so over a period with cash sales they can
+differ from the total by the rounding. `CashReceivedCents` is the cash handed
+over (`NULL` for card); the change is the difference and is not stored twice.
+The receipt shows *Välisumma*, *Pyöristys*, *Käteinen* and *Takaisin* for a
+cash sale.
+
+Rounding is on by default. An administrator turns it off in **Admin → Kassa**
+(stored as the option `Till.RoundCash`), which applies to every till on the
+database and is recorded in the audit log.
+
 #### Voiding a sale
 
 A sale is never deleted. **Myynti → Mitätöi** marks it voided instead —
@@ -718,7 +742,8 @@ summary. Voiding needs a signed-in **manager or administrator**
 
 `AuditLog` records sign-ins (and failed ones), sign-outs, voids, product
 creation, edits and deletion with the before and after of price, offer price,
-VAT and visibility, VAT rate changes, and user account changes — who, when
+VAT, visibility and barcode, VAT rate changes, user account changes and till
+settings such as cash rounding — who, when
 and what. Each change writes its entry in its own transaction, so a change
 cannot be stored without its entry. The log is append-only: nothing in the
 application updates or deletes it. Administrators read it in **Admin →
@@ -957,7 +982,7 @@ and the model, all described above.
 | Tuotteet, kategoriat, ALV-kannat | | ✓ | ✓ |
 | Myynti, mitätöinti | | ✓ | ✓ |
 | Raportit | | ✓ | ✓ |
-| Admin, Käyttäjät, Tapahtumaloki | | | ✓ |
+| Admin, Käyttäjät, Kassa-asetukset, Tapahtumaloki | | | ✓ |
 
 Opening a view while signed out shows the login prompt with a line saying why,
 rather than simply refusing; signed in as a role that may not, it says so and

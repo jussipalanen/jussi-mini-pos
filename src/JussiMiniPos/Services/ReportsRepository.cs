@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using JussiMiniPos.Models;
 using System.Data.Common;
 
@@ -130,7 +130,7 @@ public sealed class ReportsRepository(Database database)
         using var connection = OpenConnection();
         using var command = CreateCommand(connection, null, day, day,
             $"""
-            SELECT s.Id, s."DateTime", s.TotalCents, s.PaymentMethod,
+            SELECT s.Id, s."DateTime", s.TotalCents, s.PaymentMethod, s.RoundingCents, s.CashReceivedCents,
                    i.ProductId, i.Name, i.Category, i.UnitPriceCents, i.Quantity,
                    i.VatRateBasisPoints, i.VatCents
             FROM Sales s LEFT JOIN SaleItems i ON i.SaleId = s.Id
@@ -150,15 +150,19 @@ public sealed class ReportsRepository(Database database)
                 var timestamp = DateTimeOffset.Parse(reader.GetString(1), CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind);
                 sales.Add(new Sale(TimeZoneInfo.ConvertTime(timestamp, ReportTimeZone),
                     SalesRepository.FromCents(reader.GetInt64(2)),
-                    Enum.TryParse<PaymentMethod>(reader.GetString(3), out var method) ? method : PaymentMethod.Card,
+                    SalesRepository.ParsePaymentMethod(reader.GetString(3)),
                     items)
-                { Id = id });
+                {
+                    Id = id,
+                    Rounding = SalesRepository.FromCents(reader.GetInt64(4)),
+                    CashReceived = reader.IsDBNull(5) ? null : SalesRepository.FromCents(reader.GetInt64(5)),
+                });
                 previousId = id;
             }
 
-            if (!reader.IsDBNull(4))
+            if (!reader.IsDBNull(6))
             {
-                items.Add(SalesRepository.ReadItem(reader, 4));
+                items.Add(SalesRepository.ReadItem(reader, 6));
             }
         }
 

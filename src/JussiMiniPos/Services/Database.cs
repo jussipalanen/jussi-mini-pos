@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data;
 using System.Data.Common;
 using System.IO;
@@ -181,6 +181,11 @@ public sealed class Database
                 """;
             assign.ExecuteNonQuery();
         }
+
+        // Added with cash payment. Earlier sales were all card, so zero
+        // rounding and no cash received is exactly what they were.
+        AddColumnIfMissing(connection, "Sales", "RoundingCents", $"{money} NOT NULL DEFAULT 0");
+        AddColumnIfMissing(connection, "Sales", "CashReceivedCents", $"{money} NULL");
 
         // Added with barcodes. The index lives here rather than in the schema
         // because the schema runs first, before an older Products table has

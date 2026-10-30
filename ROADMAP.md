@@ -119,6 +119,9 @@ follow cash payment. (The audit log shipped with 2.2.)
 
 - [x] Barcodes: an EAN-13, EAN-8 or UPC-A code per product, checked and unique,
       and scanner input in Kassa that adds the product straight to the cart.
+- [x] Cash payment: amount given, change due, and rounding to 5 cents as an
+      Admin setting that is on by default. Card stays exact; the rounding is
+      stored on the sale.
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 

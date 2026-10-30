@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace JussiMiniPos.Models;
 
@@ -39,6 +39,7 @@ public static class AuditActions
     public const string UserDeleted = "user-deleted";
     public const string PasswordChanged = "password-changed";
     public const string UserUnlocked = "user-unlocked";
+    public const string SettingsChanged = "settings-changed";
 
     public static string Finnish(string action) => action switch
     {
@@ -56,6 +57,7 @@ public static class AuditActions
         UserDeleted => "Käyttäjä poistettu",
         PasswordChanged => "Salasana vaihdettu",
         UserUnlocked => "Tilin lukitus avattu",
+        SettingsChanged => "Kassan asetuksia muutettu",
         _ => action,
     };
 }

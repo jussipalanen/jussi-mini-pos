@@ -19,6 +19,16 @@ and the project aims to follow [Semantic Versioning](https://semver.org/).
   - Kassa and Tuotteet also find products by part of their barcode; the product
     view shows it, `--dump` lists it, and barcode changes are in the audit log.
   - Upgrading adds an empty barcode to every existing product.
+- **Cash payment.** Maksa offers *Käteinen* beside the card. The seller types
+  the cash handed over or picks *Tasaraha* or the next note, sees the change as
+  they type, and the done screen shows the change to hand back.
+  - Cash totals are rounded to the nearest 5 cents; card payments never are.
+    The rounding is stored on the sale as its own amount, so the lines and their
+    VAT stay as sold, and the receipt shows it with the cash given and change.
+  - Rounding is on by default and can be turned off in the new
+    **Admin → Kassa** settings; the change is recorded in the audit log.
+  - Upgrading records every earlier sale as an unrounded card payment, which is
+    what they were.
 
 ## [1.0.0-beta.5] - 2026-10-29
 

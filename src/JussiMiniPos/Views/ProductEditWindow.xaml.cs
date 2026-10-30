@@ -379,19 +379,7 @@ public partial class ProductEditWindow : Window, INotifyPropertyChanged
         return true;
     }
 
-    /// <summary>
-    /// Accepts both "2,50" and "2.50": the app runs in fi-FI, but a numeric
-    /// keypad types a full stop.
-    /// </summary>
-    private static bool TryParsePrice(string text, out decimal value)
-    {
-        text = text.Trim().Replace('.', ',');
-        return decimal.TryParse(
-            text,
-            NumberStyles.Number,
-            CultureInfo.GetCultureInfo("fi-FI"),
-            out value);
-    }
+    private static bool TryParsePrice(string text, out decimal value) => MoneyInput.TryParse(text, out value);
 
     private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

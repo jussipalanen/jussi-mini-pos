@@ -314,7 +314,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username);
+        var settings = TillSettings.Default;
+        if (!ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options)))
+        {
+            return;
+        }
+
+        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username, settings.RoundCash);
         view.Cancelled += ShowCheckoutView;
         view.Finished += StartNewSale;
         ViewHost.Content = view;
