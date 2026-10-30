@@ -40,6 +40,12 @@ The application is intentionally small and direct:
   `JussiMiniPos.Models` and `JussiMiniPos.Services` namespaces are preserved;
   the WPF application references Core. `tests/JussiMiniPos.Core.Tests` tests
   it directly without referencing the desktop application.
+- `src/JussiMiniPos.Api/` is the cross-platform ASP.NET Core host (`net10.0`),
+  referencing Core only. It currently provides `/api/v1/health`, Development-only
+  OpenAPI and `/docs`, HTTPS enforcement and Finnish problem responses. It does
+  not access databases or desktop data. `tests/JussiMiniPos.Api.Tests` uses an
+  in-memory host and runs independently on Linux in CI as well as in the Windows
+  solution suite. Keep test-only failure routes out of the shipped API.
 - `Services/` contains SQLite schema/repositories, image storage, authentication,
   application settings, catalogue search, and Gemini integration.
 - `CommandLine.cs` provides non-UI catalogue, user, assistant, and version
@@ -112,8 +118,8 @@ not passed — say so when reporting results. CI sets
 `JUSSIMINIPOS_TEST_REQUIRE_POSTGRES=true`, which turns a missing server into a
 failure. `JUSSIMINIPOS_TEST_POSTGRES` points the tests at another server.
 
-Tests cover the data layer and domain rules; there are no UI tests. For
-changes to XAML or view code-behind, also manually exercise the affected UI or
+Tests cover the data layer, domain rules and API endpoints; there are no WPF
+UI tests. For changes to XAML or view code-behind, also manually exercise the affected UI or
 CLI flow and report what was and was not verified. Do not claim that tests
 passed when only a build was run, or that both engines were tested when the
 PostgreSQL cases were skipped.
