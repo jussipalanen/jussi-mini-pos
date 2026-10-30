@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JussiMiniPos.Models;
+using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
@@ -253,7 +254,7 @@ public sealed class ProductSearch(Database database)
         Database.AddParameter(
             command,
             "@maxPriceCents",
-            terms.MaxPrice is { } max ? SalesRepository.ToCents(max) : null,
+            terms.MaxPrice is { } max ? Money.ToCents(max) : null,
             DbType.Int64);
 
         using var reader = command.ExecuteReader();
