@@ -1,4 +1,7 @@
-﻿using System.Windows;
+﻿using System.Data.Common;
+using System.IO;
+using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 using System.Windows.Threading;
 using JussiMiniPos.Models;
@@ -97,6 +100,31 @@ public partial class MainWindow : Window
         }
 
         ShowStartView();
+        _ = RunScheduledBackupAsync();
+    }
+
+    /// <summary>
+    /// Takes the daily automatic backup when one is due, off the UI thread so
+    /// the till is usable at once. A failure is shown, because a till that
+    /// silently stopped backing up is worse than one that says so.
+    /// </summary>
+    private async Task RunScheduledBackupAsync()
+    {
+        try
+        {
+            var settings = BackupSettings.Load(_options);
+            if (settings.Automatic)
+            {
+                var backups = new BackupService(_database);
+                await Task.Run(() => backups.RunScheduled(settings.Folder, settings.Keep, DateTimeOffset.Now));
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or DbException or InvalidOperationException)
+        {
+            MessageBox.Show(this,
+                $"Automaattinen varmuuskopio epäonnistui:\n\n{ex.Message}\n\nTarkista kansio kohdassa Admin → Varmuuskopiot.",
+                "JussiMiniPos", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     private void ShowStartView()
@@ -214,6 +242,7 @@ public partial class MainWindow : Window
             _checkoutView = new CheckoutView(_catalogRepository, _imageStore, _assistant);
             _checkoutView.Back += ShowStartView;
             _checkoutView.PayRequested += ShowPaymentView;
+            _checkoutView.RefundRequested += ShowRefundPicker;
         }
 
         ViewHost.Content = _checkoutView;
@@ -239,7 +268,7 @@ public partial class MainWindow : Window
 
     private void ShowSalesView()
     {
-        var view = new SalesView(_salesRepository, RequireUser);
+        var view = new SalesView(_salesRepository, _options, RequireUser);
         view.Back += ShowStartView;
         ViewHost.Content = view;
     }
@@ -269,6 +298,7 @@ public partial class MainWindow : Window
         view.Back += ShowStartView;
         view.AuditLogRequested += () => new AuditLogWindow(_database.Audit) { Owner = this }.ShowDialog();
         view.UsersRequested += ShowUsersWindow;
+        view.BackupsRequested += () => new BackupWindow(_database, _options) { Owner = this }.ShowDialog();
         ViewHost.Content = view;
     }
 
@@ -314,10 +344,34 @@ public partial class MainWindow : Window
             return;
         }
 
-        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username);
+        var settings = TillSettings.Default;
+        if (!ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options)))
+        {
+            return;
+        }
+
+        var view = new PaymentView(_checkoutView.Cart, _salesRepository, seller.Username, settings);
         view.Cancelled += ShowCheckoutView;
         view.Finished += StartNewSale;
         ViewHost.Content = view;
+    }
+
+    /// <summary>
+    /// Today's sales to refund from, opened from Kassa. Whoever is signed in
+    /// when the refund is made is the one recorded on it.
+    /// </summary>
+    private void ShowRefundPicker()
+    {
+        if (RequireUser("Kirjaudu sisään tehdäksesi palautuksen.") is not { } user)
+        {
+            return;
+        }
+
+        var settings = TillSettings.Default;
+        if (ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options)))
+        {
+            new RefundPickerWindow(_salesRepository, user, settings) { Owner = this }.ShowDialog();
+        }
     }
 
     /// <summary>After a paid sale the next customer starts from an empty cart.</summary>

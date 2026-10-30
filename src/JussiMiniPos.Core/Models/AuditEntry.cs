@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 
 namespace JussiMiniPos.Models;
 
@@ -29,6 +29,7 @@ public static class AuditActions
     public const string SignInFailed = "sign-in-failed";
     public const string SignOut = "sign-out";
     public const string SaleVoided = "sale-voided";
+    public const string RefundCreated = "refund-created";
     public const string ProductCreated = "product-created";
     public const string ProductUpdated = "product-updated";
     public const string ProductDeleted = "product-deleted";
@@ -39,6 +40,9 @@ public static class AuditActions
     public const string UserDeleted = "user-deleted";
     public const string PasswordChanged = "password-changed";
     public const string UserUnlocked = "user-unlocked";
+    public const string SettingsChanged = "settings-changed";
+    public const string BackupCreated = "backup-created";
+    public const string BackupRestored = "backup-restored";
 
     public static string Finnish(string action) => action switch
     {
@@ -46,6 +50,7 @@ public static class AuditActions
         SignInFailed => "Epäonnistunut kirjautuminen",
         SignOut => "Uloskirjautuminen",
         SaleVoided => "Myynnin mitätöinti",
+        RefundCreated => "Palautus",
         ProductCreated => "Tuote lisätty",
         ProductUpdated => "Tuotetta muutettu",
         ProductDeleted => "Tuote poistettu",
@@ -56,6 +61,9 @@ public static class AuditActions
         UserDeleted => "Käyttäjä poistettu",
         PasswordChanged => "Salasana vaihdettu",
         UserUnlocked => "Tilin lukitus avattu",
+        SettingsChanged => "Kassan asetuksia muutettu",
+        BackupCreated => "Varmuuskopio otettu",
+        BackupRestored => "Varmuuskopio palautettu",
         _ => action,
     };
 }

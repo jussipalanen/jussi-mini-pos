@@ -1,0 +1,120 @@
+﻿<Window x:Class="JussiMiniPos.Views.RefundWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Palautus"
+        Width="600" Height="640" MinHeight="480"
+        WindowStartupLocation="CenterOwner"
+        FontFamily="Segoe UI"
+        Background="{StaticResource Brush.Background}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Window.Resources>
+
+    <Border Style="{StaticResource Card}" Margin="18" Padding="0">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <StackPanel Grid.Row="0" Margin="22,20,22,0">
+                <DockPanel>
+                    <Button DockPanel.Dock="Right" Style="{StaticResource Button.Ghost}" Height="32" Padding="12,0"
+                            Content="Palauta kaikki" AutomationProperties.Name="Palauta kaikki"
+                            Click="All_Click" />
+                    <TextBlock Text="{Binding HeaderText}" Style="{StaticResource Text.SectionHeader}" />
+                </DockPanel>
+                <TextBlock Text="{Binding SaleText}" Style="{StaticResource Text.Muted}" Margin="0,6,0,0" />
+                <TextBlock Text="{Binding SignedInText}" Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,2,0,0" />
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,14,0,0" />
+            </StackPanel>
+
+            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="22,12,22,0">
+                <StackPanel>
+                    <TextBlock Text="Palautettavat tuotteet" Style="{StaticResource Text.Muted}" Margin="0,0,0,8" />
+                    <ItemsControl ItemsSource="{Binding Lines}" AutomationProperties.Name="Palautettavat tuotteet">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{StaticResource Brush.SurfaceMuted}"
+                                        BorderBrush="{StaticResource Brush.Border}"
+                                        BorderThickness="1" CornerRadius="10"
+                                        Padding="12,8" Margin="0,0,0,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="90" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding Item.Name}" FontWeight="SemiBold"
+                                                       Foreground="{StaticResource Brush.Text}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Style="{StaticResource Text.Muted}" FontSize="12" Margin="0,2,0,0">
+                                                <TextBlock Text="{Binding Item.UnitPrice, StringFormat={}{0:N2} € / kpl}" />
+                                                <Run Text=" · " />
+                                                <TextBlock Text="{Binding MaxText}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource Button.Icon}" Tag="{StaticResource Icon.Minus}"
+                                                    ToolTip="Vähennä" AutomationProperties.Name="Vähennä"
+                                                    Click="Decrease_Click" />
+                                            <TextBlock Text="{Binding Quantity}" MinWidth="30" TextAlignment="Center"
+                                                       FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center"
+                                                       Foreground="{StaticResource Brush.Text}" />
+                                            <Button Style="{StaticResource Button.Icon}" Tag="{StaticResource Icon.Plus}"
+                                                    ToolTip="Lisää" AutomationProperties.Name="Lisää"
+                                                    Click="Increase_Click" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Column="2" Text="{Binding LineTotal, StringFormat={}{0:N2} €}"
+                                                   FontWeight="SemiBold" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                                   Foreground="{StaticResource Brush.Text}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+
+                    <TextBlock Text="Palautustapa" Style="{StaticResource Text.Muted}" Margin="0,10,0,6" />
+                    <ListBox Style="{StaticResource ChipList}"
+                             ItemContainerStyle="{StaticResource ChipItem}"
+                             ItemsSource="{Binding Methods}"
+                             DisplayMemberPath="Name"
+                             SelectedValuePath="Method"
+                             SelectedValue="{Binding Method}"
+                             SelectionMode="Single"
+                             AutomationProperties.Name="Palautustapa" />
+
+                    <TextBlock Text="Syy" Style="{StaticResource Text.Muted}" Margin="0,14,0,6" />
+                    <TextBox Style="{StaticResource FormBox}"
+                             AutomationProperties.Name="Palautuksen syy"
+                             Text="{Binding Reason, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
+            </ScrollViewer>
+
+            <StackPanel Grid.Row="2" Margin="22,0,22,20">
+                <Border Height="1" Background="{StaticResource Brush.Border}" Margin="0,14,0,12" />
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Total, StringFormat={}{0:N2} €}"
+                               FontSize="24" FontWeight="Bold" Foreground="{StaticResource Brush.Text}" />
+                    <TextBlock Text="Palautettava" FontSize="16" FontWeight="SemiBold"
+                               Foreground="{StaticResource Brush.TextMuted}" VerticalAlignment="Center" />
+                </DockPanel>
+                <TextBlock Text="{Binding RoundingText}" Style="{StaticResource Text.Muted}" FontSize="12"
+                           HorizontalAlignment="Right"
+                           Visibility="{Binding IsRounded, Converter={StaticResource BoolToVis}}" />
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,14,0,0">
+                    <Button Style="{StaticResource Button.Ghost}" Height="46" Padding="20,0"
+                            Content="Peruuta" IsCancel="True" AutomationProperties.Name="Peruuta"
+                            Click="Cancel_Click" />
+                    <Button Style="{StaticResource Button.Danger}" MinWidth="170" Padding="16,0" Margin="10,0,0,0"
+                            Content="{Binding RefundButtonText}" AutomationProperties.Name="Vahvista palautus"
+                            IsEnabled="{Binding CanRefund}"
+                            Click="Refund_Click" />
+                </StackPanel>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

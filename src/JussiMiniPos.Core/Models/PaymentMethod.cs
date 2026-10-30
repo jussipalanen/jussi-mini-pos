@@ -7,6 +7,7 @@
 public enum PaymentMethod
 {
     Card,
+    Cash,
 }
 
 /// <summary>Finnish display names for <see cref="PaymentMethod"/>.</summary>
@@ -15,6 +16,7 @@ public static class PaymentMethodNames
     public static string Finnish(PaymentMethod method) => method switch
     {
         PaymentMethod.Card => "Maksukortti",
+        PaymentMethod.Cash => "Käteinen",
         _ => method.ToString(),
     };
 }

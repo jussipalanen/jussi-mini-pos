@@ -1,4 +1,4 @@
-# Roadmap
+﻿# Roadmap
 
 What comes next for JussiMiniPos, in the order it should be built. Each phase
 lists what is in scope and what "done" means. When an item ships, tick it here
@@ -116,6 +116,20 @@ The *High* items marked *1.0.0* under [Missing features](#missing-features):
 barcodes, cash payment, returns and refunds, receipt printing with shop details,
 and backup and restore. Opening and closing the till and the end-of-day report
 follow cash payment. (The audit log shipped with 2.2.)
+
+- [x] Barcodes: an EAN-13, EAN-8 or UPC-A code per product, checked and unique,
+      and scanner input in Kassa that adds the product straight to the cart.
+- [x] Cash payment: amount given, change due, and rounding to 5 cents as an
+      Admin setting that is on by default. Card stays exact; the rounding is
+      stored on the sale.
+- [x] Returns and refunds: a refund linked to the original sale and its lines,
+      as its own record, never by editing the sale. Sellers refund their own
+      sales of the day; managers any sale.
+- [x] Receipt printing with shop details: business name, Y-tunnus, address and
+      VAT breakdown on every receipt, printed through Windows printers, with
+      copies and refund receipts. No ESC/POS, so no cash-drawer kick.
+- [x] Backup and restore from the app: a consistent SQLite copy on demand and
+      daily, restore with a safety copy, and guidance for PostgreSQL.
 
 **1.0.0 ships when Phases 1 and 2 are done.**
 

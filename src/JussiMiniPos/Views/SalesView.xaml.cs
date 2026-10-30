@@ -18,6 +18,7 @@ namespace JussiMiniPos.Views;
 public partial class SalesView : UserControl, INotifyPropertyChanged
 {
     private readonly SalesRepository _sales;
+    private readonly OptionsRepository _options;
 
     /// <summary>
     /// Returns the signed-in user, asking for a sign-in first when nobody is,
@@ -27,11 +28,12 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
 
     private IReadOnlyList<Sale> _all = [];
 
-    public SalesView(SalesRepository sales, Func<string, User?> signIn)
+    public SalesView(SalesRepository sales, OptionsRepository options, Func<string, User?> signIn)
     {
         InitializeComponent();
 
         _sales = sales;
+        _options = options;
         _signIn = signIn;
         Pager.Changed += ShowPage;
 
@@ -54,8 +56,8 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
     /// <summary>Items sold across every sale that counts, not just this page.</summary>
     public int TotalItems => _all.Where(sale => !sale.IsVoided).Sum(sale => sale.ItemCount);
 
-    /// <summary>Takings across every sale that counts.</summary>
-    public decimal GrandTotal => _all.Where(sale => !sale.IsVoided).Sum(sale => sale.Total);
+    /// <summary>Takings across every sale that counts, less what was refunded.</summary>
+    public decimal GrandTotal => _all.Where(sale => !sale.IsVoided).Sum(sale => sale.Total - sale.RefundedTotal);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -88,7 +90,9 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        new SaleDetailsWindow(sale) { Owner = Window.GetWindow(this) }.ShowDialog();
+        var settings = TillSettings.Default;
+        ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options));
+        new SaleDetailsWindow(sale, settings) { Owner = Window.GetWindow(this) }.ShowDialog();
     }
 
     /// <summary>
@@ -126,6 +130,27 @@ public partial class SalesView : UserControl, INotifyPropertyChanged
         }
 
         if (ViewErrors.Try(this, "Myyntiä ei voitu mitätöidä.", () => _sales.VoidSale(sale.Id, user.Username, dialog.Reason)))
+        {
+            Reload();
+        }
+    }
+
+    /// <summary>
+    /// Gives money back against a sale. Myynti is for managers and
+    /// administrators, who may refund any sale; the rule itself is checked in
+    /// <see cref="RefundWindow.Run"/>.
+    /// </summary>
+    private void Refund_Click(object sender, RoutedEventArgs e)
+    {
+        if (((FrameworkElement)sender).DataContext is not Sale { CanBeRefunded: true } sale
+            || _signIn("Kirjaudu sisään tehdäksesi palautuksen.") is not { } user)
+        {
+            return;
+        }
+
+        var settings = TillSettings.Default;
+        if (ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options))
+            && RefundWindow.Run(this, sale, user, _sales, settings))
         {
             Reload();
         }
