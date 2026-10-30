@@ -242,6 +242,45 @@ CI runs both engines on every pull request and fails if PostgreSQL is missing.
 
 </details>
 
+## REST API foundation
+
+The API is a separate ASP.NET Core application targeting plain .NET 10. It
+references Core and can be built independently of the Windows desktop app.
+This first Phase 4 slice provides process liveness and development API docs;
+shared persistence, demo mode, catalogue routes and authentication follow in
+later slices. It does not open a database, read `database.env` or access the
+desktop application's data folder.
+
+For local development, set up the SDK's HTTPS development certificate once:
+
+```powershell
+dotnet dev-certs https --trust
+dotnet run --project src/JussiMiniPos.Api
+```
+
+The checked-in launch profile uses `Development` and listens at
+`https://localhost:7240`. Open `https://localhost:7240/docs` for Scalar, or
+`https://localhost:7240/openapi/v1.json` for the generated OpenAPI document.
+The documentation's JavaScript is served locally; default remote fonts and
+Scalar Agent are disabled.
+
+`GET /api/v1/health` is anonymous and returns `{"status":"ok"}`. It checks
+that the process responds, not database readiness. Errors use
+`application/problem+json` with Finnish messages and a `traceId`; server
+exceptions are never included in responses, including in Development.
+HTTP requests receive a Finnish `400` response asking for HTTPS.
+
+Outside Development, `/docs` and `/openapi/v1.json` return `404`. Hosting
+without the launch profile requires an explicitly configured HTTPS listener
+and certificate through the standard ASP.NET Core/Kestrel configuration.
+TLS termination at a reverse proxy is not configured in this slice.
+
+Run only the API endpoint tests (also run on Linux in CI):
+
+```powershell
+dotnet test --project tests/JussiMiniPos.Api.Tests/JussiMiniPos.Api.Tests.csproj
+```
+
 ## 📁 Project layout
 
 <details>
@@ -252,8 +291,10 @@ The repository root holds the solution, documentation and tooling:
 | Path                   | Purpose                                                |
 | ---------------------- | ------------------------------------------------------ |
 | `JussiMiniPos.slnx`    | Solution; `dotnet build` at the root builds every project in it |
+| `src/JussiMiniPos.Api/` | ASP.NET Core API host (`net10.0`), health check and development docs |
 | `src/JussiMiniPos.Core/` | Shared models, money/VAT and domain rules (`net10.0`; no WPF or database dependencies) |
 | `src/JussiMiniPos/`    | The WPF application (table below)                      |
+| `tests/JussiMiniPos.Api.Tests/` | API endpoint tests using an in-memory host, without a database |
 | `tests/JussiMiniPos.Core.Tests/` | Portable domain tests referencing only Core |
 | `tests/JussiMiniPos.Tests/` | xUnit tests, run against SQLite and PostgreSQL    |
 | `global.json`          | Selects Microsoft.Testing.Platform for `dotnet test`   |
@@ -269,7 +310,7 @@ The repository root holds the solution, documentation and tooling:
 Core keeps the existing `JussiMiniPos.Models` namespace for domain types and
 `JussiMiniPos.Services` for the pure `IdleSession` rule. The desktop app
 references it; repositories, file storage, authentication and remote calls
-stay in the desktop project. Future API code can reference Core directly.
+stay in the desktop project. The API host also references Core directly.
 
 The application, under `src/JussiMiniPos/`:
 

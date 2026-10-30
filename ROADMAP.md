@@ -287,8 +287,12 @@ docker compose --profile demo up
 
 ### Build order inside Phase 4
 
-1. [ ] API project, health check, OpenAPI document, Scalar at `/docs`,
-       `ProblemDetails`, demo mode, and the demo Compose profile.
+1. [ ] API foundation:
+   - [x] API project referencing Core, health check, OpenAPI document,
+         development Scalar at `/docs`, Finnish `ProblemDetails` and endpoint
+         tests, including a Linux CI job.
+   - [ ] Demo mode and the demo Compose profile. First share persistence with
+         the API after the Phase 2 schema and sale changes settle.
 2. [ ] Read-only catalogue: products, categories and images.
 3. [ ] API keys: table, migration, authentication handler, scopes, rate limits,
        Admin view and CLI.
