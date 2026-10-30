@@ -39,9 +39,9 @@ public sealed class SalesRepository(Database database)
         Database.AddParameter(insertSale, "@totalCents", ToCents(sale.Total));
         Database.AddParameter(insertSale, "@paymentMethod", sale.PaymentMethod.ToString());
         Database.AddParameter(insertSale, "@soldBy", sale.SoldBy, DbType.String);
-        Database.AddParameter(insertSale, "@roundingCents", ToCents(sale.Rounding));
+        Database.AddParameter(insertSale, "@roundingCents", Money.ToCents(sale.Rounding));
         Database.AddParameter(insertSale, "@cashReceivedCents",
-            sale.CashReceived is { } cash ? ToCents(cash) : null, DbType.Int64);
+            sale.CashReceived is { } cash ? Money.ToCents(cash) : null, DbType.Int64);
 
         var saleId = Convert.ToInt64(insertSale.ExecuteScalar(), CultureInfo.InvariantCulture);
 
@@ -109,8 +109,8 @@ public sealed class SalesRepository(Database database)
                 Id = id,
                 Void = ReadVoid(reader, 4),
                 SoldBy = reader.IsDBNull(7) ? null : reader.GetString(7),
-                Rounding = FromCents(reader.GetInt64(8)),
-                CashReceived = reader.IsDBNull(9) ? null : FromCents(reader.GetInt64(9)),
+                Rounding = Money.FromCents(reader.GetInt64(8)),
+                CashReceived = reader.IsDBNull(9) ? null : Money.FromCents(reader.GetInt64(9)),
                 Refunds = refundsBySale.TryGetValue(id, out var refunds) ? refunds : [],
             });
         }
@@ -237,8 +237,8 @@ public sealed class SalesRepository(Database database)
                     reader.GetString(3),
                     reader.GetString(4),
                     ParsePaymentMethod(reader.GetString(5)),
-                    FromCents(reader.GetInt64(6)),
-                    FromCents(reader.GetInt64(7)),
+                    Money.FromCents(reader.GetInt64(6)),
+                    Money.FromCents(reader.GetInt64(7)),
                     lines);
 
                 if (!result.TryGetValue(current.SaleId, out var refunds))
@@ -253,10 +253,10 @@ public sealed class SalesRepository(Database database)
             lines.Add(new RefundLine(
                 reader.GetInt64(8),
                 reader.GetString(9),
-                FromCents(reader.GetInt64(10)),
+                Money.FromCents(reader.GetInt64(10)),
                 reader.GetInt32(11),
                 reader.IsDBNull(12) ? null : reader.GetInt32(12),
-                reader.IsDBNull(13) ? null : FromCents(reader.GetInt64(13))));
+                reader.IsDBNull(13) ? null : Money.FromCents(reader.GetInt64(13))));
         }
 
         return result;
@@ -355,15 +355,15 @@ public sealed class SalesRepository(Database database)
                 ? null
                 : quantity == line.Remaining && line.VatCents is { } recorded
                     ? recorded - line.RefundedVatCents
-                    : ToCents(Vat.Included(FromCents(amount), rate));
+                    : Money.ToCents(Vat.Included(Money.FromCents(amount), rate));
 
             lineCents.Add((amount, vat));
             refundLines.Add(new RefundLine(
-                saleItemId, line.Name, FromCents(line.UnitPriceCents), quantity, line.VatBasisPoints,
-                vat is { } cents ? FromCents(cents) : null));
+                saleItemId, line.Name, Money.FromCents(line.UnitPriceCents), quantity, line.VatBasisPoints,
+                vat is { } cents ? Money.FromCents(cents) : null));
         }
 
-        var subtotal = FromCents(lineCents.Sum(line => line.Amount));
+        var subtotal = Money.FromCents(lineCents.Sum(line => line.Amount));
         var total = method == PaymentMethod.Cash ? Sale.CashTotal(subtotal, roundCash) : subtotal;
         var refundedAt = DateTimeOffset.Now;
 
@@ -380,8 +380,8 @@ public sealed class SalesRepository(Database database)
         Database.AddParameter(insertRefund, "@refundedBy", refundedBy);
         Database.AddParameter(insertRefund, "@reason", reason);
         Database.AddParameter(insertRefund, "@paymentMethod", method.ToString());
-        Database.AddParameter(insertRefund, "@totalCents", ToCents(total));
-        Database.AddParameter(insertRefund, "@roundingCents", ToCents(total - subtotal));
+        Database.AddParameter(insertRefund, "@totalCents", Money.ToCents(total));
+        Database.AddParameter(insertRefund, "@roundingCents", Money.ToCents(total - subtotal));
         var refundId = Convert.ToInt64(insertRefund.ExecuteScalar(), CultureInfo.InvariantCulture);
 
         for (var i = 0; i < refundLines.Count; i++)
@@ -476,9 +476,9 @@ public sealed class SalesRepository(Database database)
     internal static PaymentMethod ParsePaymentMethod(string value) =>
         Enum.TryParse<PaymentMethod>(value, out var parsed) ? parsed : PaymentMethod.Card;
 
-    public static long ToCents(decimal amount) =>
-        (long)decimal.Round(amount * 100m, 0, MidpointRounding.AwayFromZero);
+    /// <summary>Compatibility entry point; shared money rules live in Core.</summary>
+    public static long ToCents(decimal amount) => Money.ToCents(amount);
 
-    /// <summary>Kept next to <see cref="ToCents"/> so the two stay in step when reading rows back.</summary>
-    public static decimal FromCents(long cents) => cents / 100m;
+    /// <summary>Compatibility entry point; shared money rules live in Core.</summary>
+    public static decimal FromCents(long cents) => Money.FromCents(cents);
 }

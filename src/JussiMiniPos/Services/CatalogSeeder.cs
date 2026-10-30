@@ -1,4 +1,5 @@
-﻿using System;
+﻿using JussiMiniPos.Models;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -175,7 +176,7 @@ public static class CatalogSeeder
         foreach (var product in DemoCatalog.Products)
         {
             var salePrice = SalePrices.TryGetValue(product.Id, out var offer)
-                ? SalesRepository.ToCents(offer)
+                ? Money.ToCents(offer)
                 : (object)DBNull.Value;
 
             Execute(connection, transaction,
@@ -187,7 +188,7 @@ public static class CatalogSeeder
                 ("@title", product.Name),
                 ("@description", Descriptions.GetValueOrDefault(product.Id, string.Empty)),
                 ("@featureImage", DBNull.Value),
-                ("@priceCents", SalesRepository.ToCents(product.Price)),
+                ("@priceCents", Money.ToCents(product.Price)),
                 ("@salePriceCents", salePrice),
                 ("@vatRateId", vatRateId));
 

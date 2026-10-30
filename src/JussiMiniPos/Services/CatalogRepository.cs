@@ -111,8 +111,8 @@ public sealed class CatalogRepository(Database database)
                 id,
                 reader.GetString(1),
                 reader.GetString(2),
-                SalesRepository.FromCents(reader.GetInt64(3)),
-                reader.IsDBNull(4) ? null : SalesRepository.FromCents(reader.GetInt64(4)),
+                Money.FromCents(reader.GetInt64(3)),
+                reader.IsDBNull(4) ? null : Money.FromCents(reader.GetInt64(4)),
                 reader.IsDBNull(5) ? null : reader.GetString(5),
                 reader.GetInt64(6) != 0,
                 categoriesByProduct.TryGetValue(id, out var categories) ? categories : [])
@@ -123,7 +123,9 @@ public sealed class CatalogRepository(Database database)
             });
         }
 
-        return products;
+        // SQL limits the rows read; Core owns the public catalogue boundary
+        // used by both the till and the assistant.
+        return publicOnly ? [.. products.Where(ProductVisibility.IsVisible)] : products;
     }
 
     // ---------- VAT rates ----------
@@ -327,8 +329,8 @@ public sealed class CatalogRepository(Database database)
 
         return new AuditSnapshot(
             reader.GetString(0),
-            SalesRepository.FromCents(reader.GetInt64(1)),
-            reader.IsDBNull(2) ? null : SalesRepository.FromCents(reader.GetInt64(2)),
+            Money.FromCents(reader.GetInt64(1)),
+            reader.IsDBNull(2) ? null : Money.FromCents(reader.GetInt64(2)),
             reader.IsDBNull(3) ? null : reader.GetInt32(3),
             reader.GetInt64(4) != 0,
             reader.IsDBNull(5) ? null : reader.GetString(5));
@@ -531,10 +533,10 @@ public sealed class CatalogRepository(Database database)
     {
         Database.AddParameter(command, "@title", draft.Title);
         Database.AddParameter(command, "@description", draft.Description);
-        Database.AddParameter(command, "@priceCents", SalesRepository.ToCents(draft.Price));
+        Database.AddParameter(command, "@priceCents", Money.ToCents(draft.Price));
         Database.AddParameter(command,
             "@salePriceCents",
-            draft.SalePrice is { } sale ? SalesRepository.ToCents(sale) : DBNull.Value);
+            draft.SalePrice is { } sale ? Money.ToCents(sale) : DBNull.Value);
         Database.AddParameter(command, "@featureImage", (object?)draft.FeatureImage ?? DBNull.Value);
         Database.AddParameter(command, "@isPublic", draft.IsPublic ? 1 : 0);
         Database.AddParameter(command, "@vatRateId", draft.VatRateId);
@@ -663,7 +665,7 @@ public sealed class CatalogRepository(Database database)
         return new SalesSummary(
             reader.GetInt32(0),
             reader.GetInt32(1),
-            SalesRepository.FromCents(reader.GetInt64(2)));
+            Money.FromCents(reader.GetInt64(2)));
     }
 
     /// <summary>How many times a product appears on past receipts.</summary>
