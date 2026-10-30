@@ -133,7 +133,8 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
             .Where(p => p.IsInCategory(_selectedCategory))
             .Where(p => search.Length == 0
                 || p.Id.ToString().Contains(search, StringComparison.OrdinalIgnoreCase)
-                || p.Name.Contains(search, StringComparison.OrdinalIgnoreCase))
+                || p.Name.Contains(search, StringComparison.OrdinalIgnoreCase)
+                || p.Barcode?.Contains(search, StringComparison.Ordinal) == true)
             .ToList();
 
         // A narrower filter can leave the current page past the end; the pager
@@ -187,7 +188,7 @@ public partial class ProductsView : UserControl, INotifyPropertyChanged
             return;
         }
 
-        var window = new ProductEditWindow(product, _allCategories, _vatRates, _images)
+        var window = new ProductEditWindow(product, _allCategories, _vatRates, _images, _catalog.FindBarcodeOwner)
         {
             Owner = Window.GetWindow(this),
         };

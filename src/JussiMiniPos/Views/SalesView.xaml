@@ -97,7 +97,7 @@
                             <ColumnDefinition Width="170" />
                             <ColumnDefinition Width="110" />
                             <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="76" />
+                            <ColumnDefinition Width="112" />
                         </Grid.ColumnDefinitions>
                         <TextBlock Grid.Column="0" Text="Nro" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
                         <TextBlock Grid.Column="1" Text="Päivämäärä" Style="{StaticResource Text.Muted}" FontWeight="SemiBold" />
@@ -134,7 +134,7 @@
                                             <ColumnDefinition Width="170" />
                                             <ColumnDefinition Width="110" />
                                             <ColumnDefinition Width="120" />
-                                            <ColumnDefinition Width="76" />
+                                            <ColumnDefinition Width="112" />
                                         </Grid.ColumnDefinitions>
 
                                         <TextBlock Grid.Column="0" Text="{Binding Id}"
@@ -152,6 +152,11 @@
                                                     ToolTip="{Binding Void.Display}">
                                                 <TextBlock Text="Mitätöity" FontSize="11"
                                                            Foreground="{StaticResource Brush.Danger}" />
+                                            </Border>
+                                            <Border Style="{StaticResource Badge}" Margin="10,0,0,0"
+                                                    Visibility="{Binding HasRefunds, Converter={StaticResource BoolToVis}}">
+                                                <TextBlock FontSize="11" Style="{StaticResource Text.Muted}"
+                                                           Text="{Binding RefundedTotal, StringFormat=Palautettu {0:N2} €}" />
                                             </Border>
                                         </StackPanel>
 
@@ -182,6 +187,13 @@
                                                     ToolTip="Näytä myynti"
                                                     AutomationProperties.Name="Näytä myynti"
                                                     Click="View_Click" />
+                                            <Button Style="{StaticResource Button.Icon}"
+                                                    Tag="{StaticResource Icon.Undo}"
+                                                    ToolTip="Palautus"
+                                                    AutomationProperties.Name="Tee palautus"
+                                                    Margin="6,0,0,0"
+                                                    IsEnabled="{Binding CanBeRefunded}"
+                                                    Click="Refund_Click" />
                                             <Button Style="{StaticResource Button.IconDanger}"
                                                     Tag="{StaticResource Icon.Ban}"
                                                     ToolTip="Mitätöi myynti"

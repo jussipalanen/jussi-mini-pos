@@ -1,4 +1,4 @@
-<h1 align="center">
+﻿<h1 align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo-dark.svg">
     <img src="src/JussiMiniPos/Assets/Icons/jussi-mini-pos-logo.svg" width="340" alt="Jussi mini-POS">
@@ -623,9 +623,10 @@ Categories                    Products
                               ├── PriceCents      (VAT included)
 ProductImages                 ├── SalePriceCents  (NULL = not on offer)
 ├── Id                        ├── IsPublic (0/1)
-├── ProductId → Products.Id   └── VatRateId → VatRates.Id
-├── Path
-└── SortOrder                 ProductCategories
+├── ProductId → Products.Id   ├── VatRateId → VatRates.Id
+├── Path                      └── Barcode  (UNIQUE, NULL = none)
+└── SortOrder
+                              ProductCategories
                               ├── ProductId  → Products.Id
 VatRates                      └── CategoryId → Categories.Id
 ├── Id                            (composite primary key)
@@ -641,6 +642,24 @@ rather than a column; its extra images do too.
 `SalePriceCents` is `NULL` when there is no offer, so "is this discounted" is a
 null check rather than a sentinel price. The till charges
 `Product.EffectivePrice`, which is the offer price when one applies.
+
+#### Barcodes
+
+A product can carry one barcode: EAN-13, EAN-8 or UPC-A (12 digits, as a
+scanner reports it). Enter it under **Viivakoodi** in the product editor, by
+typing or by scanning into the field. The editor checks the check digit, so a
+mistyped code is refused rather than saved to never match, and refuses a code
+another product already has, naming that product. `Products.Barcode` is
+unique; any number of products may have none.
+
+At the till, scan with any USB or Bluetooth scanner that acts as a keyboard
+(the usual default) and ends a code with Enter. Kassa keeps its search box
+focused, and digits typed while a button or list has focus go to the search box
+too, so a scan never presses the focused button. A scanned code that matches a
+product adds one to the cart, whatever category is selected, and the box is
+emptied for the next scan. A code that matches nothing shows *Viivakoodilla …
+ei löytynyt tuotetta*. Hidden products are not sold, so their codes are not
+found. Typing part of a code searches as before, in Kassa and Tuotteet alike.
 
 #### VAT (ALV)
 
@@ -696,7 +715,10 @@ The steps from before PostgreSQL support only ever fire against a SQLite file
 old enough to predate them. The VAT columns came after both engines, so their
 steps run on either: they add `Products.VatRateId` and the `SaleItems` VAT
 columns, write the default rates into an empty `VatRates`, and put existing
-products on the general rate.
+products on the general rate. Barcodes came later still: the migration adds
+`Products.Barcode` and creates its unique index `UX_Products_Barcode`, which
+lives there rather than in the schema because the schema runs before an older
+table has the column.
 
 One migration does more than add a column. `ProductCategories.SortOrder` records
 the order the links were written, so the first category a product was given
@@ -712,8 +734,9 @@ Sales                         SaleItems
 ├── Id                        ├── Id
 ├── DateTime   (ISO 8601)     ├── SaleId  → Sales.Id
 ├── TotalCents (integer)      ├── ProductId
-└── PaymentMethod             ├── Name
-                              ├── Category
+├── PaymentMethod (Card/Cash) ├── Name
+├── RoundingCents  (cash)     ├── Category
+└── CashReceivedCents         │
                               ├── UnitPriceCents
                               ├── Quantity
                               ├── VatRateBasisPoints  (NULL = sold before VAT was recorded)
@@ -729,6 +752,29 @@ VAT-inclusive total and rounded to the cent; the receipt and Raportit's
 recorded keep `NULL` and are listed as *ALV ei tiedossa* rather than given an
 invented figure.
 
+#### Cash payment
+
+**Maksa** offers *Maksukortti* and *Käteinen*. Cash opens a step where the
+seller types what the customer handed over, or picks *Tasaraha* or the next
+note up. The change is shown as it is typed, *Vastaanota käteinen* (or Enter)
+stores the sale, and the done screen shows **Anna takaisin** in large type.
+The amount must cover the total; the button stays disabled until it does.
+
+Cash totals are rounded to the nearest five cents, as Finnish shops do: endings
+1–2 and 6–7 round down, 3–4 and 8–9 up. Card payments are never rounded. The
+lines and their VAT stay exactly as sold, and the difference is stored as
+`Sales.RoundingCents`, so `TotalCents` is what was actually charged (lines plus
+rounding). Raportit's totals are that charged amount; its product, category and
+VAT breakdowns are line amounts, so over a period with cash sales they can
+differ from the total by the rounding. `CashReceivedCents` is the cash handed
+over (`NULL` for card); the change is the difference and is not stored twice.
+The receipt shows *Välisumma*, *Pyöristys*, *Käteinen* and *Takaisin* for a
+cash sale.
+
+Rounding is on by default. An administrator turns it off in **Admin → Kassa**
+(stored as the option `Till.RoundCash`), which applies to every till on the
+database and is recorded in the audit log.
+
 #### Voiding a sale
 
 A sale is never deleted. **Myynti → Mitätöi** marks it voided instead —
@@ -737,13 +783,99 @@ keeps the sale and its lines. A voided sale stays in the Myynti list, dimmed
 with a *Mitätöity* badge, and its receipt shows who voided it and why; it is
 left out of Myynti's totals, every Raportit figure and a product's sales
 summary. Voiding needs a signed-in **manager or administrator**
-(`User.CanVoidSales`) and a reason, and cannot be undone or repeated.
+(`User.CanVoidSales`) and a reason, and cannot be undone or repeated. A sale
+that has had money refunded against it can no longer be voided.
+
+#### Receipts and printing
+
+Receipts print through an ordinary **Windows printer**: a thermal receipt
+printer with its Windows driver, an office printer, or *Microsoft Print to
+PDF* to try it out. There is no raw ESC/POS, so the till does not open a cash
+drawer by itself.
+
+Set it up in **Admin → Kassa**:
+
+- **Kauppa:** the business name, Y-tunnus (checked, including its check
+  digit), address, an optional phone number and a footer line. A Finnish
+  receipt has to name the seller and its business ID.
+- **Kuittitulostin:** the printer, the paper width (80 mm or 58 mm), and
+  whether to print automatically after every sale and refund. *Kysy joka
+  kerta* asks for a printer each time; *Tulosta testikuitti* prints a sample.
+
+What prints:
+
+- **After a sale**, automatically when that is on, or with **Tulosta kuitti**
+  on the done screen.
+- **A copy** from **Myynti → Näytä → Tulosta kuitti**, marked *KUITIN KOPIO*
+  and listing any refunds and a void.
+- **A refund receipt** (*PALAUTUSKUITTI*) after each refund, automatically or
+  when the till asks, with the original receipt number, who refunded it and
+  why, and negative amounts.
+
+Each receipt carries the shop's details, the receipt number, date and time as
+the till's clock showed them, the seller, each item (with *quantity × unit
+price* when more than one), cash rounding, the total, how it was paid (cash
+given and change), and the VAT per rate: VAT-free amount, VAT and amount with
+VAT. The content is built in Core (`Receipts`), where it is tested without a
+printer; `ReceiptPrinter` only lays it out. A printer that fails shows a
+message and never undoes the sale.
+
+The shop details and settings are stored in `Options` (`Shop.*`, `Receipt.*`)
+and apply to every till on the database; changes are in the audit log. The
+printer is a name on one computer, so a till that does not have the stored
+printer asks which to use.
+
+#### Returns and refunds
+
+A refund is its own record, linked to the sale and the lines it returns; the
+sale is never edited. It is made from **Kassa → Palautus**, which lists today's
+sales that still have something to return, or from **Myynti → Palautus** on any
+sale. The dialog lists each line with how many can still come back, a way to
+give the money back (*Maksukortti* or *Käteinen*, the sale's own method to
+begin with), and a required reason; the button shows the amount, and afterwards
+the till says what to hand back or credit to the card. Several partial refunds
+can be made against one sale until every line is back.
+
+```
+Refunds                        RefundItems
+├── Id                         ├── Id
+├── SaleId → Sales.Id          ├── RefundId   → Refunds.Id
+├── DateTime                   ├── SaleItemId → SaleItems.Id
+├── RefundedBy                 ├── Quantity   (> 0)
+├── Reason                     ├── AmountCents
+├── PaymentMethod              └── VatCents   (NULL when the line's VAT is unknown)
+├── TotalCents
+└── RoundingCents
+```
+
+- **Who:** a manager or administrator may refund any sale; a seller only their
+  own sales of the day (`User.CanRefund`). Kassa's list shows a seller only
+  those.
+- **How much:** never more of a line than was sold less what earlier refunds
+  took, checked inside the write's transaction, which first locks the sale's
+  row so two tills cannot both return the last item.
+- **VAT:** a partial return works its VAT out of its own amount; returning a
+  line's last unit gives back exactly what the line recorded less what earlier
+  refunds took, so a fully returned line nets to zero VAT to the cent.
+- **Cash** refunds are rounded to five cents like cash sales, when rounding is
+  on; card refunds are exact.
+- **Voided** sales cannot be refunded, and refunded sales cannot be voided.
+- Every refund writes an audit entry in its own transaction.
+
+Refunds count on the **day they were made**, not the day of the sale, so a
+closed day's figures never change afterwards. Raportit takes them off that
+day's total and off the product, category and VAT breakdowns (by the product,
+category and rate each line was sold under), shows **Palautukset** as its own
+figure, and keeps the average sale on the sales themselves. Myynti's total is
+net of refunds too, and a refunded sale carries a *Palautettu* badge; its
+receipt lists each refund with when, by whom, how and why.
 
 #### Audit log
 
 `AuditLog` records sign-ins (and failed ones), sign-outs, voids, product
 creation, edits and deletion with the before and after of price, offer price,
-VAT and visibility, VAT rate changes, and user account changes — who, when
+VAT, visibility and barcode, refunds, VAT rate changes, user account changes
+and till settings such as cash rounding — who, when
 and what. Each change writes its entry in its own transaction, so a change
 cannot be stored without its entry. The log is append-only: nothing in the
 application updates or deletes it. Administrators read it in **Admin →
@@ -980,11 +1112,11 @@ and the model, all described above.
 
 | View | Myyjä (`seller`) | Esimies (`manager`) | Ylläpitäjä (`admin`) |
 | ---- | :--------------: | :-----------------: | :------------------: |
-| Kassa | ✓ | ✓ | ✓ |
+| Kassa, palautus omista päivän myynneistä | ✓ | ✓ | ✓ |
 | Tuotteet, kategoriat, ALV-kannat | | ✓ | ✓ |
-| Myynti, mitätöinti | | ✓ | ✓ |
+| Myynti, mitätöinti, palautus mistä tahansa myynnistä | | ✓ | ✓ |
 | Raportit | | ✓ | ✓ |
-| Admin, Käyttäjät, Tapahtumaloki | | | ✓ |
+| Admin, Käyttäjät, Kassa-asetukset, Tapahtumaloki | | | ✓ |
 
 Opening a view while signed out shows the login prompt with a line saying why,
 rather than simply refusing; signed in as a role that may not, it says so and

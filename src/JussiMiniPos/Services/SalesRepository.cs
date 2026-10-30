@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data;
 using System.Globalization;
+using System.Linq;
 using JussiMiniPos.Models;
 using System.Data.Common;
 
@@ -30,14 +31,17 @@ public sealed class SalesRepository(Database database)
         insertSale.Transaction = transaction;
         insertSale.CommandText =
             """
-            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod, SoldBy)
-            VALUES (@dateTime, @totalCents, @paymentMethod, @soldBy)
+            INSERT INTO Sales ("DateTime", TotalCents, PaymentMethod, SoldBy, RoundingCents, CashReceivedCents)
+            VALUES (@dateTime, @totalCents, @paymentMethod, @soldBy, @roundingCents, @cashReceivedCents)
             RETURNING Id;
             """;
         Database.AddParameter(insertSale, "@dateTime", sale.SoldAt.ToString("o", CultureInfo.InvariantCulture));
         Database.AddParameter(insertSale, "@totalCents", ToCents(sale.Total));
         Database.AddParameter(insertSale, "@paymentMethod", sale.PaymentMethod.ToString());
         Database.AddParameter(insertSale, "@soldBy", sale.SoldBy, DbType.String);
+        Database.AddParameter(insertSale, "@roundingCents", Money.ToCents(sale.Rounding));
+        Database.AddParameter(insertSale, "@cashReceivedCents",
+            sale.CashReceived is { } cash ? Money.ToCents(cash) : null, DbType.Int64);
 
         var saleId = Convert.ToInt64(insertSale.ExecuteScalar(), CultureInfo.InvariantCulture);
 
@@ -78,11 +82,13 @@ public sealed class SalesRepository(Database database)
         using var connection = database.OpenConnection();
 
         var itemsBySale = ReadSaleItems(connection);
+        var refundsBySale = ReadRefunds(connection);
 
         using var command = connection.CreateCommand();
         command.CommandText =
             """
-            SELECT Id, "DateTime", TotalCents, PaymentMethod, VoidedAt, VoidedBy, VoidReason, SoldBy
+            SELECT Id, "DateTime", TotalCents, PaymentMethod, VoidedAt, VoidedBy, VoidReason, SoldBy,
+                   RoundingCents, CashReceivedCents
             FROM Sales
             ORDER BY Id DESC;
             """;
@@ -103,6 +109,9 @@ public sealed class SalesRepository(Database database)
                 Id = id,
                 Void = ReadVoid(reader, 4),
                 SoldBy = reader.IsDBNull(7) ? null : reader.GetString(7),
+                Rounding = Money.FromCents(reader.GetInt64(8)),
+                CashReceived = reader.IsDBNull(9) ? null : Money.FromCents(reader.GetInt64(9)),
+                Refunds = refundsBySale.TryGetValue(id, out var refunds) ? refunds : [],
             });
         }
 
@@ -117,7 +126,8 @@ public sealed class SalesRepository(Database database)
     /// </summary>
     /// <exception cref="InvalidOperationException">
     /// The sale does not exist or has been voided already, so voiding twice
-    /// cannot overwrite who did it first.
+    /// cannot overwrite who did it first; or money has been refunded against
+    /// it, which a void would leave paying out for a sale that no longer counts.
     /// </exception>
     public void VoidSale(long id, string voidedBy, string reason)
     {
@@ -136,6 +146,7 @@ public sealed class SalesRepository(Database database)
             """
             UPDATE Sales SET VoidedAt = @voidedAt, VoidedBy = @voidedBy, VoidReason = @reason
              WHERE Id = @id AND VoidedAt IS NULL
+               AND NOT EXISTS (SELECT 1 FROM Refunds r WHERE r.SaleId = Sales.Id)
             RETURNING TotalCents;
             """;
         Database.AddParameter(command, "@id", id);
@@ -145,7 +156,8 @@ public sealed class SalesRepository(Database database)
 
         if (command.ExecuteScalar() is not { } total)
         {
-            throw new InvalidOperationException($"Myyntiä #{id} ei löydy tai se on jo mitätöity.");
+            throw new InvalidOperationException(
+                $"Myyntiä #{id} ei löydy, se on jo mitätöity tai siitä on tehty palautus.");
         }
 
         database.Audit.Record(connection, transaction, AuditActions.SaleVoided,
@@ -169,7 +181,7 @@ public sealed class SalesRepository(Database database)
         command.CommandText =
             """
             SELECT SaleId, ProductId, Name, Category, UnitPriceCents, Quantity,
-                   VatRateBasisPoints, VatCents
+                   VatRateBasisPoints, VatCents, Id
             FROM SaleItems
             ORDER BY SaleId, Id;
             """;
@@ -186,10 +198,251 @@ public sealed class SalesRepository(Database database)
                 result[saleId] = items;
             }
 
-            items.Add(ReadItem(reader, 1));
+            items.Add(ReadItem(reader, 1) with { Id = reader.GetInt64(8) });
         }
 
         return result;
+    }
+
+    /// <summary>Every refund with its lines, keyed by the sale it belongs to.</summary>
+    private static Dictionary<long, List<Refund>> ReadRefunds(DbConnection connection)
+    {
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            """
+            SELECT r.Id, r.SaleId, r."DateTime", r.RefundedBy, r.Reason, r.PaymentMethod,
+                   r.TotalCents, r.RoundingCents,
+                   ri.SaleItemId, i.Name, i.UnitPriceCents, ri.Quantity, i.VatRateBasisPoints, ri.VatCents
+            FROM Refunds r
+            JOIN RefundItems ri ON ri.RefundId = r.Id
+            JOIN SaleItems i ON i.Id = ri.SaleItemId
+            ORDER BY r.Id, ri.Id;
+            """;
+
+        using var reader = command.ExecuteReader();
+
+        var result = new Dictionary<long, List<Refund>>();
+        Refund? current = null;
+        List<RefundLine> lines = [];
+        while (reader.Read())
+        {
+            var id = reader.GetInt64(0);
+            if (current?.Id != id)
+            {
+                lines = [];
+                current = new Refund(
+                    id,
+                    reader.GetInt64(1),
+                    ParseTimestamp(reader.GetString(2)),
+                    reader.GetString(3),
+                    reader.GetString(4),
+                    ParsePaymentMethod(reader.GetString(5)),
+                    Money.FromCents(reader.GetInt64(6)),
+                    Money.FromCents(reader.GetInt64(7)),
+                    lines);
+
+                if (!result.TryGetValue(current.SaleId, out var refunds))
+                {
+                    refunds = [];
+                    result[current.SaleId] = refunds;
+                }
+
+                refunds.Add(current);
+            }
+
+            lines.Add(new RefundLine(
+                reader.GetInt64(8),
+                reader.GetString(9),
+                Money.FromCents(reader.GetInt64(10)),
+                reader.GetInt32(11),
+                reader.IsDBNull(12) ? null : reader.GetInt32(12),
+                reader.IsDBNull(13) ? null : Money.FromCents(reader.GetInt64(13))));
+        }
+
+        return result;
+    }
+
+    /// <summary>A sold line as the refund check needs it: what was sold and what has come back.</summary>
+    private sealed record RefundableLine(
+        long Id, string Name, long UnitPriceCents, int Quantity, int? VatBasisPoints, long? VatCents,
+        int RefundedQuantity, long RefundedVatCents)
+    {
+        public int Remaining => Quantity - RefundedQuantity;
+    }
+
+    /// <summary>
+    /// Gives money back against a sale for the chosen lines, as a refund
+    /// record of its own, and returns it. The sale is not edited.
+    /// </summary>
+    /// <remarks>
+    /// Everything is checked and written in one transaction, against what has
+    /// already been refunded, so two tills cannot both return the last item:
+    /// the first statement touches the sale's row, which holds a row lock under
+    /// PostgreSQL until the commit, and SQLite's write transaction is exclusive
+    /// anyway. Returning a line's last unit gives back exactly the VAT the line
+    /// recorded less what earlier refunds took, so a fully returned line nets
+    /// to zero VAT; a partial return works its VAT out of its own amount.
+    /// </remarks>
+    /// <param name="roundCash">Round a cash refund to five cents, as the sale would have been.</param>
+    /// <exception cref="ArgumentException">No lines, or no reason.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// The sale is missing or voided, a line is not the sale's, or more is
+    /// asked back than is left to return.
+    /// </exception>
+    public Refund Refund(
+        long saleId,
+        IReadOnlyList<RefundRequestLine> lines,
+        PaymentMethod method,
+        bool roundCash,
+        string refundedBy,
+        string reason)
+    {
+        reason = reason.Trim();
+        if (reason.Length == 0)
+        {
+            throw new ArgumentException("Palautukselle on annettava syy.", nameof(reason));
+        }
+
+        var requested = lines
+            .Where(line => line.Quantity > 0)
+            .GroupBy(line => line.SaleItemId)
+            .Select(group => (SaleItemId: group.Key, Quantity: group.Sum(line => line.Quantity)))
+            .ToList();
+
+        if (requested.Count == 0)
+        {
+            throw new ArgumentException("Valitse vähintään yksi palautettava tuote.", nameof(lines));
+        }
+
+        using var connection = database.OpenConnection();
+        using var transaction = connection.BeginTransaction();
+
+        using (var lockSale = connection.CreateCommand())
+        {
+            lockSale.Transaction = transaction;
+            lockSale.CommandText =
+                """
+                UPDATE Sales SET VoidedAt = VoidedAt
+                 WHERE Id = @id AND VoidedAt IS NULL
+                RETURNING Id;
+                """;
+            Database.AddParameter(lockSale, "@id", saleId);
+            if (lockSale.ExecuteScalar() is null)
+            {
+                throw new InvalidOperationException($"Myyntiä #{saleId} ei löydy tai se on mitätöity.");
+            }
+        }
+
+        var sold = ReadRefundableLines(connection, transaction, saleId);
+        var refundLines = new List<RefundLine>();
+        var lineCents = new List<(long Amount, long? Vat)>();
+
+        foreach (var (saleItemId, quantity) in requested)
+        {
+            if (!sold.TryGetValue(saleItemId, out var line))
+            {
+                throw new InvalidOperationException($"Rivi {saleItemId} ei kuulu myyntiin #{saleId}.");
+            }
+
+            if (quantity > line.Remaining)
+            {
+                throw new InvalidOperationException(
+                    $"{line.Name}: palautettavissa on enää {line.Remaining} kpl.");
+            }
+
+            var amount = line.UnitPriceCents * quantity;
+            long? vat = line.VatBasisPoints is not { } rate
+                ? null
+                : quantity == line.Remaining && line.VatCents is { } recorded
+                    ? recorded - line.RefundedVatCents
+                    : Money.ToCents(Vat.Included(Money.FromCents(amount), rate));
+
+            lineCents.Add((amount, vat));
+            refundLines.Add(new RefundLine(
+                saleItemId, line.Name, Money.FromCents(line.UnitPriceCents), quantity, line.VatBasisPoints,
+                vat is { } cents ? Money.FromCents(cents) : null));
+        }
+
+        var subtotal = Money.FromCents(lineCents.Sum(line => line.Amount));
+        var total = method == PaymentMethod.Cash ? Sale.CashTotal(subtotal, roundCash) : subtotal;
+        var refundedAt = DateTimeOffset.Now;
+
+        using var insertRefund = connection.CreateCommand();
+        insertRefund.Transaction = transaction;
+        insertRefund.CommandText =
+            """
+            INSERT INTO Refunds (SaleId, "DateTime", RefundedBy, Reason, PaymentMethod, TotalCents, RoundingCents)
+            VALUES (@saleId, @dateTime, @refundedBy, @reason, @paymentMethod, @totalCents, @roundingCents)
+            RETURNING Id;
+            """;
+        Database.AddParameter(insertRefund, "@saleId", saleId);
+        Database.AddParameter(insertRefund, "@dateTime", refundedAt.ToString("o", CultureInfo.InvariantCulture));
+        Database.AddParameter(insertRefund, "@refundedBy", refundedBy);
+        Database.AddParameter(insertRefund, "@reason", reason);
+        Database.AddParameter(insertRefund, "@paymentMethod", method.ToString());
+        Database.AddParameter(insertRefund, "@totalCents", Money.ToCents(total));
+        Database.AddParameter(insertRefund, "@roundingCents", Money.ToCents(total - subtotal));
+        var refundId = Convert.ToInt64(insertRefund.ExecuteScalar(), CultureInfo.InvariantCulture);
+
+        for (var i = 0; i < refundLines.Count; i++)
+        {
+            using var insertLine = connection.CreateCommand();
+            insertLine.Transaction = transaction;
+            insertLine.CommandText =
+                """
+                INSERT INTO RefundItems (RefundId, SaleItemId, Quantity, AmountCents, VatCents)
+                VALUES (@refundId, @saleItemId, @quantity, @amountCents, @vatCents);
+                """;
+            Database.AddParameter(insertLine, "@refundId", refundId);
+            Database.AddParameter(insertLine, "@saleItemId", refundLines[i].SaleItemId);
+            Database.AddParameter(insertLine, "@quantity", refundLines[i].Quantity);
+            Database.AddParameter(insertLine, "@amountCents", lineCents[i].Amount);
+            Database.AddParameter(insertLine, "@vatCents", lineCents[i].Vat, DbType.Int64);
+            insertLine.ExecuteNonQuery();
+        }
+
+        var described = string.Join(", ", refundLines.Select(line => $"{line.Quantity} × {line.Name}"));
+        database.Audit.Record(connection, transaction, AuditActions.RefundCreated,
+            $"Myynti #{saleId}: {described}, {PaymentMethodNames.Finnish(method)} {AuditLog.Money(total)}. Syy: {reason}");
+
+        transaction.Commit();
+
+        return new Refund(refundId, saleId, refundedAt, refundedBy, reason, method, total, total - subtotal, refundLines);
+    }
+
+    private static Dictionary<long, RefundableLine> ReadRefundableLines(
+        DbConnection connection, DbTransaction transaction, long saleId)
+    {
+        using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText =
+            """
+            SELECT i.Id, i.Name, i.UnitPriceCents, i.Quantity, i.VatRateBasisPoints, i.VatCents,
+                   CAST(COALESCE((SELECT SUM(ri.Quantity) FROM RefundItems ri WHERE ri.SaleItemId = i.Id), 0) AS BIGINT),
+                   CAST(COALESCE((SELECT SUM(ri.VatCents) FROM RefundItems ri WHERE ri.SaleItemId = i.Id), 0) AS BIGINT)
+            FROM SaleItems i
+            WHERE i.SaleId = @saleId;
+            """;
+        Database.AddParameter(command, "@saleId", saleId);
+
+        using var reader = command.ExecuteReader();
+
+        var lines = new Dictionary<long, RefundableLine>();
+        while (reader.Read())
+        {
+            var line = new RefundableLine(
+                reader.GetInt64(0),
+                reader.GetString(1),
+                reader.GetInt64(2),
+                reader.GetInt32(3),
+                reader.IsDBNull(4) ? null : reader.GetInt32(4),
+                reader.IsDBNull(5) ? null : reader.GetInt64(5),
+                (int)reader.GetInt64(6),
+                reader.GetInt64(7));
+            lines[line.Id] = line;
+        }
+
+        return lines;
     }
 
     /// <summary>
@@ -220,7 +473,7 @@ public sealed class SalesRepository(Database database)
     /// Stored as the enum name. An unknown one means a method this build does
     /// not have; show it as Card rather than failing to list the sale.
     /// </summary>
-    private static PaymentMethod ParsePaymentMethod(string value) =>
+    internal static PaymentMethod ParsePaymentMethod(string value) =>
         Enum.TryParse<PaymentMethod>(value, out var parsed) ? parsed : PaymentMethod.Card;
 
     /// <summary>Compatibility entry point; shared money rules live in Core.</summary>

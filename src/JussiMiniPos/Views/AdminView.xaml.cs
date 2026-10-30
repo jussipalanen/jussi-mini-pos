@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -88,6 +88,15 @@ public partial class AdminView : UserControl, INotifyPropertyChanged
     private void AuditLog_Click(object sender, RoutedEventArgs e) => AuditLogRequested?.Invoke();
 
     private void Users_Click(object sender, RoutedEventArgs e) => UsersRequested?.Invoke();
+
+    private void TillSettings_Click(object sender, RoutedEventArgs e)
+    {
+        var settings = TillSettings.Default;
+        if (ViewErrors.Try(this, "Kassan asetuksia ei voitu lukea.", () => settings = TillSettings.Load(_options)))
+        {
+            new TillSettingsWindow(_options, settings) { Owner = Window.GetWindow(this) }.ShowDialog();
+        }
+    }
 
     public IReadOnlyList<AiSettings.ModelChoice> Models => AiSettings.Models;
 

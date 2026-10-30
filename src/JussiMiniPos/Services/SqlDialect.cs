@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Data.Common;
 using System.Globalization;
 using Microsoft.Data.Sqlite;
@@ -251,7 +251,11 @@ public sealed class SqliteDialect : SqlDialect
             PriceCents     INTEGER NOT NULL DEFAULT 0,
             SalePriceCents INTEGER     NULL,
             IsPublic       INTEGER NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1)),
-            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT
+            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT,
+            -- EAN or UPC digits as text, so leading zeros survive. NULL when
+            -- the product has none; the unique index on it is created by the
+            -- migrations, after the column is certain to exist.
+            Barcode        TEXT        NULL
         );
 
         -- A product's gallery. FeatureImage above is the single image used in
@@ -284,15 +288,22 @@ public sealed class SqliteDialect : SqlDialect
 
         -- A voided sale keeps its row and lines; VoidedAt, VoidedBy and
         -- VoidReason say when, by whom and why, and are NULL otherwise.
+        --
+        -- TotalCents is what was charged: the lines plus RoundingCents, which
+        -- is cash rounding to five cents and zero otherwise. CashReceivedCents
+        -- is the cash handed over, NULL for a card; the change is the
+        -- difference and is not stored twice.
         CREATE TABLE IF NOT EXISTS Sales (
-            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
-            "DateTime"    TEXT    NOT NULL,
-            TotalCents    INTEGER NOT NULL,
-            PaymentMethod TEXT    NOT NULL,
-            VoidedAt      TEXT        NULL,
-            VoidedBy      TEXT        NULL,
-            VoidReason    TEXT        NULL,
-            SoldBy        TEXT        NULL
+            Id                INTEGER PRIMARY KEY AUTOINCREMENT,
+            "DateTime"        TEXT    NOT NULL,
+            TotalCents        INTEGER NOT NULL,
+            PaymentMethod     TEXT    NOT NULL,
+            VoidedAt          TEXT        NULL,
+            VoidedBy          TEXT        NULL,
+            VoidReason        TEXT        NULL,
+            SoldBy            TEXT        NULL,
+            RoundingCents     INTEGER NOT NULL DEFAULT 0,
+            CashReceivedCents INTEGER     NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_Sales_DateTime ON Sales("DateTime");
@@ -326,6 +337,41 @@ public sealed class SqliteDialect : SqlDialect
         );
 
         CREATE INDEX IF NOT EXISTS IX_SaleItems_SaleId ON SaleItems(SaleId);
+
+        -- ---------- Refunds ----------
+
+        -- Money given back against a sale, as its own record: the sale and
+        -- its lines are never edited. TotalCents is what was paid back, the
+        -- lines plus RoundingCents (cash rounding, zero for card). RESTRICT,
+        -- because sales are never deleted and a refund must not lose its sale.
+        CREATE TABLE IF NOT EXISTS Refunds (
+            Id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            SaleId        INTEGER NOT NULL REFERENCES Sales(Id) ON DELETE RESTRICT,
+            "DateTime"    TEXT    NOT NULL,
+            RefundedBy    TEXT    NOT NULL,
+            Reason        TEXT    NOT NULL,
+            PaymentMethod TEXT    NOT NULL,
+            TotalCents    INTEGER NOT NULL,
+            RoundingCents INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Refunds_SaleId ON Refunds(SaleId);
+        CREATE INDEX IF NOT EXISTS IX_Refunds_DateTime ON Refunds("DateTime");
+
+        -- Which sold lines came back and how many. AmountCents and VatCents
+        -- are the money and VAT given back for them; VatCents is NULL only
+        -- for a line sold before VAT was recorded.
+        CREATE TABLE IF NOT EXISTS RefundItems (
+            Id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            RefundId    INTEGER NOT NULL REFERENCES Refunds(Id) ON DELETE CASCADE,
+            SaleItemId  INTEGER NOT NULL REFERENCES SaleItems(Id) ON DELETE RESTRICT,
+            Quantity    INTEGER NOT NULL CHECK (Quantity > 0),
+            AmountCents INTEGER NOT NULL,
+            VatCents    INTEGER     NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_RefundItems_RefundId ON RefundItems(RefundId);
+        CREATE INDEX IF NOT EXISTS IX_RefundItems_SaleItemId ON RefundItems(SaleItemId);
         """;
 }
 
@@ -471,7 +517,8 @@ public sealed class PostgreSqlDialect : SqlDialect
             PriceCents     BIGINT  NOT NULL DEFAULT 0,
             SalePriceCents BIGINT      NULL,
             IsPublic       BIGINT  NOT NULL DEFAULT 1 CHECK (IsPublic IN (0, 1)),
-            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT
+            VatRateId      INTEGER     NULL REFERENCES VatRates(Id) ON DELETE RESTRICT,
+            Barcode        TEXT        NULL
         );
 
         CREATE TABLE IF NOT EXISTS ProductImages (
@@ -502,14 +549,16 @@ public sealed class PostgreSqlDialect : SqlDialect
         -- spelled the same way in both engines and the shared queries need no
         -- dialect of their own.
         CREATE TABLE IF NOT EXISTS Sales (
-            Id            BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
-            "DateTime"    TEXT   NOT NULL,
-            TotalCents    BIGINT NOT NULL,
-            PaymentMethod TEXT   NOT NULL,
-            VoidedAt      TEXT       NULL,
-            VoidedBy      TEXT       NULL,
-            VoidReason    TEXT       NULL,
-            SoldBy        TEXT       NULL
+            Id                BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            "DateTime"        TEXT   NOT NULL,
+            TotalCents        BIGINT NOT NULL,
+            PaymentMethod     TEXT   NOT NULL,
+            VoidedAt          TEXT       NULL,
+            VoidedBy          TEXT       NULL,
+            VoidReason        TEXT       NULL,
+            SoldBy            TEXT       NULL,
+            RoundingCents     BIGINT NOT NULL DEFAULT 0,
+            CashReceivedCents BIGINT     NULL
         );
 
         CREATE INDEX IF NOT EXISTS IX_Sales_DateTime ON Sales("DateTime");
@@ -535,5 +584,31 @@ public sealed class PostgreSqlDialect : SqlDialect
         );
 
         CREATE INDEX IF NOT EXISTS IX_SaleItems_SaleId ON SaleItems(SaleId);
+
+        CREATE TABLE IF NOT EXISTS Refunds (
+            Id            BIGINT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            SaleId        BIGINT NOT NULL REFERENCES Sales(Id) ON DELETE RESTRICT,
+            "DateTime"    TEXT   NOT NULL,
+            RefundedBy    TEXT   NOT NULL,
+            Reason        TEXT   NOT NULL,
+            PaymentMethod TEXT   NOT NULL,
+            TotalCents    BIGINT NOT NULL,
+            RoundingCents BIGINT NOT NULL DEFAULT 0
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_Refunds_SaleId ON Refunds(SaleId);
+        CREATE INDEX IF NOT EXISTS IX_Refunds_DateTime ON Refunds("DateTime");
+
+        CREATE TABLE IF NOT EXISTS RefundItems (
+            Id          BIGINT  GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+            RefundId    BIGINT  NOT NULL REFERENCES Refunds(Id) ON DELETE CASCADE,
+            SaleItemId  BIGINT  NOT NULL REFERENCES SaleItems(Id) ON DELETE RESTRICT,
+            Quantity    INTEGER NOT NULL CHECK (Quantity > 0),
+            AmountCents BIGINT  NOT NULL,
+            VatCents    BIGINT      NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS IX_RefundItems_RefundId ON RefundItems(RefundId);
+        CREATE INDEX IF NOT EXISTS IX_RefundItems_SaleItemId ON RefundItems(SaleItemId);
         """;
 }
