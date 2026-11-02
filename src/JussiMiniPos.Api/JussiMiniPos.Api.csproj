@@ -7,6 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="..\JussiMiniPos.Core\JussiMiniPos.Core.csproj" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.14" />
-    <PackageReference Include="Scalar.AspNetCore" Version="2.18.5" />
+    <PackageReference Include="Scalar.AspNetCore" Version="2.18.7" />
   </ItemGroup>
 </Project>
